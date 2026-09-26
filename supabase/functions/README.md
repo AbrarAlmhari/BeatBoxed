@@ -1,0 +1,1 @@
+Supabase Edge Functions — this is where server-side secrets (GEMINI_API_KEY, SPOTIFY_CLIENT_SECRET) actually get used, so they never reach the browser bundle. Expect at least: beatie-chat (Gemini calls), spotify-token (Client Credentials exchange + caching).

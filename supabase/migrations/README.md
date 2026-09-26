@@ -1,0 +1,1 @@
+SQL migrations for the schema in docs/data-model.md. Once the team locks the schema in Week 1, every change to it should be a new migration file here, not a manual dashboard edit, so everyone's local DB stays in sync.

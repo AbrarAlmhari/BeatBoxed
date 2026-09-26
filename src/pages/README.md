@@ -1,0 +1,1 @@
+One folder per page/screen from docs/feature-map.md (Home, Search, SongPage, Profile, Playlist, Settings, Auth, ...). Keep each page's data-fetching close to the page, shared logic in src/lib and src/hooks.
