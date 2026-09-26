@@ -5,9 +5,11 @@ Keep this updated as the source of truth on progress — don't rely on chat hist
 ## Week 1 — Foundation (Sept 26 – Oct 2)
 
 - [ ] Team agrees on and locks the Supabase schema (`docs/data-model.md`)
-- [ ] Repo initialized from this scaffold; project runs locally
-- [ ] Design tokens (`docs/design-system.md`) implemented in Tailwind config
+- [x] Repo initialized from this scaffold; project runs locally
+- [x] Design tokens (`docs/design-system.md`) implemented in Tailwind config
+- [x] Responsive nav shell (phone bottom tabs / tablet+ sidebar) with placeholder pages
 - [ ] Supabase project created; Auth wired up; RLS policies drafted for user-owned tables
+      (project + client connected in `src/lib/supabase.ts`; Auth and RLS still to do)
 - [ ] Spotify Developer app registered (Client Credentials); `.env.local` set up per teammate
 - [ ] Google AI Studio Gemini key generated; stored as `GEMINI_API_KEY`
 - [ ] Vercel project connected for preview deploys

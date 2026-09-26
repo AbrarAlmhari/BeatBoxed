@@ -16,6 +16,20 @@ Design (theme, color system, full page mockups) is complete. Development starts 
 4. Copy `.env.example` to `.env.local` and fill in your own keys (never commit real keys).
 5. Check `TASKS.md` for the live checklist and update it as you go.
 
+## Run locally
+
+```bash
+npm install
+cp .env.example .env.local   # then fill in your keys
+npm run dev                  # http://localhost:5173
+```
+
+Other scripts: `npm run build`, `npm run preview`, `npm run typecheck`.
+
+Design tokens live in `src/styles/index.css` under `@theme` (Tailwind v4 is
+CSS-first — there is no `tailwind.config.js`). Change colors and type there,
+nowhere else.
+
 ## Docs index
 
 - `docs/design-system.md` — colors, typography, spacing, component rules (from the team's theme spec)
