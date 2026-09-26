@@ -43,31 +43,80 @@ const admin = createClient(
   { auth: { persistSession: false } }
 )
 
-/** Upsert artists by spotify_id and return a spotify_id -> our uuid map. */
+/**
+ * Track search returns artist *stubs* with no images, so artists cached that
+ * way had none. The batch /v1/artists?ids= endpoint is 403 for this app, but
+ * single /v1/artists/{id} works — enrich through that, capped so a wide search
+ * can't fan out into dozens of calls.
+ */
+async function fetchArtistImages(
+  ids: string[],
+  token: string,
+  cap = 12
+): Promise<Map<string, string>> {
+  const found = new Map<string, string>()
+  const results = await Promise.all(
+    ids.slice(0, cap).map(async (id) => {
+      try {
+        const r = await fetch(`https://api.spotify.com/v1/artists/${id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        if (!r.ok) return null
+        const a = await r.json() as SpotifyArtist
+        const img = pickImage(a.images)
+        return img ? ([id, img] as const) : null
+      } catch {
+        return null
+      }
+    })
+  )
+  for (const hit of results) if (hit) found.set(hit[0], hit[1])
+  return found
+}
+
+/**
+ * Upsert artists by spotify_id, returning spotify_id -> our uuid.
+ *
+ * Rows are split by whether we have an image: PostgREST only updates the
+ * columns present in the payload, so omitting image_url for imageless rows
+ * preserves an image a previous call already stored instead of nulling it.
+ */
 async function upsertArtists(
   artists: SpotifyArtist[],
-  genre: string | null
+  genre: string | null,
+  images?: Map<string, string>
 ): Promise<Map<string, string>> {
   const map = new Map<string, string>()
   if (artists.length === 0) return map
 
   const byId = new Map(artists.map((a) => [a.id, a]))
   const now = new Date().toISOString()
-  const rows = [...byId.values()].map((a) => ({
-    spotify_id: a.id,
-    name: a.name,
-    image_url: pickImage(a.images),
-    genres: a.genres?.length ? a.genres : genre ? [genre] : [],
-    cached_at: now,
-  }))
 
-  const { data, error } = await admin
-    .from('artists')
-    .upsert(rows, { onConflict: 'spotify_id' })
-    .select('id, spotify_id')
+  const withImage: Record<string, unknown>[] = []
+  const withoutImage: Record<string, unknown>[] = []
 
-  if (error) throw error
-  for (const row of data ?? []) map.set(row.spotify_id, row.id)
+  for (const a of byId.values()) {
+    const image = pickImage(a.images) ?? images?.get(a.id) ?? null
+    const base = {
+      spotify_id: a.id,
+      name: a.name,
+      genres: a.genres?.length ? a.genres : genre ? [genre] : [],
+      cached_at: now,
+    }
+    if (image) withImage.push({ ...base, image_url: image })
+    else withoutImage.push(base)
+  }
+
+  for (const rows of [withImage, withoutImage]) {
+    if (rows.length === 0) continue
+    const { data, error } = await admin
+      .from('artists')
+      .upsert(rows, { onConflict: 'spotify_id' })
+      .select('id, spotify_id')
+    if (error) throw error
+    for (const row of data ?? []) map.set(row.spotify_id, row.id)
+  }
+
   return map
 }
 
@@ -137,7 +186,16 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
   try {
-    const { q, type = 'track', limit = 20, genre = null } = await req.json()
+    const {
+      q,
+      type = 'track',
+      limit = 10,
+      genre = null,
+      // When set, only keep tracks whose primary artist is this artist. A bare
+      // name query matches song titles too: searching "Cigarettes After Sex"
+      // returns tracks by MATUNA and Rod Wave alongside the actual band.
+      artistName = null,
+    } = await req.json()
     if (!q || typeof q !== 'string') {
       return json({ error: 'q is required' }, 400)
     }
@@ -149,7 +207,10 @@ Deno.serve(async (req) => {
     const url = new URL('https://api.spotify.com/v1/search')
     url.searchParams.set('q', q)
     url.searchParams.set('type', type)
-    url.searchParams.set('limit', String(Math.min(Number(limit) || 20, 50)))
+    // This app's credentials 400 on any search limit above 10 — another
+    // restriction that applies to apps created after late 2024. Clamp here so
+    // no caller can trip it.
+    url.searchParams.set('limit', String(Math.min(Number(limit) || 10, 10)))
 
     const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
     if (!res.ok) {
@@ -168,18 +229,35 @@ Deno.serve(async (req) => {
       return json({ type: 'artist', artists: data ?? [] })
     }
 
-    const tracks: SpotifyTrack[] = payload.tracks?.items ?? []
+    let tracks: SpotifyTrack[] = payload.tracks?.items ?? []
+
+    if (artistName) {
+      const want = String(artistName).trim().toLowerCase()
+      tracks = tracks.filter((t) =>
+        t.artists.some((a) => a.name.trim().toLowerCase() === want)
+      )
+    }
+
     // Track results carry nested artist/album stubs; cache those first so the
     // song rows have real foreign keys to point at.
     const artistRefs = tracks.flatMap((t) => [...t.artists, ...t.album.artists])
+    const uniqueArtistIds = [...new Set(artistRefs.map((a) => a.id))]
+    const images = await fetchArtistImages(uniqueArtistIds, token)
+
     const artistIds = await upsertArtists(
       artistRefs.map((a) => ({ id: a.id, name: a.name })),
-      genre
+      genre,
+      images
     )
     const albumIds = await upsertAlbums(tracks.map((t) => t.album), artistIds)
     const songs = await upsertSongs(tracks, artistIds, albumIds, genre)
 
-    return json({ type: 'track', songs, cached: songs.length })
+    return json({
+      type: 'track',
+      songs,
+      cached: songs.length,
+      artistsWithImages: images.size,
+    })
   } catch (err) {
     console.error('[spotify-search]', err)
     return json({ error: (err as Error).message }, 500)
