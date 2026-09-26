@@ -10,7 +10,8 @@ Keep this updated as the source of truth on progress — don't rely on chat hist
 - [x] Responsive nav shell (phone bottom tabs / tablet+ sidebar) with placeholder pages
 - [ ] Supabase project created; Auth wired up; RLS policies drafted for user-owned tables
       (project + client connected in `src/lib/supabase.ts`; Auth and RLS still to do)
-- [ ] Spotify Developer app registered (Client Credentials); `.env.local` set up per teammate
+- [x] Spotify Developer app registered (Client Credentials); `.env.local` set up per teammate
+      (token + search verified live; note this app gets no `genres` or `preview_url` from Spotify)
 - [ ] Google AI Studio Gemini key generated; stored as `GEMINI_API_KEY`
 - [ ] Vercel project connected for preview deploys
 

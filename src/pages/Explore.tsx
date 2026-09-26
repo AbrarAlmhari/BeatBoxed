@@ -1,14 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Search, SearchX, X } from 'lucide-react'
+import { Loader2, Search, SearchX, X } from 'lucide-react'
 import { Chip } from '@/components/ui/Chip'
 import { MediaCard } from '@/components/ui/MediaCard'
 import { GenreTile } from '@/components/explore/GenreTile'
 import { ArtistResultCard } from '@/components/explore/ArtistResultCard'
 import { LyricResultCard } from '@/components/explore/LyricResultCard'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
-import { getGenres, popularSearches, searchCatalog } from '@/lib/mockData'
-import type { SearchMode } from '@/lib/types'
+import { getGenres, popularSearches, searchCatalog } from '@/lib/catalog'
+import type { SearchMode, SearchResults } from '@/lib/types'
 
 /** Router state set by the Home search button; see src/pages/Home.tsx. */
 type ExploreNavState = { autoFocus?: boolean } | null
@@ -29,12 +29,39 @@ export default function Explore() {
   const [genre, setGenre] = useState<string | null>(null)
 
   const debouncedQuery = useDebouncedValue(query, 250)
-  const genres = useMemo(getGenres, [])
+  const [genres, setGenres] = useState<string[]>([])
+  const [results, setResults] = useState<SearchResults | null>(null)
+  const [searching, setSearching] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const results = useMemo(
-    () => searchCatalog(debouncedQuery, mode, genre),
-    [debouncedQuery, mode, genre]
-  )
+  useEffect(() => {
+    getGenres()
+      .then(setGenres)
+      .catch((err) => console.warn('[beatboxed] genre list failed:', err))
+  }, [])
+
+  useEffect(() => {
+    // A slow Spotify top-up can land after a newer keystroke's result;
+    // this token keeps only the latest response.
+    let current = true
+    setSearching(true)
+    setError(null)
+    searchCatalog(debouncedQuery, mode, genre)
+      .then((r) => {
+        if (current) setResults(r)
+      })
+      .catch((err: unknown) => {
+        if (!current) return
+        console.error('[beatboxed] search failed:', err)
+        setError("Search failed. Check your connection and try again.")
+      })
+      .finally(() => {
+        if (current) setSearching(false)
+      })
+    return () => {
+      current = false
+    }
+  }, [debouncedQuery, mode, genre])
 
   useEffect(() => {
     const state = location.state as ExploreNavState
@@ -48,8 +75,9 @@ export default function Explore() {
   }, [location, navigate])
 
   const isBrowsing = debouncedQuery.trim() === '' && genre === null
-  const resultCount =
-    results.mode === 'songs'
+  const resultCount = !results
+    ? 0
+    : results.mode === 'songs'
       ? results.songs.length
       : results.mode === 'artists'
         ? results.artists.length
@@ -155,6 +183,25 @@ export default function Explore() {
             </div>
           </section>
         </>
+      ) : !results || (searching && resultCount === 0) ? (
+        <section className="flex flex-col gap-4" aria-busy="true">
+          <div className="h-6 w-28 animate-pulse rounded bg-surface-2" />
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5">
+            {Array.from({ length: 10 }, (_, i) => (
+              <div key={i} className="flex flex-col gap-3 rounded-card bg-surface p-3">
+                <div className="aspect-square w-full animate-pulse rounded-[10px] bg-surface-2" />
+                <div className="flex flex-col gap-2 pb-1">
+                  <div className="h-3.5 w-3/4 animate-pulse rounded bg-surface-2" />
+                  <div className="h-3 w-1/2 animate-pulse rounded bg-surface-2" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : error ? (
+        <div className="rounded-card bg-surface px-6 py-14 text-center">
+          <p className="text-body text-danger">{error}</p>
+        </div>
       ) : resultCount === 0 ? (
         <div className="flex flex-col items-center gap-3 rounded-card bg-surface px-6 py-14 text-center">
           <SearchX
@@ -170,8 +217,15 @@ export default function Explore() {
         </div>
       ) : (
         <section className="flex flex-col gap-4">
-          <h2 className="text-section-title">
+          <h2 className="flex items-center gap-2 text-section-title">
             {resultCount} {resultCount === 1 ? 'result' : 'results'}
+            {searching && (
+              <Loader2
+                className="size-4 animate-spin text-muted-foreground"
+                strokeWidth={2}
+                aria-label="Searching"
+              />
+            )}
           </h2>
 
           {results.mode === 'songs' && (

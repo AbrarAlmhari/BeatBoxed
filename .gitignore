@@ -4,3 +4,7 @@ dist/
 .env*.local
 .DS_Store
 *.log
+
+# Supabase CLI local state
+supabase/.temp/
+supabase/.branches/

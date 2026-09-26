@@ -4,7 +4,8 @@ import { Search } from 'lucide-react'
 import { Logo } from '@/components/ui/Logo'
 import { Rail, RailSkeleton } from '@/components/home/Rail'
 import { useProfile } from '@/hooks/useProfile'
-import { getHomeFeedData, type HomeFeed } from '@/lib/mockData'
+import { getHomeFeedData, type HomeFeed } from '@/lib/catalog'
+import { useAuth } from '@/lib/auth'
 
 function greetingFor(hour: number) {
   if (hour < 12) return 'Good morning'
@@ -14,18 +15,28 @@ function greetingFor(hour: number) {
 
 export default function Home() {
   const navigate = useNavigate()
+  const { user } = useAuth()
   const { displayName, loading: profileLoading } = useProfile()
   const [feed, setFeed] = useState<HomeFeed | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
-    getHomeFeedData().then((data) => {
-      if (!cancelled) setFeed(data)
-    })
+    setFeed(null)
+    setError(null)
+    getHomeFeedData(user?.id)
+      .then((data) => {
+        if (!cancelled) setFeed(data)
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return
+        console.error('[beatboxed] home feed failed:', err)
+        setError("Couldn't load your feed. Check your connection and refresh.")
+      })
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [user?.id])
 
   const greeting = greetingFor(new Date().getHours())
 
@@ -54,7 +65,11 @@ export default function Home() {
         </button>
       </header>
 
-      {feed === null ? (
+      {error ? (
+        <div className="rounded-card bg-surface px-5 py-12 text-center">
+          <p className="text-body text-danger">{error}</p>
+        </div>
+      ) : feed === null ? (
         <>
           <RailSkeleton title="Continue Listening" />
           <RailSkeleton title="Trending" />
@@ -65,7 +80,7 @@ export default function Home() {
           <Rail
             title="Continue Listening"
             songs={feed.continueListening}
-            emptyMessage="Nothing here yet — play something and it'll show up."
+            emptyMessage="Playback history isn't recorded yet, so there's nothing to resume."
           />
           <Rail
             title="Trending"
