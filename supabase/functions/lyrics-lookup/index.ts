@@ -25,12 +25,15 @@ Deno.serve(async (req) => {
       headers: { 'User-Agent': 'Beatboxed/0.1 (CSC 305 class project)' },
     })
 
-    // lrclib answers 404 when it simply has no match — not an error for us.
-    if (res.status === 404) {
-      return json({ found: false, plainLyrics: null, syncedLyrics: null })
-    }
+    // A miss is a miss: lrclib answers 404 for most, but 503 for some
+    // (observed on unknown artist/track pairs). Neither is an error for us —
+    // reporting them as failures would make Explore's lyrics mode look broken
+    // when it simply has nothing to show.
     if (!res.ok) {
-      return json({ error: `lrclib returned ${res.status}` }, 502)
+      if (res.status >= 500 && res.status !== 503) {
+        return json({ error: `lrclib returned ${res.status}` }, 502)
+      }
+      return json({ found: false, plainLyrics: null, syncedLyrics: null })
     }
 
     const data = await res.json()
