@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom'
-import { Disc3 } from 'lucide-react'
 import { NAV_ITEMS } from '@/lib/nav'
 import { cn } from '@/lib/cn'
+import { Logo } from '@/components/ui/Logo'
 
 /**
  * Tablet and up. Hidden below `md`, where BottomTabBar takes over.
@@ -13,11 +13,13 @@ export function Sidebar() {
       className="fixed inset-y-0 left-0 z-30 hidden w-20 flex-col border-r border-white/5 bg-surface/60 px-3 py-6 backdrop-blur-xl md:flex lg:w-60 lg:px-4"
       aria-label="Primary"
     >
-      <div className="mb-8 flex items-center gap-3 px-2 lg:px-2">
-        <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-primary to-accent">
-          <Disc3 className="size-5 text-white" strokeWidth={2} />
-        </span>
-        <span className="hidden text-section-title lg:block">Beatboxed</span>
+      <div className="mb-8 flex items-center justify-center px-2 lg:justify-start">
+        <Logo variant="icon" glow="sm" className="size-9 shrink-0 lg:hidden" />
+        <Logo
+          variant="full"
+          glow="md"
+          className="hidden h-11 w-auto max-w-full lg:block"
+        />
       </div>
 
       <nav className="flex flex-col gap-1">

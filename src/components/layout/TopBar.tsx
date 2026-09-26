@@ -1,15 +1,15 @@
-import { Bell, Disc3 } from 'lucide-react'
+import { Bell } from 'lucide-react'
+import { Logo } from '@/components/ui/Logo'
 
 export function TopBar() {
   return (
     <header className="sticky top-0 z-20 -mx-4 mb-2 flex items-center justify-between gap-3 border-b border-white/5 bg-background/80 px-4 py-3 backdrop-blur-xl sm:-mx-6 sm:px-6 md:border-b-0 md:bg-transparent md:backdrop-blur-none lg:-mx-8 lg:px-8">
       {/* The wordmark lives in the sidebar from `md` up, so only phones need it here. */}
-      <div className="flex items-center gap-2.5 md:invisible">
-        <span className="grid size-8 place-items-center rounded-lg bg-gradient-to-br from-primary to-accent">
-          <Disc3 className="size-[18px] text-white" strokeWidth={2} />
-        </span>
-        <span className="text-section-title">Beatboxed</span>
-      </div>
+      <Logo
+        variant="full"
+        glow="md"
+        className="h-9 w-auto max-w-[150px] md:invisible"
+      />
 
       <button
         type="button"
