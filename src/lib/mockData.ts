@@ -1,4 +1,14 @@
-import type { Album, Artist, Review, Song, SongCardModel } from './types'
+import type {
+  Album,
+  Artist,
+  ArtistCardModel,
+  LyricMatch,
+  Review,
+  SearchMode,
+  SearchResults,
+  Song,
+  SongCardModel,
+} from './types'
 
 /**
  * Stand-in data until the Supabase tables are seeded. Rows match the columns in
@@ -125,4 +135,106 @@ export async function getHomeFeedData(): Promise<HomeFeed> {
     .slice(0, 8)
 
   return { continueListening, trending, forYou }
+}
+
+/* ------------------------------------------------------------------ search */
+
+/**
+ * No lyrics table exists, and none should: docs/api-integrations.md sources
+ * lyrics from lrclib.net at request time rather than mirroring them. These
+ * lines stand in for that fetch so lyrics-mode search is demoable offline.
+ * Keyed by song id, matching what lrclib returns for a track.
+ */
+const mockLyricLines: Record<string, string[]> = {
+  s1: ['Slow reverb on a empty street', 'The night keeps time with my heartbeat'],
+  s3: ['Blue hour bleeding through the blinds', 'I keep your name behind my eyes'],
+  s5: ['A ghost chorus in the hallway', 'Singing every word I never said'],
+  s7: ['Soft static on the radio', 'Everything is quiet, let it go'],
+  s9: ['Amber hours, honey light', 'We were golden for a night'],
+  s11: ['ليلة هادئة والقمر بعيد', 'أسمع صوتك في الصدى'],
+  s12: ['Qamar, you light the whole room', 'Even when the morning comes too soon'],
+}
+
+/** Unique genre list derived from the catalog, so chips are never hardcoded. */
+export function getGenres(): string[] {
+  const seen = new Set<string>()
+  for (const song of mockSongs) if (song.genre) seen.add(song.genre)
+  for (const artist of mockArtists) for (const g of artist.genres) seen.add(g)
+  return [...seen].sort()
+}
+
+export const popularSearches = [
+  'Ghost Chorus',
+  'Noor Rahal',
+  'dream pop',
+  'Amber Hours',
+  'Sable Court',
+  'قمر',
+]
+
+function toArtistCardModel(artist: Artist): ArtistCardModel {
+  return {
+    id: artist.id,
+    name: artist.name,
+    imageUrl: artist.image_url,
+    genres: artist.genres,
+  }
+}
+
+const norm = (s: string) => s.trim().toLowerCase()
+
+/**
+ * The only place search behaviour lives. Swapping to Supabase full-text search
+ * (and lrclib for lyrics) means rewriting this body and nothing else.
+ */
+export function searchCatalog(
+  query: string,
+  mode: SearchMode,
+  genre: string | null
+): SearchResults {
+  const q = norm(query)
+
+  if (mode === 'artists') {
+    const artists = mockArtists
+      .filter((a) => (genre ? a.genres.includes(genre) : true))
+      .filter((a) => (q ? norm(a.name).includes(q) : true))
+      .map(toArtistCardModel)
+    return { mode: 'artists', artists }
+  }
+
+  const songsInScope = mockSongs.filter((s) => {
+    if (!genre) return true
+    if (s.genre === genre) return true
+    const artist = mockArtists.find((a) => a.id === s.artist_id)
+    return artist?.genres.includes(genre) ?? false
+  })
+
+  if (mode === 'lyrics') {
+    const lyrics: LyricMatch[] = []
+    for (const song of songsInScope) {
+      for (const line of mockLyricLines[song.id] ?? []) {
+        if (!q || norm(line).includes(q)) {
+          lyrics.push({
+            songId: song.id,
+            songTitle: song.title,
+            artistName:
+              mockArtists.find((a) => a.id === song.artist_id)?.name ??
+              'Unknown artist',
+            line,
+          })
+        }
+      }
+    }
+    return { mode: 'lyrics', lyrics }
+  }
+
+  const songs = songsInScope
+    .filter((s) => {
+      if (!q) return true
+      const artist = mockArtists.find((a) => a.id === s.artist_id)
+      return norm(s.title).includes(q) || norm(artist?.name ?? '').includes(q)
+    })
+    .map(toCardModel)
+
+  return { mode: 'songs', songs }
 }

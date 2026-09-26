@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { Search } from 'lucide-react'
 import { Logo } from '@/components/ui/Logo'
 import { Rail, RailSkeleton } from '@/components/home/Rail'
 import { useProfile } from '@/hooks/useProfile'
@@ -11,6 +13,7 @@ function greetingFor(hour: number) {
 }
 
 export default function Home() {
+  const navigate = useNavigate()
   const { displayName, loading: profileLoading } = useProfile()
   const [feed, setFeed] = useState<HomeFeed | null>(null)
 
@@ -40,6 +43,15 @@ export default function Home() {
             </>
           )}
         </h1>
+
+        <button
+          type="button"
+          onClick={() => navigate('/explore', { state: { autoFocus: true } })}
+          aria-label="Search"
+          className="ml-auto grid size-10 shrink-0 place-items-center rounded-full text-muted-foreground transition-all duration-200 ease-soft hover:bg-white/5 hover:text-foreground active:scale-95"
+        >
+          <Search className="size-5" strokeWidth={1.75} />
+        </button>
       </header>
 
       {feed === null ? (

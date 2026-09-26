@@ -50,3 +50,25 @@ export type SongCardModel = {
   ratingAvg: number | null
   reviewCount: number
 }
+
+export type ArtistCardModel = {
+  id: string
+  name: string
+  imageUrl: string | null
+  genres: string[]
+}
+
+/** One matching lyric line plus enough context to link back to the song. */
+export type LyricMatch = {
+  songId: string
+  songTitle: string
+  artistName: string
+  line: string
+}
+
+export type SearchMode = 'songs' | 'artists' | 'lyrics'
+
+export type SearchResults =
+  | { mode: 'songs'; songs: SongCardModel[] }
+  | { mode: 'artists'; artists: ArtistCardModel[] }
+  | { mode: 'lyrics'; lyrics: LyricMatch[] }
