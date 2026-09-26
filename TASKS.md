@@ -17,6 +17,8 @@ Keep this updated as the source of truth on progress — don't rely on chat hist
 ## Week 2 — Parallel build (Oct 3 – Oct 9)
 
 - [ ] Auth: login / create account working end to end
+      (UI + Supabase Auth wired; blocked on running
+      `supabase/migrations/0001_profiles_auth.sql` in the SQL editor)
 - [ ] Home feed (trending / for-you rails)
 - [ ] Explore/Search (song, artist, lyrics filters)
 - [ ] Song page (About / Lyrics / Reviews tabs)
