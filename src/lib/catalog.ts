@@ -1031,3 +1031,71 @@ export async function uploadAvatar(userId: string, file: File) {
   const { data } = client.storage.from('avatars').getPublicUrl(path)
   return data.publicUrl
 }
+
+/* --------------------------------------------------------------- song likes */
+
+/**
+ * Liking a song is separate from reviewing it — a user can do either, both,
+ * or neither. Binary like the artist follow: insert to add, delete to remove.
+ */
+export async function setSongLike(
+  userId: string,
+  songId: string,
+  liked: boolean
+) {
+  const client = requireClient()
+  if (liked) {
+    const { error } = await client
+      .from('song_likes')
+      .insert({ user_id: userId, song_id: songId })
+    // Racing a double-tap hits the composite PK; already-liked is success.
+    if (error && error.code !== '23505') throw error
+  } else {
+    const { error } = await client
+      .from('song_likes')
+      .delete()
+      .eq('user_id', userId)
+      .eq('song_id', songId)
+    if (error) throw error
+  }
+}
+
+export async function isSongLiked(userId: string, songId: string) {
+  const { data, error } = await requireClient()
+    .from('song_likes')
+    .select('song_id')
+    .eq('user_id', userId)
+    .eq('song_id', songId)
+    .maybeSingle()
+  if (error) throw error
+  return Boolean(data)
+}
+
+type LikedSongRow = {
+  songs: Rel<{
+    id: string
+    title: string
+    genre: string | null
+    artist_id: string
+    artists: Rel<{ name: string }>
+    albums: Rel<{ cover_url: string | null }>
+  }>
+}
+
+/** Songs this user liked, newest first. */
+export async function getLikedSongs(userId: string): Promise<SongCardModel[]> {
+  const { data, error } = await requireClient()
+    .from('song_likes')
+    .select(
+      'created_at, songs(id, title, genre, artist_id, artists(name), albums(cover_url))'
+    )
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+  if (error) throw error
+
+  const rows = ((data ?? []) as unknown as LikedSongRow[])
+    .map((r) => one(r.songs))
+    .filter((s): s is NonNullable<typeof s> => Boolean(s)) as unknown as SongRow[]
+
+  return decorate(rows)
+}

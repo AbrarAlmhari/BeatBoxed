@@ -4,10 +4,13 @@ import {
   ArrowLeft,
   ChevronDown,
   Disc3,
+  Heart,
   Loader2,
   MicVocal,
   SearchX,
 } from 'lucide-react'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { cn } from '@/lib/cn'
 import { Chip } from '@/components/ui/Chip'
 import { FollowButton } from '@/components/ui/FollowButton'
 import { StarRating } from '@/components/ui/StarRating'
@@ -18,7 +21,9 @@ import {
   getLyrics,
   getSongDetail,
   getSongRatingStats,
+  isSongLiked,
   recordSongView,
+  setSongLike,
 } from '@/lib/catalog'
 import { useAuth } from '@/lib/auth'
 import type { LyricsResult, SongDetail } from '@/lib/types'
@@ -50,6 +55,8 @@ function formatReleaseDate(iso: string | null) {
 export default function Song() {
   const { id = '' } = useParams()
   const { user } = useAuth()
+  const navigate = useNavigate()
+  const location = useLocation()
 
   const [song, setSong] = useState<SongDetail | null>(null)
   const [loading, setLoading] = useState(true)
@@ -68,6 +75,7 @@ export default function Song() {
   const lyricsRequestedFor = useRef<string | null>(null)
 
   const [followingArtist, setFollowingArtist] = useState(false)
+  const [liked, setLiked] = useState(false)
   const [active, setActive] = useState<Section>('about')
   const aboutRef = useRef<HTMLElement>(null)
   const lyricsRef = useRef<HTMLElement>(null)
@@ -120,6 +128,19 @@ export default function Song() {
         if (!cancelled && song.artist) setFollowingArtist(ids.has(song.artist.id))
       })
       .catch((err) => console.warn('[beatboxed] follow state failed:', err))
+    return () => {
+      cancelled = true
+    }
+  }, [user, song])
+
+  useEffect(() => {
+    if (!user || !song) return setLiked(false)
+    let cancelled = false
+    isSongLiked(user.id, song.id)
+      .then((v) => {
+        if (!cancelled) setLiked(v)
+      })
+      .catch((err) => console.warn('[beatboxed] like state failed:', err))
     return () => {
       cancelled = true
     }
@@ -179,6 +200,22 @@ export default function Song() {
       .then(setStats)
       .catch((err) => console.warn('[beatboxed] rating refresh failed:', err))
   }, [song])
+
+  async function toggleLike() {
+    if (!song) return
+    if (!user) {
+      navigate('/login', { state: { from: location.pathname } })
+      return
+    }
+    const next = !liked
+    setLiked(next)
+    try {
+      await setSongLike(user.id, song.id, next)
+    } catch (err) {
+      console.error('[beatboxed] song like failed:', err)
+      setLiked(!next)
+    }
+  }
 
   function jumpTo(section: Section) {
     setActive(section)
@@ -290,6 +327,27 @@ export default function Song() {
                 size="sm"
               />
             )}
+          </div>
+
+          <div className="flex flex-wrap items-center justify-center gap-3 sm:justify-start">
+            <button
+              type="button"
+              onClick={toggleLike}
+              aria-pressed={liked}
+              aria-label={liked ? 'Remove from liked songs' : 'Add to liked songs'}
+              className={cn(
+                'flex items-center gap-1.5 rounded-button border px-3 py-1.5 text-button transition-colors duration-200 ease-soft active:scale-[0.97]',
+                liked
+                  ? 'border-primary/60 bg-primary/15 text-foreground'
+                  : 'border-white/10 bg-surface-2 text-muted-foreground hover:text-foreground'
+              )}
+            >
+              <Heart
+                className={cn('size-4', liked && 'fill-primary text-primary')}
+                strokeWidth={1.75}
+              />
+              {liked ? 'Liked' : 'Like'}
+            </button>
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">

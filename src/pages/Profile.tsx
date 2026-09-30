@@ -3,8 +3,8 @@ import { Link, useParams } from 'react-router-dom'
 import { Disc3, LogOut, Pencil, UserX } from 'lucide-react'
 import { Chip } from '@/components/ui/Chip'
 import { StarRating } from '@/components/ui/StarRating'
-import { FollowButton } from '@/components/ui/FollowButton'
 import { ProfileEditor } from '@/components/profile/ProfileEditor'
+import { FollowedArtistsGrid } from '@/components/profile/FollowedArtistsGrid'
 import { tintFor } from '@/components/explore/tint'
 import { useAuth } from '@/lib/auth'
 import {
@@ -320,55 +320,16 @@ export default function Profile() {
               }
             />
           ) : (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
-              {artists.map((a) => (
-                <div
-                  key={a.id}
-                  className="flex flex-col items-center gap-3 rounded-card bg-surface p-4 text-center shadow-card"
-                >
-                  {a.imageUrl ? (
-                    <img
-                      src={a.imageUrl}
-                      alt=""
-                      loading="lazy"
-                      className="size-20 rounded-full object-cover"
-                    />
-                  ) : (
-                    <span
-                      className="size-20 rounded-full"
-                      style={{
-                        background: `linear-gradient(135deg,
-                          color-mix(in oklab, var(--color-primary) ${20 + tintFor(a.id) * 50}%, var(--color-surface-2)),
-                          color-mix(in oklab, var(--color-accent) ${12 + tintFor(a.id) * 38}%, var(--color-background)))`,
-                      }}
-                    />
-                  )}
-                  {/* Not a link: there's no artist page yet. */}
-                  <span dir="auto" className="line-clamp-2 text-card-title">
-                    {a.name}
-                  </span>
-                  {isOwn && (
-                    <FollowButton
-                      artistId={a.id}
-                      following
-                      size="sm"
-                      onChange={(next) => {
-                        if (!next) {
-                          setArtists((prev) =>
-                            (prev ?? []).filter((x) => x.id !== a.id)
-                          )
-                          setProfile((p) =>
-                            p
-                              ? { ...p, followingCount: Math.max(0, p.followingCount - 1) }
-                              : p
-                          )
-                        }
-                      }}
-                    />
-                  )}
-                </div>
-              ))}
-            </div>
+            <FollowedArtistsGrid
+              artists={artists}
+              showUnfollow={isOwn}
+              onUnfollowed={(artistId) => {
+                setArtists((prev) => (prev ?? []).filter((x) => x.id !== artistId))
+                setProfile((p) =>
+                  p ? { ...p, followingCount: Math.max(0, p.followingCount - 1) } : p
+                )
+              }}
+            />
           )}
         </section>
       )}
