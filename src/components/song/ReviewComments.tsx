@@ -1,8 +1,12 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Loader2, Send } from 'lucide-react'
+import { Loader2, Send, Trash2 } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
-import { addReviewComment, getReviewComments } from '@/lib/catalog'
+import {
+  addReviewComment,
+  deleteReviewComment,
+  getReviewComments,
+} from '@/lib/catalog'
 import type { ReviewComment } from '@/lib/types'
 
 const relative = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' })
@@ -40,6 +44,8 @@ export function ReviewComments({
   const [draft, setDraft] = useState('')
   const [posting, setPosting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  /** Id of the comment awaiting delete confirmation, if any. */
+  const [confirmingId, setConfirmingId] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -84,6 +90,24 @@ export function ReviewComments({
     }
   }
 
+  async function handleDelete(id: string) {
+    if (!user) return
+    const previous = comments ?? []
+    setConfirmingId(null)
+    setError(null)
+    setComments(previous.filter((c) => c.id !== id))
+    onCountChange(-1)
+
+    try {
+      await deleteReviewComment(id, user.id)
+    } catch (err) {
+      console.error('[beatboxed] comment delete failed:', err)
+      setComments(previous)
+      onCountChange(1)
+      setError("Couldn't delete your comment. Try again.")
+    }
+  }
+
   return (
     <div className="animate-fade-in mt-3 flex flex-col gap-3 border-t border-white/5 pt-3">
       {comments === null ? (
@@ -112,7 +136,7 @@ export function ReviewComments({
                   {name.trim().charAt(0).toUpperCase() || '?'}
                 </span>
               )}
-              <div className="flex min-w-0 flex-col">
+              <div className="flex min-w-0 flex-1 flex-col">
                 <span className="flex flex-wrap items-baseline gap-x-2">
                   <span className="text-secondary font-medium">{name}</span>
                   <span className="text-meta text-muted-foreground">
@@ -123,6 +147,39 @@ export function ReviewComments({
                 <p dir="auto" className="text-secondary text-muted-foreground">
                   {c.body}
                 </p>
+
+                {c.userId === user?.id &&
+                  (confirmingId === c.id ? (
+                    <span className="mt-1 flex flex-wrap items-center gap-2">
+                      <span className="text-meta text-muted-foreground">
+                        Delete this comment?
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(c.id)}
+                        className="rounded-button bg-danger/15 px-2 py-1 text-meta text-danger transition-colors duration-200 ease-soft hover:bg-danger/25"
+                      >
+                        Yes, delete
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmingId(null)}
+                        className="rounded-button px-2 py-1 text-meta text-muted-foreground transition-colors duration-200 ease-soft hover:text-foreground"
+                      >
+                        Keep it
+                      </button>
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setConfirmingId(c.id)}
+                      aria-label="Delete your comment"
+                      className="mt-1 flex w-fit items-center gap-1.5 rounded-button py-0.5 text-meta text-muted-foreground transition-colors duration-200 ease-soft hover:text-danger"
+                    >
+                      <Trash2 className="size-3.5" strokeWidth={1.75} />
+                      Delete
+                    </button>
+                  ))}
               </div>
             </div>
           )

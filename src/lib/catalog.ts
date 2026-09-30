@@ -829,10 +829,14 @@ export async function addReviewComment(
   return toCommentModel(data as unknown as CommentRow)
 }
 
-export async function deleteReviewComment(commentId: string) {
+export async function deleteReviewComment(commentId: string, userId: string) {
+  // RLS already scopes this to the author; the explicit filter matches
+  // deleteReview and means a policy regression can't turn into a way to
+  // delete other people's comments.
   const { error } = await requireClient()
     .from('review_comments')
     .delete()
     .eq('id', commentId)
+    .eq('user_id', userId)
   if (error) throw error
 }
