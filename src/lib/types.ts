@@ -130,3 +130,30 @@ export type ReviewComment = {
     avatarUrl: string | null
   } | null
 }
+
+export type ProfileDetail = {
+  id: string
+  username: string | null
+  displayName: string | null
+  bio: string | null
+  avatarUrl: string | null
+  favoriteGenres: string[]
+  reviewCount: number
+  followingCount: number
+}
+
+/** A review joined with enough song context to render it off the song page. */
+export type ReviewWithSong = {
+  id: string
+  rating: number
+  title: string | null
+  body: string | null
+  createdAt: string
+  edited: boolean
+  song: {
+    id: string
+    title: string
+    artistName: string
+    coverUrl: string | null
+  } | null
+}

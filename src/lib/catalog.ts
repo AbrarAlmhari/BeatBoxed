@@ -9,6 +9,8 @@ import type {
   SearchResults,
   SongCardModel,
   SongDetail,
+  ProfileDetail,
+  ReviewWithSong,
 } from './types'
 
 /**
@@ -839,4 +841,193 @@ export async function deleteReviewComment(commentId: string, userId: string) {
     .eq('id', commentId)
     .eq('user_id', userId)
   if (error) throw error
+}
+
+/* ------------------------------------------------------------------ follows */
+
+export async function getFollowedArtistIds(userId: string): Promise<Set<string>> {
+  const { data, error } = await requireClient()
+    .from('follows')
+    .select('artist_id')
+    .eq('user_id', userId)
+  if (error) throw error
+  return new Set((data ?? []).map((f) => f.artist_id))
+}
+
+export async function getFollowedArtists(
+  userId: string
+): Promise<ArtistCardModel[]> {
+  const { data, error } = await requireClient()
+    .from('follows')
+    .select('artists(id, name, image_url, genres)')
+    .eq('user_id', userId)
+  if (error) throw error
+
+  return (data ?? [])
+    .map((row) => one((row as { artists: Rel<{
+      id: string
+      name: string
+      image_url: string | null
+      genres: string[] | null
+    }> }).artists))
+    .filter((a): a is NonNullable<typeof a> => Boolean(a))
+    .map((a) => ({
+      id: a.id,
+      name: a.name,
+      imageUrl: a.image_url,
+      genres: a.genres ?? [],
+    }))
+}
+
+/** Follow is binary, like a review like — insert to add, delete to remove. */
+export async function setArtistFollow(
+  userId: string,
+  artistId: string,
+  following: boolean
+) {
+  const client = requireClient()
+  if (following) {
+    const { error } = await client
+      .from('follows')
+      .insert({ user_id: userId, artist_id: artistId })
+    // Racing a double-tap hits the unique constraint; already-followed is fine.
+    if (error && error.code !== '23505') throw error
+  } else {
+    const { error } = await client
+      .from('follows')
+      .delete()
+      .eq('user_id', userId)
+      .eq('artist_id', artistId)
+    if (error) throw error
+  }
+}
+
+/* ----------------------------------------------------------------- profiles */
+
+export async function getProfileDetail(
+  userId: string
+): Promise<ProfileDetail | null> {
+  const client = requireClient()
+
+  const { data, error } = await client
+    .from('profiles')
+    .select('id, username, display_name, bio, avatar_url, favorite_genres')
+    .eq('id', userId)
+    .maybeSingle()
+  if (error) {
+    if (error.code === '22P02') return null // malformed uuid = bad link
+    throw error
+  }
+  if (!data) return null
+
+  const [reviews, follows] = await Promise.all([
+    client
+      .from('reviews')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId),
+    client
+      .from('follows')
+      .select('artist_id', { count: 'exact', head: true })
+      .eq('user_id', userId),
+  ])
+  if (reviews.error) throw reviews.error
+  if (follows.error) throw follows.error
+
+  return {
+    id: data.id,
+    username: data.username,
+    displayName: data.display_name,
+    bio: data.bio,
+    avatarUrl: data.avatar_url,
+    favoriteGenres: data.favorite_genres ?? [],
+    reviewCount: reviews.count ?? 0,
+    followingCount: follows.count ?? 0,
+  }
+}
+
+type ReviewWithSongRow = {
+  id: string
+  rating: number
+  title: string | null
+  body: string | null
+  created_at: string
+  edited: boolean
+  songs: Rel<{
+    id: string
+    title: string
+    artists: Rel<{ name: string }>
+    albums: Rel<{ cover_url: string | null }>
+  }>
+}
+
+/** Every review this user has written, newest first, with song context. */
+export async function getReviewsByUser(
+  userId: string
+): Promise<ReviewWithSong[]> {
+  const { data, error } = await requireClient()
+    .from('reviews')
+    .select(
+      'id, rating, title, body, created_at, edited, ' +
+        'songs(id, title, artists(name), albums(cover_url))'
+    )
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+  if (error) throw error
+
+  return ((data ?? []) as unknown as ReviewWithSongRow[]).map((r) => {
+    const song = one(r.songs)
+    return {
+      id: r.id,
+      rating: r.rating,
+      title: r.title,
+      body: r.body,
+      createdAt: r.created_at,
+      edited: r.edited,
+      song: song
+        ? {
+            id: song.id,
+            title: song.title,
+            artistName: one(song.artists)?.name ?? 'Unknown artist',
+            coverUrl: one(song.albums)?.cover_url ?? null,
+          }
+        : null,
+    }
+  })
+}
+
+export async function updateProfile(
+  userId: string,
+  patch: {
+    display_name?: string | null
+    bio?: string | null
+    favorite_genres?: string[] | null
+    avatar_url?: string | null
+  }
+) {
+  const { error } = await requireClient()
+    .from('profiles')
+    .update(patch)
+    .eq('id', userId)
+  if (error) throw error
+}
+
+export const AVATAR_MAX_BYTES = 2 * 1024 * 1024
+export const AVATAR_TYPES = ['image/png', 'image/jpeg', 'image/webp']
+
+/**
+ * Uploads to avatars/{userId}/… — storage policies key on that first path
+ * segment, so the path is what enforces ownership, not the filename.
+ */
+export async function uploadAvatar(userId: string, file: File) {
+  const client = requireClient()
+  const ext = file.name.split('.').pop()?.toLowerCase() || 'png'
+  const path = `${userId}/avatar-${Date.now()}.${ext}`
+
+  const { error } = await client.storage
+    .from('avatars')
+    .upload(path, file, { upsert: true, contentType: file.type })
+  if (error) throw error
+
+  const { data } = client.storage.from('avatars').getPublicUrl(path)
+  return data.publicUrl
 }

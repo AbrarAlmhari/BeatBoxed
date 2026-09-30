@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Loader2, Send, Trash2 } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
 import {
@@ -124,21 +124,28 @@ export function ReviewComments({
           const name = c.author?.displayName || c.author?.username || 'Someone'
           return (
             <div key={c.id} className="flex gap-2.5">
-              {c.author?.avatarUrl ? (
-                <img
-                  src={c.author.avatarUrl}
-                  alt=""
-                  loading="lazy"
-                  className="size-7 shrink-0 rounded-full object-cover"
-                />
-              ) : (
-                <span className="grid size-7 shrink-0 place-items-center rounded-full bg-surface text-meta text-muted-foreground">
-                  {name.trim().charAt(0).toUpperCase() || '?'}
-                </span>
-              )}
+              <Link to={`/profile/${c.userId}`} className="shrink-0">
+                {c.author?.avatarUrl ? (
+                  <img
+                    src={c.author.avatarUrl}
+                    alt=""
+                    loading="lazy"
+                    className="size-7 rounded-full object-cover"
+                  />
+                ) : (
+                  <span className="grid size-7 place-items-center rounded-full bg-surface text-meta text-muted-foreground">
+                    {name.trim().charAt(0).toUpperCase() || '?'}
+                  </span>
+                )}
+              </Link>
               <div className="flex min-w-0 flex-1 flex-col">
                 <span className="flex flex-wrap items-baseline gap-x-2">
-                  <span className="text-secondary font-medium">{name}</span>
+                  <Link
+                    to={`/profile/${c.userId}`}
+                    className="text-secondary font-medium transition-colors duration-200 ease-soft hover:text-accent"
+                  >
+                    {name}
+                  </Link>
                   <span className="text-meta text-muted-foreground">
                     {timeAgo(c.createdAt)}
                     {c.edited && ' · edited'}

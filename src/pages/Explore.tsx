@@ -7,7 +7,13 @@ import { GenreTile } from '@/components/explore/GenreTile'
 import { ArtistResultCard } from '@/components/explore/ArtistResultCard'
 import { LyricResultCard } from '@/components/explore/LyricResultCard'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
-import { getGenres, popularSearches, searchCatalog } from '@/lib/catalog'
+import {
+  getFollowedArtistIds,
+  getGenres,
+  popularSearches,
+  searchCatalog,
+} from '@/lib/catalog'
+import { useAuth } from '@/lib/auth'
 import type { SearchMode, SearchResults } from '@/lib/types'
 
 /** Router state set by the Home search button; see src/pages/Home.tsx. */
@@ -36,6 +42,7 @@ function TopUpWarning({ message }: { message: string }) {
 }
 
 export default function Explore() {
+  const { user } = useAuth()
   const inputRef = useRef<HTMLInputElement>(null)
   const location = useLocation()
   const navigate = useNavigate()
@@ -46,6 +53,7 @@ export default function Explore() {
 
   const debouncedQuery = useDebouncedValue(query, 250)
   const [genres, setGenres] = useState<string[]>([])
+  const [followed, setFollowed] = useState<Set<string>>(new Set())
   const [results, setResults] = useState<SearchResults | null>(null)
   const [searching, setSearching] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -55,6 +63,13 @@ export default function Explore() {
       .then(setGenres)
       .catch((err) => console.warn('[beatboxed] genre list failed:', err))
   }, [])
+
+  useEffect(() => {
+    if (!user) return setFollowed(new Set())
+    getFollowedArtistIds(user.id)
+      .then(setFollowed)
+      .catch((err) => console.warn('[beatboxed] follow state failed:', err))
+  }, [user])
 
   useEffect(() => {
     // A slow Spotify top-up can land after a newer keystroke's result;
@@ -270,7 +285,19 @@ export default function Explore() {
           {results.mode === 'artists' && (
             <div className="flex flex-col gap-3">
               {results.artists.map((artist) => (
-                <ArtistResultCard key={artist.id} artist={artist} />
+                <ArtistResultCard
+                  key={artist.id}
+                  artist={artist}
+                  following={followed.has(artist.id)}
+                  onFollowChange={(next) =>
+                    setFollowed((prev) => {
+                      const copy = new Set(prev)
+                      if (next) copy.add(artist.id)
+                      else copy.delete(artist.id)
+                      return copy
+                    })
+                  }
+                />
               ))}
             </div>
           )}

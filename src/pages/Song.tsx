@@ -9,10 +9,12 @@ import {
   SearchX,
 } from 'lucide-react'
 import { Chip } from '@/components/ui/Chip'
+import { FollowButton } from '@/components/ui/FollowButton'
 import { StarRating } from '@/components/ui/StarRating'
 import { ReviewsTab } from '@/components/song/ReviewsTab'
 import { tintFor } from '@/components/explore/tint'
 import {
+  getFollowedArtistIds,
   getLyrics,
   getSongDetail,
   getSongRatingStats,
@@ -65,6 +67,7 @@ export default function Song() {
   // request, so the spinner never clears.
   const lyricsRequestedFor = useRef<string | null>(null)
 
+  const [followingArtist, setFollowingArtist] = useState(false)
   const [active, setActive] = useState<Section>('about')
   const aboutRef = useRef<HTMLElement>(null)
   const lyricsRef = useRef<HTMLElement>(null)
@@ -108,6 +111,19 @@ export default function Song() {
       cancelled = true
     }
   }, [id, user])
+
+  useEffect(() => {
+    if (!user || !song?.artist) return
+    let cancelled = false
+    getFollowedArtistIds(user.id)
+      .then((ids) => {
+        if (!cancelled && song.artist) setFollowingArtist(ids.has(song.artist.id))
+      })
+      .catch((err) => console.warn('[beatboxed] follow state failed:', err))
+    return () => {
+      cancelled = true
+    }
+  }, [user, song])
 
   // Lyrics cost an Edge Function round trip, so fetch on first expand only.
   // The result stays in state, so collapsing and reopening doesn't refetch.
@@ -260,15 +276,21 @@ export default function Song() {
             {song.title}
           </h1>
 
-          {/* Artist pages aren't built yet — styled as a link, intentionally inert. */}
-          <span
-            dir="auto"
-            role="link"
-            aria-disabled="true"
-            className="w-fit cursor-pointer text-body text-accent transition-colors duration-200 ease-soft hover:text-foreground"
-          >
-            {song.artist?.name ?? 'Unknown artist'}
-          </span>
+          {/* No artist page yet, so the name is text — the Follow toggle is
+              the real affordance here. */}
+          <div className="flex flex-wrap items-center justify-center gap-2.5 sm:justify-start">
+            <span dir="auto" className="text-body text-accent">
+              {song.artist?.name ?? 'Unknown artist'}
+            </span>
+            {song.artist && (
+              <FollowButton
+                artistId={song.artist.id}
+                following={followingArtist}
+                onChange={setFollowingArtist}
+                size="sm"
+              />
+            )}
+          </div>
 
           <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
             {stats.reviewCount > 0 && stats.ratingAvg != null ? (

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Heart, MessageCircle } from 'lucide-react'
 import { StarRating } from '@/components/ui/StarRating'
 import { ReviewComments } from './ReviewComments'
@@ -52,22 +52,29 @@ export function ReviewCard({ review }: { review: ReviewWithAuthor }) {
   return (
     <article className="flex flex-col gap-3 rounded-card bg-surface p-4 shadow-card">
       <div className="flex gap-3">
-        {review.author?.avatarUrl ? (
-          <img
+        <Link to={`/profile/${review.userId}`} className="shrink-0">
+          {review.author?.avatarUrl ? (
+            <img
             src={review.author.avatarUrl}
             alt=""
             loading="lazy"
-            className="size-10 shrink-0 rounded-full object-cover"
-          />
-        ) : (
-          <span className="grid size-10 shrink-0 place-items-center rounded-full bg-surface-2 text-card-title text-muted-foreground">
-            {initial}
-          </span>
-        )}
+              className="size-10 rounded-full object-cover"
+            />
+          ) : (
+            <span className="grid size-10 place-items-center rounded-full bg-surface-2 text-card-title text-muted-foreground">
+              {initial}
+            </span>
+          )}
+        </Link>
 
         <div className="flex min-w-0 flex-col gap-1.5">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span className="text-card-title">{name}</span>
+            <Link
+              to={`/profile/${review.userId}`}
+              className="text-card-title transition-colors duration-200 ease-soft hover:text-accent"
+            >
+              {name}
+            </Link>
             <StarRating value={review.rating} size={14} />
             <span className="text-meta text-muted-foreground">
               {dateFmt.format(new Date(review.createdAt))}

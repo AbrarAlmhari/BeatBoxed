@@ -25,6 +25,7 @@ export default function App() {
               <Route path="explore" element={<Explore />} />
               <Route path="library" element={<LibraryPage />} />
               <Route path="profile" element={<Profile />} />
+              <Route path="profile/:userId" element={<Profile />} />
               <Route path="song/:id" element={<Song />} />
               <Route path="*" element={<NotFound />} />
             </Route>

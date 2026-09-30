@@ -1,13 +1,19 @@
 import type { ArtistCardModel } from '@/lib/types'
+import { FollowButton } from '@/components/ui/FollowButton'
 import { tintFor } from './tint'
 
-export function ArtistResultCard({ artist }: { artist: ArtistCardModel }) {
+export function ArtistResultCard({
+  artist,
+  following = false,
+  onFollowChange,
+}: {
+  artist: ArtistCardModel
+  following?: boolean
+  onFollowChange?: (following: boolean) => void
+}) {
   const t = tintFor(artist.id)
   return (
-    <button
-      type="button"
-      className="group flex w-full items-center gap-4 rounded-card bg-surface p-3 text-left shadow-card transition-all duration-250 ease-soft hover:bg-surface-2 active:scale-[0.99]"
-    >
+    <div className="flex w-full items-center gap-4 rounded-card bg-surface p-3 text-left shadow-card transition-colors duration-250 ease-soft hover:bg-surface-2">
       <span className="size-14 shrink-0 overflow-hidden rounded-full">
         {artist.imageUrl ? (
           <img
@@ -28,7 +34,7 @@ export function ArtistResultCard({ artist }: { artist: ArtistCardModel }) {
         )}
       </span>
 
-      <span className="flex min-w-0 flex-col gap-1">
+      <span className="flex min-w-0 flex-1 flex-col gap-1">
         <span className="truncate text-card-title">{artist.name}</span>
         <span className="flex flex-wrap gap-1.5">
           {artist.genres.map((g) => (
@@ -41,6 +47,13 @@ export function ArtistResultCard({ artist }: { artist: ArtistCardModel }) {
           ))}
         </span>
       </span>
-    </button>
+
+      <FollowButton
+        artistId={artist.id}
+        following={following}
+        onChange={onFollowChange}
+        size="sm"
+      />
+    </div>
   )
 }
