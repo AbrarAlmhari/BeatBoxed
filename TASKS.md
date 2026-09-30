@@ -2,44 +2,61 @@
 
 Keep this updated as the source of truth on progress — don't rely on chat history to know what's done.
 
+**Real deadline: December 3.** (The original Oct 15 dates below were based on a wrong deadline and have been rescaled — corrected Sept 30.)
+
 ## Week 1 — Foundation (Sept 26 – Oct 2)
 
-- [ ] Team agrees on and locks the Supabase schema (`docs/data-model.md`)
+- [x] Team agrees on and locks the Supabase schema (`docs/data-model.md`)
 - [x] Repo initialized from this scaffold; project runs locally
 - [x] Design tokens (`docs/design-system.md`) implemented in Tailwind config
-- [x] Responsive nav shell (phone bottom tabs / tablet+ sidebar) with placeholder pages
-- [ ] Supabase project created; Auth wired up; RLS policies drafted for user-owned tables
-      (project + client connected in `src/lib/supabase.ts`; Auth and RLS still to do)
+- [x] Supabase project created; Auth wired up; RLS policies drafted for user-owned tables
 - [x] Spotify Developer app registered (Client Credentials); `.env.local` set up per teammate
-      (token + search verified live; note this app gets no `genres` or `preview_url` from Spotify)
-- [ ] Google AI Studio Gemini key generated; stored as `GEMINI_API_KEY`
-- [ ] Vercel project connected for preview deploys
+- [x] Google AI Studio Gemini key generated; stored as `GEMINI_API_KEY`
+- [x] Vercel project connected; deployed and reachable
 
-## Week 2 — Parallel build (Oct 3 – Oct 9)
+## Weeks 2–3 — Core build, phase 1 (Oct 3 – Oct 16)
 
-- [ ] Auth: login / create account working end to end
-      (UI + Supabase Auth wired; blocked on running
-      `supabase/migrations/0001_profiles_auth.sql` in the SQL editor)
-- [ ] Home feed (trending / for-you rails)
-- [ ] Explore/Search (song, artist, lyrics filters)
-- [ ] Song page (About / Lyrics / Reviews tabs)
-- [ ] Rating & review system (5-star + written review)
+- [x] Auth: login / create account working end to end (email confirmation redirect fixed)
+- [x] Home feed (trending / for-you rails) — wired to real Spotify-cached data, seeded catalog
+- [x] Explore/Search (song, artist, lyrics filters) — wired to real data, search icon from Home
+- [x] Song page (About / Lyrics / Reviews tabs)
+- [x] Rating & review system (5-star + written review, edit/delete own review)
+
+## Weeks 4–6 — Core build, phase 2 (Oct 17 – Nov 6)
+
 - [ ] User profile (customization, stats, reviews/playlists tabs)
 - [ ] Library (liked songs, playlists, followed artists)
 - [ ] Playlist creation + detail view
 - [ ] Settings (theme, translation language, log out)
 - [ ] Beatie chatbot wired to Gemini + lrclib
 
-## Week 3 — Integration & cuts (Oct 10 – Oct 12)
+## Week 7 — Polish pass + integration checkpoint (Nov 7 – Nov 13)
+
+- [ ] Work through the Polish backlog below
+- [ ] Click through the whole app end to end as one person — not per-feature — and note anything that feels inconsistent
+- [ ] Confirm design-system consistency across every page (colors, spacing, type, transitions)
+
+## Week 8 — Stretch features, if time allows (Nov 14 – Nov 20)
+
+- [ ] Review `docs/feature-map.md` stretch list and decide what's worth pulling in now that there's runway: Friends page, Notification center, genre-taste graph, mood-based recommendations, etc.
+- [ ] Formally keep or cut each one — update `docs/feature-map.md` with the decision
+
+## Week 9 — Full integration & bug bash (Nov 21 – Nov 27)
 
 - [ ] All slices merged into one app
 - [ ] Bug bash complete
-- [ ] Stretch features formally kept or cut (see `docs/feature-map.md`)
-
-## Final stretch (Oct 13 – Oct 15)
-
 - [ ] Cross-browser/device test pass
-- [ ] Deployed to Vercel + Supabase
+
+## Final stretch (Nov 28 – Dec 3)
+
+- [ ] Deployed to Vercel + Supabase, final check
 - [ ] Supabase project pinged/warm before demo
 - [ ] Demo script written
 - [ ] Final documentation complete
+- [ ] Buffer days — keep these actually empty, don't schedule work into them
+
+## Polish backlog
+
+Things worth revisiting once the whole app exists, not mid-build. Add to this as you notice something rather than stopping to fix it immediately (unless it's an actual bug, not a nice-to-have — fix those now).
+
+- [ ] _(add items here as they come up)_
