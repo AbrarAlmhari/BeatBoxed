@@ -4,6 +4,9 @@
 
 1. Auth — login / create account (Supabase Auth)
 2. Home — continue listening, trending, for-you rails
+   - **Trending** ranks by `songs.popularity` (Deezer rank) descending, falling back to `cached_at` for unmatched tracks. It is *not* review-based: it ranks only songs already in Beatboxed's cache, so it means "most popular of what we've cached", not a global chart.
+   - **Continue Listening** stays empty — no play-history table exists in `docs/data-model.md`.
+   - **For You** is in-catalog affinity: seeds are songs the user reviewed or opened (`song_views`) plus followed artists; from those we take the artists and genres and surface *other* cached songs matching them, ranked by popularity, same-artist before same-genre. Falls back to Trending for a user with no history. Search queries are deliberately not a signal — typing something and never opening it is weak evidence of taste. Spotify's similarity endpoints (`/recommendations`, `/related-artists`, `/audio-features`) are all blocked for this app, so matching happens inside our own cache.
 3. Explore / Search — by song, artist, and lyrics; filter chips
 4. Song page — About / Lyrics / Reviews tabs
 5. Rating & review system — 5-star scale + written reviews (the app's signature feature)

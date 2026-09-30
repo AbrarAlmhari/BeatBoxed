@@ -12,7 +12,13 @@ import { Chip } from '@/components/ui/Chip'
 import { StarRating } from '@/components/ui/StarRating'
 import { ReviewsTab } from '@/components/song/ReviewsTab'
 import { tintFor } from '@/components/explore/tint'
-import { getLyrics, getSongDetail, getSongRatingStats } from '@/lib/catalog'
+import {
+  getLyrics,
+  getSongDetail,
+  getSongRatingStats,
+  recordSongView,
+} from '@/lib/catalog'
+import { useAuth } from '@/lib/auth'
 import type { LyricsResult, SongDetail } from '@/lib/types'
 
 type Section = 'about' | 'lyrics' | 'reviews'
@@ -41,6 +47,7 @@ function formatReleaseDate(iso: string | null) {
 
 export default function Song() {
   const { id = '' } = useParams()
+  const { user } = useAuth()
 
   const [song, setSong] = useState<SongDetail | null>(null)
   const [loading, setLoading] = useState(true)
@@ -81,7 +88,12 @@ export default function Song() {
       .then((s) => {
         if (cancelled) return
         setSong(s)
-        if (s) setStats({ ratingAvg: s.ratingAvg, reviewCount: s.reviewCount })
+        if (s) {
+          setStats({ ratingAvg: s.ratingAvg, reviewCount: s.reviewCount })
+          // Seeds Home's For You rail. Fire-and-forget: a failed write must
+          // never stop the page rendering.
+          if (user) void recordSongView(s.id, user.id)
+        }
       })
       .catch((err: unknown) => {
         if (cancelled) return
@@ -95,7 +107,7 @@ export default function Song() {
     return () => {
       cancelled = true
     }
-  }, [id])
+  }, [id, user])
 
   // Lyrics cost an Edge Function round trip, so fetch on first expand only.
   // The result stays in state, so collapsing and reopening doesn't refetch.

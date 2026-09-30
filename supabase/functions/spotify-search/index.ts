@@ -1,6 +1,7 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { corsHeaders, json } from '../_shared/cors.ts'
 import { getSpotifyToken, pickImage } from '../_shared/spotify.ts'
+import { fetchDeezerRanks } from '../_shared/deezer.ts'
 
 /**
  * Cache-on-first-lookup, per docs/api-integrations.md — search Spotify, upsert
@@ -157,7 +158,8 @@ async function upsertSongs(
   tracks: SpotifyTrack[],
   artistIds: Map<string, string>,
   albumIds: Map<string, string>,
-  genre: string | null
+  genre: string | null,
+  ranks: Map<string, number>
 ) {
   const rows = tracks
     .map((t) => ({
@@ -167,6 +169,7 @@ async function upsertSongs(
       album_id: albumIds.get(t.album.id) ?? null,
       duration_ms: t.duration_ms,
       genre,
+      popularity: ranks.get(t.id) ?? null,
       cached_at: new Date().toISOString(),
     }))
     .filter((r) => r.artist_id && r.album_id)
@@ -176,7 +179,7 @@ async function upsertSongs(
   const { data, error } = await admin
     .from('songs')
     .upsert(rows, { onConflict: 'spotify_id' })
-    .select('id, spotify_id, title, artist_id, album_id, duration_ms, genre')
+    .select('id, spotify_id, title, artist_id, album_id, duration_ms, genre, popularity')
 
   if (error) throw error
   return data ?? []
@@ -250,13 +253,23 @@ Deno.serve(async (req) => {
       images
     )
     const albumIds = await upsertAlbums(tracks.map((t) => t.album), artistIds)
-    const songs = await upsertSongs(tracks, artistIds, albumIds, genre)
+
+    // Spotify gives this app no popularity figure, so rank via Deezer.
+    const ranks = await fetchDeezerRanks(
+      tracks.map((t) => ({
+        id: t.id,
+        title: t.name,
+        artist: t.artists[0]?.name ?? '',
+      }))
+    )
+    const songs = await upsertSongs(tracks, artistIds, albumIds, genre, ranks)
 
     return json({
       type: 'track',
       songs,
       cached: songs.length,
       artistsWithImages: images.size,
+      ranked: ranks.size,
     })
   } catch (err) {
     console.error('[spotify-search]', err)

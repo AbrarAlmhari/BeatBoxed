@@ -97,77 +97,172 @@ export type HomeFeed = {
 }
 
 /**
- * Trending has two modes and picks between them on its own:
+ * Trending: most popular of what we've cached.
  *
- *  - No reviews anywhere yet -> newest cached songs, so a freshly seeded
- *    catalog still fills the rail.
- *  - Any reviews exist -> rank those songs by review count, then average
- *    rating, and top up with newest-cached only if there aren't enough.
+ * `popularity` is Deezer's rank, stored at cache time — Spotify withholds its
+ * own popularity figure from this app and blocks every chart endpoint. Rows
+ * Deezer couldn't match keep null and sort last, falling back to recency.
  *
- * Nothing is hardcoded to one mode; as reviews accumulate the ranked portion
- * naturally grows and pushes the recency backfill out.
+ * This ranks only songs already in our cache, so it's "most popular of what
+ * Beatboxed knows about", not a global chart. Review counts and averages are
+ * unchanged elsewhere; they just no longer drive this rail.
  */
-async function fetchNewestCached(limit: number, excludeIds: string[] = []) {
+async function fetchTrending(limit = 12): Promise<SongCardModel[]> {
   const { data, error } = await requireClient()
     .from('songs')
     .select(SONG_SELECT)
+    .order('popularity', { ascending: false, nullsFirst: false })
     .order('cached_at', { ascending: false })
-    .limit(limit + excludeIds.length)
+    .limit(limit)
   if (error) throw error
 
-  const skip = new Set(excludeIds)
-  return ((data ?? []) as unknown as SongRow[])
-    .filter((r) => !skip.has(r.id))
-    .slice(0, limit)
+  return decorate((data ?? []) as unknown as SongRow[])
 }
 
-async function fetchTrending(limit = 12): Promise<SongCardModel[]> {
-  const { data: reviewRows, error: reviewErr } = await requireClient()
-    .from('reviews')
-    .select('song_id, rating')
-  if (reviewErr) throw reviewErr
+/** Records that this user opened a song. Best-effort: never blocks the page. */
+export async function recordSongView(songId: string, userId: string) {
+  const { error } = await requireClient()
+    .from('song_views')
+    .upsert(
+      { user_id: userId, song_id: songId, viewed_at: new Date().toISOString() },
+      { onConflict: 'user_id,song_id' }
+    )
+  if (error) console.warn('[beatboxed] could not record song view:', error.message)
+}
 
-  const agg = new Map<string, { sum: number; count: number }>()
-  for (const r of reviewRows ?? []) {
-    const cur = agg.get(r.song_id) ?? { sum: 0, count: 0 }
-    cur.sum += r.rating
-    cur.count += 1
-    agg.set(r.song_id, cur)
+/**
+ * For You: in-catalog affinity.
+ *
+ * Seeds are the songs this user has engaged with deliberately — reviewed, or
+ * opened the detail page for — plus any artists they follow. From those we
+ * take the artists and genres and surface *other* cached songs matching them,
+ * ranked by popularity.
+ *
+ * Deliberately not using raw search queries: typing something and never
+ * opening it is weak evidence of taste. A song view means they went past the
+ * results list.
+ *
+ * Spotify's own similarity endpoints are all blocked for this app
+ * (/recommendations 404, /related-artists and /audio-features 403), so this
+ * matches within our own cache rather than asking anyone what "similar" means.
+ */
+async function fetchForYou(
+  userId: string,
+  limit = 12
+): Promise<SongCardModel[]> {
+  const client = requireClient()
+
+  const [reviewed, viewed, follows] = await Promise.all([
+    client.from('reviews').select('song_id').eq('user_id', userId),
+    client
+      .from('song_views')
+      .select('song_id')
+      .eq('user_id', userId)
+      .order('viewed_at', { ascending: false })
+      .limit(40),
+    client.from('follows').select('artist_id').eq('user_id', userId),
+  ])
+  if (reviewed.error) throw reviewed.error
+  if (viewed.error) throw viewed.error
+  if (follows.error) throw follows.error
+
+  const seedSongIds = [
+    ...new Set([
+      ...(reviewed.data ?? []).map((r) => r.song_id),
+      ...(viewed.data ?? []).map((v) => v.song_id),
+    ]),
+  ]
+  const followedArtistIds = (follows.data ?? []).map((f) => f.artist_id)
+
+  if (seedSongIds.length === 0 && followedArtistIds.length === 0) return []
+
+  // What those seed songs are made of: which artists, which genres.
+  const seedArtistIds = new Set(followedArtistIds)
+  const seedGenres = new Set<string>()
+  if (seedSongIds.length > 0) {
+    const { data: seeds, error } = await client
+      .from('songs')
+      .select('artist_id, genre')
+      .in('id', seedSongIds)
+    if (error) throw error
+    for (const row of seeds ?? []) {
+      if (row.artist_id) seedArtistIds.add(row.artist_id)
+      if (row.genre) seedGenres.add(row.genre)
+    }
+  }
+  if (seedArtistIds.size === 0 && seedGenres.size === 0) return []
+
+  // Same artist first, then same genre — a second track by an artist you
+  // reviewed is a safer recommendation than any song sharing its genre.
+  const byArtist = seedArtistIds.size
+    ? await client
+        .from('songs')
+        .select(SONG_SELECT)
+        .in('artist_id', [...seedArtistIds])
+        .order('popularity', { ascending: false, nullsFirst: false })
+        .limit(limit * 3)
+    : { data: [], error: null }
+  if (byArtist.error) throw byArtist.error
+
+  const byGenre = seedGenres.size
+    ? await client
+        .from('songs')
+        .select(SONG_SELECT)
+        .in('genre', [...seedGenres])
+        .order('popularity', { ascending: false, nullsFirst: false })
+        .limit(limit * 3)
+    : { data: [], error: null }
+  if (byGenre.error) throw byGenre.error
+
+  const seen = new Set(seedSongIds) // don't recommend what they already know
+  const perArtist = new Map<string, number>()
+  const signatures = new Set<string>()
+  const picked: SongRow[] = []
+
+  /**
+   * 74% of cached songs have no genre (user searches don't tag one), so
+   * without a per-artist cap a single reviewed artist floods the whole rail
+   * with their back catalogue. Three each keeps it recognisable but varied.
+   */
+  const MAX_PER_ARTIST = 3
+
+  const consider = (row: SongRow) => {
+    if (picked.length >= limit) return
+    if (seen.has(row.id)) return
+
+    // The catalog holds the same track under several Spotify ids (single vs
+    // album release), which would otherwise show as visible duplicates.
+    const signature = `${row.title.trim().toLowerCase()}|${row.artist_id}`
+    if (signatures.has(signature)) return
+
+    const count = perArtist.get(row.artist_id) ?? 0
+    if (count >= MAX_PER_ARTIST) return
+
+    seen.add(row.id)
+    signatures.add(signature)
+    perArtist.set(row.artist_id, count + 1)
+    picked.push(row)
   }
 
-  // Mode 1: nothing reviewed yet.
-  if (agg.size === 0) return decorate(await fetchNewestCached(limit))
+  for (const row of (byArtist.data ?? []) as unknown as SongRow[]) consider(row)
+  for (const row of (byGenre.data ?? []) as unknown as SongRow[]) consider(row)
 
-  // Mode 2: rank what has been reviewed.
-  const rankedIds = [...agg.entries()]
-    .sort(
-      (a, b) =>
-        b[1].count - a[1].count || b[1].sum / b[1].count - a[1].sum / a[1].count
-    )
-    .slice(0, limit)
-    .map(([songId]) => songId)
+  // Still thin — top up with popular songs they haven't seen, so the rail is
+  // never half-empty just because their taste is narrow.
+  if (picked.length < limit) {
+    const { data: popular, error } = await client
+      .from('songs')
+      .select(SONG_SELECT)
+      .order('popularity', { ascending: false, nullsFirst: false })
+      .limit(limit * 4)
+    if (error) throw error
+    for (const row of (popular ?? []) as unknown as SongRow[]) consider(row)
+  }
 
-  const { data: rankedRows, error: rankedErr } = await requireClient()
-    .from('songs')
-    .select(SONG_SELECT)
-    .in('id', rankedIds)
-  if (rankedErr) throw rankedErr
-
-  const ordered = rankedIds
-    .map((id) => (rankedRows as unknown as SongRow[]).find((r) => r.id === id))
-    .filter((r): r is SongRow => Boolean(r))
-
-  if (ordered.length >= limit) return decorate(ordered)
-
-  const backfill = await fetchNewestCached(
-    limit - ordered.length,
-    ordered.map((r) => r.id)
-  )
-  return decorate([...ordered, ...backfill])
+  return decorate(picked)
 }
 
 export async function getHomeFeedData(userId?: string): Promise<HomeFeed> {
-  const client = requireClient()
   const trending = await fetchTrending()
 
   // No play-history table exists in docs/data-model.md, so this stays empty
@@ -175,26 +270,9 @@ export async function getHomeFeedData(userId?: string): Promise<HomeFeed> {
   const continueListening: SongCardModel[] = []
 
   let forYou: SongCardModel[] = []
-  if (userId) {
-    const { data: follows, error: followErr } = await client
-      .from('follows')
-      .select('artist_id')
-      .eq('user_id', userId)
-    if (followErr) throw followErr
+  if (userId) forYou = await fetchForYou(userId)
 
-    const artistIds = (follows ?? []).map((f) => f.artist_id)
-    if (artistIds.length > 0) {
-      const { data, error } = await client
-        .from('songs')
-        .select(SONG_SELECT)
-        .in('artist_id', artistIds)
-        .limit(12)
-      if (error) throw error
-      forYou = await decorate((data ?? []) as unknown as SongRow[])
-    }
-  }
-
-  // Following nobody yet — Trending is the honest fallback.
+  // Nothing to personalise from yet — Trending is the honest fallback.
   if (forYou.length === 0) forYou = trending
 
   return { continueListening, trending, forYou }
