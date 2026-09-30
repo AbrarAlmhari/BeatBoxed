@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
+import { Link } from 'react-router-dom'
 import { Play, Star } from 'lucide-react'
 
 export type MediaCardProps = {
@@ -10,7 +11,12 @@ export type MediaCardProps = {
   coverUrl?: string | null
   ratingAvg?: number | null
   reviewCount?: number
+  /** When set the card becomes a real link, so middle-click and open-in-new-tab work. */
+  to?: string
 }
+
+const CARD_CLASS =
+  'group flex w-full flex-col gap-3 rounded-card bg-surface p-3 text-left shadow-card transition-all duration-250 ease-soft hover:-translate-y-1 hover:bg-surface-2 active:translate-y-0 active:scale-[0.98]'
 
 export function MediaCard({
   title,
@@ -19,15 +25,13 @@ export function MediaCard({
   coverUrl,
   ratingAvg,
   reviewCount,
+  to,
 }: MediaCardProps) {
   const [coverFailed, setCoverFailed] = useState(false)
   const showCover = Boolean(coverUrl) && !coverFailed
 
-  return (
-    <button
-      type="button"
-      className="group flex w-full flex-col gap-3 rounded-card bg-surface p-3 text-left shadow-card transition-all duration-250 ease-soft hover:-translate-y-1 hover:bg-surface-2 active:translate-y-0 active:scale-[0.98]"
-    >
+  const body: ReactNode = (
+    <>
       <div className="relative aspect-square w-full overflow-hidden rounded-[10px]">
         {showCover ? (
           <img
@@ -55,8 +59,10 @@ export function MediaCard({
       </div>
 
       <div className="min-w-0 pb-1">
-        <p className="truncate text-card-title">{title}</p>
-        <p className="mt-0.5 truncate text-secondary text-muted-foreground">
+        <p dir="auto" className="truncate text-card-title">
+          {title}
+        </p>
+        <p dir="auto" className="mt-0.5 truncate text-secondary text-muted-foreground">
           {subtitle}
         </p>
 
@@ -68,6 +74,20 @@ export function MediaCard({
           </p>
         )}
       </div>
+    </>
+  )
+
+  if (to) {
+    return (
+      <Link to={to} className={CARD_CLASS}>
+        {body}
+      </Link>
+    )
+  }
+
+  return (
+    <button type="button" className={CARD_CLASS}>
+      {body}
     </button>
   )
 }

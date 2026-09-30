@@ -72,3 +72,40 @@ export type SearchResults =
   | { mode: 'songs'; songs: SongCardModel[] }
   | { mode: 'artists'; artists: ArtistCardModel[] }
   | { mode: 'lyrics'; lyrics: LyricMatch[] }
+
+/** A song plus its cached artist/album context, for the song detail page. */
+export type SongDetail = {
+  id: string
+  title: string
+  genre: string | null
+  durationMs: number
+  spotifyId: string | null
+  artist: { id: string; name: string; imageUrl: string | null } | null
+  album: {
+    id: string
+    title: string
+    coverUrl: string | null
+    releaseDate: string | null
+  } | null
+  ratingAvg: number | null
+  reviewCount: number
+}
+
+export type ReviewWithAuthor = {
+  id: string
+  /** Needed to tell the signed-in user's own review apart from everyone else's. */
+  userId: string
+  rating: number
+  body: string | null
+  createdAt: string
+  edited: boolean
+  author: {
+    username: string | null
+    displayName: string | null
+    avatarUrl: string | null
+  } | null
+}
+
+export type LyricsResult =
+  | { status: 'found'; lines: string[]; synced: boolean }
+  | { status: 'empty' }

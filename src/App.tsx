@@ -8,6 +8,7 @@ import Home from '@/pages/Home'
 import Explore from '@/pages/Explore'
 import LibraryPage from '@/pages/LibraryPage'
 import Profile from '@/pages/Profile'
+import Song from '@/pages/Song'
 import NotFound from '@/pages/NotFound'
 
 export default function App() {
@@ -24,6 +25,7 @@ export default function App() {
               <Route path="explore" element={<Explore />} />
               <Route path="library" element={<LibraryPage />} />
               <Route path="profile" element={<Profile />} />
+              <Route path="song/:id" element={<Song />} />
               <Route path="*" element={<NotFound />} />
             </Route>
           </Route>

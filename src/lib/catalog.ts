@@ -2,9 +2,12 @@ import { supabase } from './supabase'
 import type {
   ArtistCardModel,
   LyricMatch,
+  LyricsResult,
+  ReviewWithAuthor,
   SearchMode,
   SearchResults,
   SongCardModel,
+  SongDetail,
 } from './types'
 
 /**
@@ -329,4 +332,226 @@ export async function searchCatalog(
   }
 
   return { mode: 'songs', songs: await decorate(rows) }
+}
+
+/* -------------------------------------------------------------- song detail */
+
+type SongDetailRow = {
+  id: string
+  title: string
+  genre: string | null
+  duration_ms: number
+  spotify_id: string | null
+  artists: Rel<{ id: string; name: string; image_url: string | null }>
+  albums: Rel<{
+    id: string
+    title: string
+    cover_url: string | null
+    release_date: string | null
+  }>
+}
+
+/** Null when the id isn't in our cache — callers show a not-found state. */
+export async function getSongDetail(id: string): Promise<SongDetail | null> {
+  const { data, error } = await requireClient()
+    .from('songs')
+    .select(
+      'id, title, genre, duration_ms, spotify_id, ' +
+        'artists(id, name, image_url), ' +
+        'albums(id, title, cover_url, release_date)'
+    )
+    .eq('id', id)
+    .maybeSingle()
+
+  // An invalid uuid makes Postgres raise rather than return empty; that's a
+  // bad link, not a failure worth surfacing as an error.
+  if (error) {
+    if (error.code === '22P02') return null
+    throw error
+  }
+  if (!data) return null
+
+  const row = data as unknown as SongDetailRow
+  const stats = (await ratingsFor([row.id])).get(row.id)
+  const artist = one(row.artists)
+  const album = one(row.albums)
+
+  return {
+    id: row.id,
+    title: row.title,
+    genre: row.genre,
+    durationMs: row.duration_ms,
+    spotifyId: row.spotify_id,
+    artist: artist
+      ? { id: artist.id, name: artist.name, imageUrl: artist.image_url }
+      : null,
+    album: album
+      ? {
+          id: album.id,
+          title: album.title,
+          coverUrl: album.cover_url,
+          releaseDate: album.release_date,
+        }
+      : null,
+    ratingAvg: stats?.avg ?? null,
+    reviewCount: stats?.count ?? 0,
+  }
+}
+
+type ReviewRow = {
+  id: string
+  user_id: string
+  rating: number
+  body: string | null
+  created_at: string
+  edited: boolean
+  profiles: Rel<{
+    username: string | null
+    display_name: string | null
+    avatar_url: string | null
+  }>
+}
+
+export async function getSongReviews(songId: string): Promise<ReviewWithAuthor[]> {
+  const { data, error } = await requireClient()
+    .from('reviews')
+    .select(
+      'id, user_id, rating, body, created_at, edited, ' +
+        'profiles(username, display_name, avatar_url)'
+    )
+    .eq('song_id', songId)
+    .order('created_at', { ascending: false })
+  if (error) throw error
+
+  return ((data ?? []) as unknown as ReviewRow[]).map((r) => {
+    const p = one(r.profiles)
+    return {
+      id: r.id,
+      userId: r.user_id,
+      rating: r.rating,
+      body: r.body,
+      createdAt: r.created_at,
+      edited: r.edited,
+      author: p
+        ? {
+            username: p.username,
+            displayName: p.display_name,
+            avatarUrl: p.avatar_url,
+          }
+        : null,
+    }
+  })
+}
+
+/** Strip LRC timestamps: "[00:12.34] line" -> "line". */
+function parseLrc(synced: string): string[] {
+  return synced
+    .split('\n')
+    .map((l) => l.replace(/^\s*(\[\d{1,2}:\d{2}(?:[.:]\d{1,3})?\]\s*)+/, '').trim())
+    .filter((l) => l.length > 0)
+}
+
+/**
+ * Lyrics via the lyrics-lookup Edge Function (lrclib can't be called from the
+ * browser). A miss is an empty state, never an error — the function already
+ * folds lrclib's 404 and 503 into found:false.
+ */
+export async function getLyrics(
+  artistName: string,
+  trackTitle: string
+): Promise<LyricsResult> {
+  const { data, error } = await requireClient().functions.invoke('lyrics-lookup', {
+    body: { artist: artistName, track: trackTitle },
+  })
+  if (error) throw error
+  if (!data?.found) return { status: 'empty' }
+
+  if (data.syncedLyrics) {
+    const lines = parseLrc(data.syncedLyrics)
+    if (lines.length) return { status: 'found', lines, synced: true }
+  }
+  if (data.plainLyrics) {
+    const lines = data.plainLyrics
+      .split('\n')
+      .map((l: string) => l.trim())
+      .filter((l: string) => l.length > 0)
+    if (lines.length) return { status: 'found', lines, synced: false }
+  }
+  return { status: 'empty' }
+}
+
+/* ------------------------------------------------------------ review writes */
+
+/**
+ * Create or edit the signed-in user's review. The reviews table has a unique
+ * constraint on (song_id, user_id) — verified against the live schema — so
+ * this is always an upsert, never a duplicate insert.
+ *
+ * `edited` and `updated_at` are only touched on an edit; a first submission
+ * leaves the column defaults alone so "edited" means what it says.
+ */
+export async function upsertReview(args: {
+  songId: string
+  userId: string
+  rating: number
+  body: string | null
+  isEdit: boolean
+}): Promise<ReviewWithAuthor> {
+  const row: Record<string, unknown> = {
+    song_id: args.songId,
+    user_id: args.userId,
+    rating: args.rating,
+    body: args.body?.trim() ? args.body.trim() : null,
+  }
+  if (args.isEdit) {
+    row.edited = true
+    row.updated_at = new Date().toISOString()
+  }
+
+  const { data, error } = await requireClient()
+    .from('reviews')
+    .upsert(row, { onConflict: 'song_id,user_id' })
+    .select(
+      'id, user_id, rating, body, created_at, edited, ' +
+        'profiles(username, display_name, avatar_url)'
+    )
+    .single()
+  if (error) throw error
+
+  const r = data as unknown as ReviewRow
+  const p = one(r.profiles)
+  return {
+    id: r.id,
+    userId: r.user_id,
+    rating: r.rating,
+    body: r.body,
+    createdAt: r.created_at,
+    edited: r.edited,
+    author: p
+      ? {
+          username: p.username,
+          displayName: p.display_name,
+          avatarUrl: p.avatar_url,
+        }
+      : null,
+  }
+}
+
+export async function deleteReview(songId: string, userId: string) {
+  // RLS scopes this to the author anyway; the filter keeps intent explicit.
+  const { error } = await requireClient()
+    .from('reviews')
+    .delete()
+    .eq('song_id', songId)
+    .eq('user_id', userId)
+  if (error) throw error
+}
+
+/** Recompute a song's rating summary from a complete review list. */
+export function summarise(reviews: ReviewWithAuthor[]) {
+  if (reviews.length === 0) return { ratingAvg: null, reviewCount: 0 }
+  return {
+    ratingAvg: reviews.reduce((s, r) => s + r.rating, 0) / reviews.length,
+    reviewCount: reviews.length,
+  }
 }

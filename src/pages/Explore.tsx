@@ -233,6 +233,7 @@ export default function Explore() {
               {results.songs.map((song, i) => (
                 <MediaCard
                   key={song.id}
+                  to={`/song/${song.id}`}
                   title={song.title}
                   subtitle={song.artistName}
                   coverUrl={song.coverUrl}

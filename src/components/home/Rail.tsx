@@ -62,6 +62,7 @@ export function Rail({
         {songs.map((song, i) => (
           <li key={song.id} className={`${CARD_WIDTH} shrink-0 snap-start`}>
             <MediaCard
+              to={`/song/${song.id}`}
               title={song.title}
               subtitle={song.artistName}
               coverUrl={song.coverUrl}
