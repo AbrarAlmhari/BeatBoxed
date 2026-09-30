@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Loader2, PenLine, Trash2 } from 'lucide-react'
 import { ReviewCard } from './ReviewCard'
@@ -9,24 +9,83 @@ import { useProfile } from '@/hooks/useProfile'
 import { deleteReview, getSongReviews, upsertReview } from '@/lib/catalog'
 import type { ReviewWithAuthor } from '@/lib/types'
 
+const PAGE_SIZE = 10
+
 export function ReviewsTab({
   songId,
-  reviews,
-  setReviews,
+  onStatsChange,
 }: {
   songId: string
-  reviews: ReviewWithAuthor[] | null
-  setReviews: (next: ReviewWithAuthor[]) => void
+  /** Fires after any successful write so the header average can refresh. */
+  onStatsChange: () => void
 }) {
   const { user } = useAuth()
   const { displayName } = useProfile()
   const navigate = useNavigate()
   const location = useLocation()
 
+  const [reviews, setReviews] = useState<ReviewWithAuthor[] | null>(null)
+  const [total, setTotal] = useState(0)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [formOpen, setFormOpen] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    setReviews(null)
+    getSongReviews(songId, { limit: PAGE_SIZE, viewerId: user?.id })
+      .then(({ reviews: r, total: t }) => {
+        if (cancelled) return
+        setReviews(r)
+        setTotal(t)
+      })
+      .catch((err: unknown) => {
+        console.error('[beatboxed] reviews lookup failed:', err)
+        if (!cancelled) {
+          setReviews([])
+          setTotal(0)
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [songId, user?.id])
+
+  /** Re-read everything already on screen, so a write can't desync the list. */
+  const refreshLoaded = useCallback(
+    async (loadedCount: number) => {
+      const { reviews: r, total: t } = await getSongReviews(songId, {
+        limit: Math.max(loadedCount, PAGE_SIZE),
+        viewerId: user?.id,
+      })
+      setReviews(r)
+      setTotal(t)
+    },
+    [songId, user?.id]
+  )
+
+  async function loadMore() {
+    if (!reviews) return
+    setLoadingMore(true)
+    try {
+      const { reviews: next, total: t } = await getSongReviews(songId, {
+        limit: PAGE_SIZE,
+        offset: reviews.length,
+        viewerId: user?.id,
+      })
+      // Guard against a row shifting pages if someone posts mid-scroll.
+      const seen = new Set(reviews.map((r) => r.id))
+      setReviews([...reviews, ...next.filter((r) => !seen.has(r.id))])
+      setTotal(t)
+    } catch (err) {
+      console.error('[beatboxed] load more failed:', err)
+      setError("Couldn't load more reviews.")
+    } finally {
+      setLoadingMore(false)
+    }
+  }
 
   const myReview = user ? (reviews?.find((r) => r.userId === user.id) ?? null) : null
   const others = reviews?.filter((r) => r.userId !== user?.id) ?? []
@@ -41,7 +100,11 @@ export function ReviewsTab({
     setFormOpen(true)
   }
 
-  async function handleSubmit(rating: number, body: string | null) {
+  async function handleSubmit(
+    rating: number,
+    title: string | null,
+    body: string | null
+  ) {
     if (!user) return
     const isEdit = Boolean(myReview)
     const previous = reviews ?? []
@@ -52,9 +115,14 @@ export function ReviewsTab({
       id: myReview?.id ?? `pending-${user.id}`,
       userId: user.id,
       rating,
+      title,
       body,
       createdAt: myReview?.createdAt ?? new Date().toISOString(),
       edited: isEdit,
+      // Editing keeps existing engagement; a new review starts at zero.
+      likeCount: myReview?.likeCount ?? 0,
+      likedByMe: myReview?.likedByMe ?? false,
+      commentCount: myReview?.commentCount ?? 0,
       author: myReview?.author ?? {
         username: null,
         displayName,
@@ -66,13 +134,23 @@ export function ReviewsTab({
         ? previous.map((r) => (r.userId === user.id ? optimistic : r))
         : [optimistic, ...previous]
     )
+    if (!isEdit) setTotal((t) => t + 1)
 
     try {
-      await upsertReview({ songId, userId: user.id, rating, body, isEdit })
+      await upsertReview({
+        songId,
+        userId: user.id,
+        rating,
+        title,
+        body,
+        isEdit,
+      })
       setFormOpen(false)
-      setReviews(await getSongReviews(songId))
+      await refreshLoaded(previous.length + (isEdit ? 0 : 1))
+      onStatsChange()
     } catch (err) {
       setReviews(previous)
+      if (!isEdit) setTotal((t) => Math.max(0, t - 1))
       throw err // ReviewForm keeps itself open and shows the message
     }
   }
@@ -83,13 +161,16 @@ export function ReviewsTab({
     setConfirmingDelete(false)
     setDeleting(true)
     setReviews(previous.filter((r) => r.userId !== user.id))
+    setTotal((t) => Math.max(0, t - 1))
 
     try {
       await deleteReview(songId, user.id)
-      setReviews(await getSongReviews(songId))
+      await refreshLoaded(Math.max(previous.length - 1, PAGE_SIZE))
+      onStatsChange()
     } catch (err) {
       console.error('[beatboxed] review delete failed:', err)
       setReviews(previous)
+      setTotal((t) => t + 1)
       setError("Couldn't delete your review. Try again.")
     } finally {
       setDeleting(false)
@@ -105,8 +186,10 @@ export function ReviewsTab({
     )
   }
 
+  const hasMore = reviews.length < total
+
   return (
-    <section className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4">
       {error && <FormAlert tone="error">{error}</FormAlert>}
 
       {formOpen ? (
@@ -187,6 +270,20 @@ export function ReviewsTab({
       ) : (
         others.map((r) => <ReviewCard key={r.id} review={r} />)
       )}
-    </section>
+
+      {hasMore && (
+        <button
+          type="button"
+          onClick={loadMore}
+          disabled={loadingMore}
+          className="flex items-center justify-center gap-2 rounded-button bg-surface px-4 py-3 text-button text-muted-foreground shadow-card transition-all duration-200 ease-soft hover:bg-surface-2 hover:text-foreground active:scale-[0.99] disabled:opacity-60"
+        >
+          {loadingMore && (
+            <Loader2 className="size-4 animate-spin" strokeWidth={2} aria-hidden />
+          )}
+          Load more reviews ({total - reviews.length} left)
+        </button>
+      )}
+    </div>
   )
 }

@@ -3,6 +3,7 @@ import type {
   ArtistCardModel,
   LyricMatch,
   LyricsResult,
+  ReviewComment,
   ReviewWithAuthor,
   SearchMode,
   SearchResults,
@@ -222,13 +223,55 @@ export const popularSearches = [
 /** Below this many local hits, reach out to Spotify and cache more. */
 const REMOTE_TOPUP_THRESHOLD = 5
 
+/** Same columns, but inner-joined so we can filter on the artist's name. */
+const SONG_SELECT_BY_ARTIST =
+  'id, title, genre, artist_id, artists!inner(name), albums(cover_url)'
+
+/**
+ * Matches the query against the song title OR the artist name.
+ *
+ * Title-only matching was the reason the Spotify top-up looked broken: a
+ * search for "Radiohead" found no song *titled* Radiohead, triggered the
+ * top-up, cached the songs, then re-queried by title and still found nothing.
+ * PostgREST can't OR across a base column and an embedded one in a single
+ * filter, so this is two queries merged by id.
+ */
 async function localSongs(query: string, genre: string | null) {
-  let q = requireClient().from('songs').select(SONG_SELECT).limit(40)
-  if (genre) q = q.eq('genre', genre)
-  if (query) q = q.ilike('title', `%${query}%`)
-  const { data, error } = await q
-  if (error) throw error
-  return (data ?? []) as unknown as SongRow[]
+  const client = requireClient()
+
+  const byTitleQuery = () => {
+    let q = client.from('songs').select(SONG_SELECT).limit(40)
+    if (genre) q = q.eq('genre', genre)
+    return q
+  }
+
+  if (!query) {
+    const { data, error } = await byTitleQuery()
+    if (error) throw error
+    return (data ?? []) as unknown as SongRow[]
+  }
+
+  const byArtistQuery = () => {
+    let q = client.from('songs').select(SONG_SELECT_BY_ARTIST).limit(40)
+    if (genre) q = q.eq('genre', genre)
+    return q.ilike('artists.name', `%${query}%`)
+  }
+
+  const [titleRes, artistRes] = await Promise.all([
+    byTitleQuery().ilike('title', `%${query}%`),
+    byArtistQuery(),
+  ])
+  if (titleRes.error) throw titleRes.error
+  if (artistRes.error) throw artistRes.error
+
+  const merged = new Map<string, SongRow>()
+  for (const row of [
+    ...((titleRes.data ?? []) as unknown as SongRow[]),
+    ...((artistRes.data ?? []) as unknown as SongRow[]),
+  ]) {
+    merged.set(row.id, row)
+  }
+  return [...merged.values()]
 }
 
 async function localArtists(query: string, genre: string | null) {
@@ -250,17 +293,40 @@ async function localArtists(query: string, genre: string | null) {
   )
 }
 
-/** Fire the cache-fill Edge Function; failures are non-fatal (local results still render). */
-async function topUpFromSpotify(query: string, type: 'track' | 'artist') {
+type TopUpResult = { ok: boolean; message?: string }
+
+/**
+ * Fire the cache-fill Edge Function.
+ *
+ * supabase-js attaches the signed-in user's access token to functions.invoke
+ * automatically, which is what spotify-search's JWT verification wants — no
+ * manual Authorization header needed.
+ *
+ * Failures are non-fatal (local results still render) but must not be silent:
+ * the message is returned so the UI can say the catalog top-up didn't happen.
+ */
+async function topUpFromSpotify(
+  query: string,
+  type: 'track' | 'artist'
+): Promise<TopUpResult> {
   try {
-    const { error } = await requireClient().functions.invoke('spotify-search', {
-      body: { q: query, type },
-    })
-    if (error) console.warn('[beatboxed] spotify-search failed:', error.message)
-    return !error
+    const { data, error } = await requireClient().functions.invoke(
+      'spotify-search',
+      { body: { q: query, type } }
+    )
+    if (error) {
+      console.error('[beatboxed] spotify-search failed:', error)
+      return { ok: false, message: "Couldn't reach Spotify for more results." }
+    }
+    // The function answers 200 with an { error } body for upstream problems.
+    if (data?.error) {
+      console.error('[beatboxed] spotify-search returned an error:', data.error)
+      return { ok: false, message: `Spotify lookup failed: ${data.error}` }
+    }
+    return { ok: true }
   } catch (err) {
-    console.warn('[beatboxed] spotify-search unreachable:', err)
-    return false
+    console.error('[beatboxed] spotify-search unreachable:', err)
+    return { ok: false, message: "Couldn't reach Spotify for more results." }
   }
 }
 
@@ -275,28 +341,39 @@ export async function searchCatalog(
 ): Promise<SearchResults> {
   const trimmed = query.trim()
 
+  // Rows cached from a user search carry no genre (we don't guess one), so a
+  // top-up can never satisfy an active genre filter — skip it and say why
+  // rather than firing a request whose results are guaranteed to be hidden.
+  const canTopUp = trimmed.length > 0 && genre === null
+  const genreBlockedTopUp = trimmed.length > 0 && genre !== null
+  let warning: string | undefined
+
   if (mode === 'artists') {
     let artists = await localArtists(trimmed, genre)
-    if (trimmed && artists.length < REMOTE_TOPUP_THRESHOLD) {
-      if (await topUpFromSpotify(trimmed, 'artist')) {
-        artists = await localArtists(trimmed, genre)
-      }
+    if (canTopUp && artists.length < REMOTE_TOPUP_THRESHOLD) {
+      const top = await topUpFromSpotify(trimmed, 'artist')
+      if (top.ok) artists = await localArtists(trimmed, genre)
+      else warning = top.message
+    } else if (genreBlockedTopUp && artists.length < REMOTE_TOPUP_THRESHOLD) {
+      warning = 'Showing cached results only. Clear the genre filter to search Spotify.'
     }
-    return { mode: 'artists', artists }
+    return { mode: 'artists', artists, warning }
   }
 
   let rows = await localSongs(trimmed, genre)
-  if (trimmed && rows.length < REMOTE_TOPUP_THRESHOLD) {
-    if (await topUpFromSpotify(trimmed, 'track')) {
-      rows = await localSongs(trimmed, genre)
-    }
+  if (canTopUp && rows.length < REMOTE_TOPUP_THRESHOLD) {
+    const top = await topUpFromSpotify(trimmed, 'track')
+    if (top.ok) rows = await localSongs(trimmed, genre)
+    else warning = top.message
+  } else if (genreBlockedTopUp && rows.length < REMOTE_TOPUP_THRESHOLD) {
+    warning = 'Showing cached results only. Clear the genre filter to search Spotify.'
   }
 
   if (mode === 'lyrics') {
     // lrclib matches a specific track, so lyrics search means: find candidate
     // songs, then ask lyrics-lookup for each and keep the lines that match.
     const lyrics: LyricMatch[] = []
-    if (!trimmed) return { mode: 'lyrics', lyrics }
+    if (!trimmed) return { mode: 'lyrics', lyrics, warning }
 
     const client = requireClient()
     const candidates = rows.slice(0, 8)
@@ -328,10 +405,10 @@ export async function searchCatalog(
         }
       }
     }
-    return { mode: 'lyrics', lyrics }
+    return { mode: 'lyrics', lyrics, warning }
   }
 
-  return { mode: 'songs', songs: await decorate(rows) }
+  return { mode: 'songs', songs: await decorate(rows), warning }
 }
 
 /* -------------------------------------------------------------- song detail */
@@ -402,9 +479,13 @@ type ReviewRow = {
   id: string
   user_id: string
   rating: number
+  title: string | null
   body: string | null
   created_at: string
   edited: boolean
+  /** PostgREST aggregate embeds come back as [{ count: n }]. */
+  review_likes?: { count: number }[]
+  review_comments?: { count: number }[]
   profiles: Rel<{
     username: string | null
     display_name: string | null
@@ -412,35 +493,83 @@ type ReviewRow = {
   }>
 }
 
-export async function getSongReviews(songId: string): Promise<ReviewWithAuthor[]> {
-  const { data, error } = await requireClient()
+// review_likes and review_comments both reference profiles, which gives
+// reviews a second path to that table — PostgREST then rejects a bare
+// `profiles(...)` embed as ambiguous (PGRST201). Name the FK to pin it.
+const REVIEW_SELECT =
+  'id, user_id, rating, title, body, created_at, edited, ' +
+  'profiles!reviews_user_id_fkey(username, display_name, avatar_url), ' +
+  'review_likes(count), review_comments(count)'
+
+/**
+ * One page of reviews, newest first, plus the true total.
+ *
+ * The page is partial, so the header's average must NOT be derived from it —
+ * use getSongRatingStats() for that. Averaging a 10-row page would show the
+ * wrong number as soon as a song has more reviews than fit on one page.
+ */
+export async function getSongReviews(
+  songId: string,
+  opts: { limit?: number; offset?: number; viewerId?: string } = {}
+): Promise<{ reviews: ReviewWithAuthor[]; total: number }> {
+  const limit = opts.limit ?? 10
+  const offset = opts.offset ?? 0
+  const client = requireClient()
+
+  const { data, error, count } = await client
     .from('reviews')
-    .select(
-      'id, user_id, rating, body, created_at, edited, ' +
-        'profiles(username, display_name, avatar_url)'
-    )
+    .select(REVIEW_SELECT, { count: 'exact' })
     .eq('song_id', songId)
     .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1)
   if (error) throw error
 
-  return ((data ?? []) as unknown as ReviewRow[]).map((r) => {
-    const p = one(r.profiles)
-    return {
-      id: r.id,
-      userId: r.user_id,
-      rating: r.rating,
-      body: r.body,
-      createdAt: r.created_at,
-      edited: r.edited,
-      author: p
-        ? {
-            username: p.username,
-            displayName: p.display_name,
-            avatarUrl: p.avatar_url,
-          }
-        : null,
-    }
-  })
+  const rows = (data ?? []) as unknown as ReviewRow[]
+
+  // Which of these the viewer has liked. One extra query beats embedding a
+  // filtered relation per row.
+  let likedIds = new Set<string>()
+  if (opts.viewerId && rows.length > 0) {
+    const { data: likes, error: likeErr } = await client
+      .from('review_likes')
+      .select('review_id')
+      .eq('user_id', opts.viewerId)
+      .in('review_id', rows.map((r) => r.id))
+    if (likeErr) throw likeErr
+    likedIds = new Set((likes ?? []).map((l) => l.review_id))
+  }
+
+  const reviews = rows.map((r) => toReviewModel(r, likedIds.has(r.id)))
+  return { reviews, total: count ?? reviews.length }
+}
+
+function toReviewModel(r: ReviewRow, likedByMe: boolean): ReviewWithAuthor {
+  const p = one(r.profiles)
+  return {
+    id: r.id,
+    userId: r.user_id,
+    rating: r.rating,
+    title: r.title,
+    body: r.body,
+    createdAt: r.created_at,
+    edited: r.edited,
+    likeCount: r.review_likes?.[0]?.count ?? 0,
+    likedByMe,
+    commentCount: r.review_comments?.[0]?.count ?? 0,
+    author: p
+      ? {
+          username: p.username,
+          displayName: p.display_name,
+          avatarUrl: p.avatar_url,
+        }
+      : null,
+  }
+}
+
+/** Authoritative rating summary for one song, computed server-side over all rows. */
+export async function getSongRatingStats(songId: string) {
+  const stats = (await ratingsFor([songId])).get(songId)
+  return { ratingAvg: stats?.avg ?? null, reviewCount: stats?.count ?? 0 }
 }
 
 /** Strip LRC timestamps: "[00:12.34] line" -> "line". */
@@ -494,6 +623,7 @@ export async function upsertReview(args: {
   songId: string
   userId: string
   rating: number
+  title: string | null
   body: string | null
   isEdit: boolean
 }): Promise<ReviewWithAuthor> {
@@ -501,6 +631,7 @@ export async function upsertReview(args: {
     song_id: args.songId,
     user_id: args.userId,
     rating: args.rating,
+    title: args.title?.trim() ? args.title.trim() : null,
     body: args.body?.trim() ? args.body.trim() : null,
   }
   if (args.isEdit) {
@@ -511,30 +642,12 @@ export async function upsertReview(args: {
   const { data, error } = await requireClient()
     .from('reviews')
     .upsert(row, { onConflict: 'song_id,user_id' })
-    .select(
-      'id, user_id, rating, body, created_at, edited, ' +
-        'profiles(username, display_name, avatar_url)'
-    )
+    .select(REVIEW_SELECT)
     .single()
   if (error) throw error
 
-  const r = data as unknown as ReviewRow
-  const p = one(r.profiles)
-  return {
-    id: r.id,
-    userId: r.user_id,
-    rating: r.rating,
-    body: r.body,
-    createdAt: r.created_at,
-    edited: r.edited,
-    author: p
-      ? {
-          username: p.username,
-          displayName: p.display_name,
-          avatarUrl: p.avatar_url,
-        }
-      : null,
-  }
+  // A freshly written review can't already be liked by its author.
+  return toReviewModel(data as unknown as ReviewRow, false)
 }
 
 export async function deleteReview(songId: string, userId: string) {
@@ -547,11 +660,101 @@ export async function deleteReview(songId: string, userId: string) {
   if (error) throw error
 }
 
-/** Recompute a song's rating summary from a complete review list. */
-export function summarise(reviews: ReviewWithAuthor[]) {
-  if (reviews.length === 0) return { ratingAvg: null, reviewCount: 0 }
-  return {
-    ratingAvg: reviews.reduce((s, r) => s + r.rating, 0) / reviews.length,
-    reviewCount: reviews.length,
+
+/* --------------------------------------------------------- likes & comments */
+
+/**
+ * A like is binary — insert to add, delete to remove. There's no update path
+ * and no policy for one, which is why the table's primary key is the pair.
+ */
+export async function setReviewLike(
+  reviewId: string,
+  userId: string,
+  liked: boolean
+) {
+  const client = requireClient()
+  if (liked) {
+    const { error } = await client
+      .from('review_likes')
+      .insert({ review_id: reviewId, user_id: userId })
+    // Racing a double-tap hits the composite PK; already-liked is success.
+    if (error && error.code !== '23505') throw error
+  } else {
+    const { error } = await client
+      .from('review_likes')
+      .delete()
+      .eq('review_id', reviewId)
+      .eq('user_id', userId)
+    if (error) throw error
   }
+}
+
+type CommentRow = {
+  id: string
+  review_id: string
+  user_id: string
+  body: string
+  created_at: string
+  edited: boolean
+  profiles: Rel<{
+    username: string | null
+    display_name: string | null
+    avatar_url: string | null
+  }>
+}
+
+const COMMENT_SELECT =
+  'id, review_id, user_id, body, created_at, edited, ' +
+  'profiles(username, display_name, avatar_url)'
+
+function toCommentModel(c: CommentRow): ReviewComment {
+  const p = one(c.profiles)
+  return {
+    id: c.id,
+    reviewId: c.review_id,
+    userId: c.user_id,
+    body: c.body,
+    createdAt: c.created_at,
+    edited: c.edited,
+    author: p
+      ? {
+          username: p.username,
+          displayName: p.display_name,
+          avatarUrl: p.avatar_url,
+        }
+      : null,
+  }
+}
+
+/** Oldest first — a comment thread reads as a conversation, not a feed. */
+export async function getReviewComments(reviewId: string) {
+  const { data, error } = await requireClient()
+    .from('review_comments')
+    .select(COMMENT_SELECT)
+    .eq('review_id', reviewId)
+    .order('created_at', { ascending: true })
+  if (error) throw error
+  return ((data ?? []) as unknown as CommentRow[]).map(toCommentModel)
+}
+
+export async function addReviewComment(
+  reviewId: string,
+  userId: string,
+  body: string
+) {
+  const { data, error } = await requireClient()
+    .from('review_comments')
+    .insert({ review_id: reviewId, user_id: userId, body: body.trim() })
+    .select(COMMENT_SELECT)
+    .single()
+  if (error) throw error
+  return toCommentModel(data as unknown as CommentRow)
+}
+
+export async function deleteReviewComment(commentId: string) {
+  const { error } = await requireClient()
+    .from('review_comments')
+    .delete()
+    .eq('id', commentId)
+  if (error) throw error
 }

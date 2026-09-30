@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Loader2, Search, SearchX, X } from 'lucide-react'
+import { AlertTriangle, Loader2, Search, SearchX, X } from 'lucide-react'
 import { Chip } from '@/components/ui/Chip'
 import { MediaCard } from '@/components/ui/MediaCard'
 import { GenreTile } from '@/components/explore/GenreTile'
@@ -18,6 +18,22 @@ const MODES: { value: SearchMode; label: string }[] = [
   { value: 'artists', label: 'Artists' },
   { value: 'lyrics', label: 'Lyrics' },
 ]
+
+function TopUpWarning({ message }: { message: string }) {
+  return (
+    <div
+      role="status"
+      className="animate-fade-in flex items-start gap-2.5 rounded-button bg-surface-2 px-3.5 py-3 text-secondary"
+    >
+      <AlertTriangle
+        className="mt-px size-[18px] shrink-0 text-star"
+        strokeWidth={2}
+        aria-hidden
+      />
+      <span className="text-muted-foreground">{message}</span>
+    </div>
+  )
+}
 
 export default function Explore() {
   const inputRef = useRef<HTMLInputElement>(null)
@@ -203,20 +219,24 @@ export default function Explore() {
           <p className="text-body text-danger">{error}</p>
         </div>
       ) : resultCount === 0 ? (
-        <div className="flex flex-col items-center gap-3 rounded-card bg-surface px-6 py-14 text-center">
-          <SearchX
-            className="size-7 text-muted-foreground"
-            strokeWidth={1.5}
-            aria-hidden
-          />
-          <p className="text-card-title">No matches</p>
-          <p className="max-w-sm text-body text-muted-foreground">
-            Nothing here for {debouncedQuery ? `"${debouncedQuery}"` : 'that filter'}.
-            Try a different spelling, or switch search mode.
-          </p>
+        <div className="flex flex-col gap-3">
+          {results?.warning && <TopUpWarning message={results.warning} />}
+          <div className="flex flex-col items-center gap-3 rounded-card bg-surface px-6 py-14 text-center">
+            <SearchX
+              className="size-7 text-muted-foreground"
+              strokeWidth={1.5}
+              aria-hidden
+            />
+            <p className="text-card-title">No matches</p>
+            <p className="max-w-sm text-body text-muted-foreground">
+              Nothing here for {debouncedQuery ? `"${debouncedQuery}"` : 'that filter'}.
+              Try a different spelling, or switch search mode.
+            </p>
+          </div>
         </div>
       ) : (
         <section className="flex flex-col gap-4">
+          {results?.warning && <TopUpWarning message={results.warning} />}
           <h2 className="flex items-center gap-2 text-section-title">
             {resultCount} {resultCount === 1 ? 'result' : 'results'}
             {searching && (

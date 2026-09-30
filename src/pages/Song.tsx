@@ -1,19 +1,26 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, Disc3, Loader2, MicVocal, SearchX } from 'lucide-react'
+import {
+  ArrowLeft,
+  ChevronDown,
+  Disc3,
+  Loader2,
+  MicVocal,
+  SearchX,
+} from 'lucide-react'
 import { Chip } from '@/components/ui/Chip'
 import { StarRating } from '@/components/ui/StarRating'
 import { ReviewsTab } from '@/components/song/ReviewsTab'
 import { tintFor } from '@/components/explore/tint'
-import { getLyrics, getSongDetail, getSongReviews, summarise } from '@/lib/catalog'
-import type { LyricsResult, ReviewWithAuthor, SongDetail } from '@/lib/types'
+import { getLyrics, getSongDetail, getSongRatingStats } from '@/lib/catalog'
+import type { LyricsResult, SongDetail } from '@/lib/types'
 
-type Tab = 'about' | 'lyrics' | 'reviews'
+type Section = 'about' | 'lyrics' | 'reviews'
 
-const TABS: { value: Tab; label: string }[] = [
-  { value: 'about', label: 'About' },
-  { value: 'lyrics', label: 'Lyrics' },
-  { value: 'reviews', label: 'Reviews' },
+const SECTIONS: { id: Section; label: string }[] = [
+  { id: 'about', label: 'About' },
+  { id: 'lyrics', label: 'Lyrics' },
+  { id: 'reviews', label: 'Reviews' },
 ]
 
 function formatDuration(ms: number) {
@@ -38,15 +45,28 @@ export default function Song() {
   const [song, setSong] = useState<SongDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [tab, setTab] = useState<Tab>('about')
+  const [stats, setStats] = useState<{
+    ratingAvg: number | null
+    reviewCount: number
+  }>({ ratingAvg: null, reviewCount: 0 })
 
+  const [lyricsOpen, setLyricsOpen] = useState(false)
   const [lyrics, setLyrics] = useState<LyricsResult | null>(null)
   const [lyricsLoading, setLyricsLoading] = useState(false)
   // Which song we've already requested lyrics for. A state flag can't do this
   // job: setting it re-runs the effect, whose cleanup cancels the in-flight
   // request, so the spinner never clears.
   const lyricsRequestedFor = useRef<string | null>(null)
-  const [reviews, setReviews] = useState<ReviewWithAuthor[] | null>(null)
+
+  const [active, setActive] = useState<Section>('about')
+  const aboutRef = useRef<HTMLElement>(null)
+  const lyricsRef = useRef<HTMLElement>(null)
+  const reviewsRef = useRef<HTMLElement>(null)
+  const sectionRefs: Record<Section, React.RefObject<HTMLElement | null>> = {
+    about: aboutRef,
+    lyrics: lyricsRef,
+    reviews: reviewsRef,
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -54,12 +74,14 @@ export default function Song() {
     setError(null)
     setSong(null)
     setLyrics(null)
-    setReviews(null)
-    setTab('about')
+    setLyricsOpen(false)
+    setActive('about')
 
     getSongDetail(id)
       .then((s) => {
-        if (!cancelled) setSong(s)
+        if (cancelled) return
+        setSong(s)
+        if (s) setStats({ ratingAvg: s.ratingAvg, reviewCount: s.reviewCount })
       })
       .catch((err: unknown) => {
         if (cancelled) return
@@ -75,9 +97,10 @@ export default function Song() {
     }
   }, [id])
 
-  // Lyrics cost an Edge Function round trip, so only fetch when the tab opens.
+  // Lyrics cost an Edge Function round trip, so fetch on first expand only.
+  // The result stays in state, so collapsing and reopening doesn't refetch.
   useEffect(() => {
-    if (tab !== 'lyrics' || !song?.artist) return
+    if (!lyricsOpen || !song?.artist) return
     if (lyricsRequestedFor.current === song.id) return
     lyricsRequestedFor.current = song.id
 
@@ -97,23 +120,45 @@ export default function Song() {
     return () => {
       cancelled = true
     }
-  }, [tab, song])
+  }, [lyricsOpen, song])
 
+  // Scroll-spy. The top inset clears the sticky TopBar (~64px) plus the chip
+  // rail; the bottom inset keeps the "active" band in the upper viewport so a
+  // section lights up as it arrives rather than when it fills the screen.
   useEffect(() => {
-    if (tab !== 'reviews' || !song || reviews) return
-    let cancelled = false
-    getSongReviews(song.id)
-      .then((r) => {
-        if (!cancelled) setReviews(r)
-      })
-      .catch((err: unknown) => {
-        console.error('[beatboxed] reviews lookup failed:', err)
-        if (!cancelled) setReviews([])
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [tab, song, reviews])
+    if (!song) return
+    const els = [aboutRef.current, lyricsRef.current, reviewsRef.current].filter(
+      (el): el is HTMLElement => Boolean(el)
+    )
+    if (els.length === 0) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((e) => e.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)
+        if (visible[0]) setActive(visible[0].target.id as Section)
+      },
+      { rootMargin: '-136px 0px -55% 0px', threshold: 0 }
+    )
+    els.forEach((el) => observer.observe(el))
+    return () => observer.disconnect()
+  }, [song])
+
+  const refreshStats = useCallback(() => {
+    if (!song) return
+    getSongRatingStats(song.id)
+      .then(setStats)
+      .catch((err) => console.warn('[beatboxed] rating refresh failed:', err))
+  }, [song])
+
+  function jumpTo(section: Section) {
+    setActive(section)
+    sectionRefs[section].current?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start',
+    })
+  }
 
   if (loading) {
     return (
@@ -155,12 +200,6 @@ export default function Song() {
       </div>
     )
   }
-
-  // Once reviews are loaded they are the source of truth for the header, so
-  // posting or deleting updates the average without a separate refetch.
-  const stats = reviews
-    ? summarise(reviews)
-    : { ratingAvg: song.ratingAvg, reviewCount: song.reviewCount }
 
   const tint = tintFor(song.id)
   const releaseDate = formatReleaseDate(song.album?.releaseDate ?? null)
@@ -240,19 +279,21 @@ export default function Song() {
         </div>
       </header>
 
-      <div
-        className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
-        role="tablist"
-        aria-label="Song details"
+      {/* Quick-jump nav. Docks under the sticky TopBar (top-0, ~64px tall) and
+          sits below it in z-order so the two never overlap awkwardly. */}
+      <nav
+        aria-label="Jump to section"
+        className="no-scrollbar sticky top-16 z-10 -mx-4 flex gap-2 overflow-x-auto border-b border-white/5 bg-background/85 px-4 py-3 backdrop-blur-xl sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
       >
-        {TABS.map((t) => (
-          <Chip key={t.value} active={tab === t.value} onClick={() => setTab(t.value)}>
-            {t.label}
+        {SECTIONS.map((s) => (
+          <Chip key={s.id} active={active === s.id} onClick={() => jumpTo(s.id)}>
+            {s.label}
           </Chip>
         ))}
-      </div>
+      </nav>
 
-      {tab === 'about' && (
+      <section id="about" ref={aboutRef} aria-label="About" className="scroll-mt-36">
+        <h2 className="mb-4 text-section-title">About</h2>
         <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {facts.map(([label, value]) => (
             <div key={label} className="rounded-card bg-surface p-4 shadow-card">
@@ -263,46 +304,71 @@ export default function Song() {
             </div>
           ))}
         </dl>
-      )}
+      </section>
 
-      {tab === 'lyrics' && (
-        <section>
-          {lyricsLoading ? (
-            <div className="flex items-center gap-2 px-1 text-body text-muted-foreground">
-              <Loader2 className="size-4 animate-spin" strokeWidth={2} aria-hidden />
-              Looking up lyrics…
-            </div>
-          ) : lyrics?.status === 'found' ? (
-            <div className="flex flex-col gap-4">
-              {lyrics.synced && (
-                <p className="text-meta text-muted-foreground">
-                  Timed lyrics are available, but line highlighting needs the
-                  player, which isn't built yet.
-                </p>
-              )}
-              <div className="flex flex-col gap-1.5 rounded-card bg-surface p-5 shadow-card">
-                {lyrics.lines.map((line, i) => (
-                  <p key={i} dir="auto" className="text-body">
-                    {line}
-                  </p>
-                ))}
+      <section id="lyrics" ref={lyricsRef} aria-label="Lyrics" className="scroll-mt-36">
+        <button
+          type="button"
+          onClick={() => setLyricsOpen((v) => !v)}
+          aria-expanded={lyricsOpen}
+          aria-controls="lyrics-panel"
+          className="flex w-full items-center justify-between gap-3 rounded-card bg-surface px-5 py-4 text-left shadow-card transition-colors duration-200 ease-soft hover:bg-surface-2"
+        >
+          <span className="text-section-title">Lyrics</span>
+          <ChevronDown
+            className={`size-5 shrink-0 text-muted-foreground transition-transform duration-200 ease-soft ${
+              lyricsOpen ? 'rotate-180' : ''
+            }`}
+            strokeWidth={2}
+            aria-hidden
+          />
+        </button>
+
+        {lyricsOpen && (
+          <div id="lyrics-panel" className="animate-fade-in mt-3">
+            {lyricsLoading ? (
+              <div className="flex items-center gap-2 px-1 text-body text-muted-foreground">
+                <Loader2 className="size-4 animate-spin" strokeWidth={2} aria-hidden />
+                Looking up lyrics…
               </div>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center gap-3 rounded-card bg-surface px-6 py-14 text-center">
-              <MicVocal className="size-7 text-muted-foreground" strokeWidth={1.5} aria-hidden />
-              <p className="text-card-title">Lyrics not found</p>
-              <p className="max-w-sm text-body text-muted-foreground">
-                lrclib doesn't have lyrics for this track yet.
-              </p>
-            </div>
-          )}
-        </section>
-      )}
+            ) : lyrics?.status === 'found' ? (
+              <div className="flex flex-col gap-4">
+                {lyrics.synced && (
+                  <p className="text-meta text-muted-foreground">
+                    Timed lyrics are available, but line highlighting needs the
+                    player, which isn't built yet.
+                  </p>
+                )}
+                <div className="flex flex-col gap-1.5 rounded-card bg-surface p-5 shadow-card">
+                  {lyrics.lines.map((line, i) => (
+                    <p key={i} dir="auto" className="text-body">
+                      {line}
+                    </p>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-3 rounded-card bg-surface px-6 py-14 text-center">
+                <MicVocal className="size-7 text-muted-foreground" strokeWidth={1.5} aria-hidden />
+                <p className="text-card-title">Lyrics not found</p>
+                <p className="max-w-sm text-body text-muted-foreground">
+                  lrclib doesn't have lyrics for this track yet.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+      </section>
 
-      {tab === 'reviews' && (
-        <ReviewsTab songId={song.id} reviews={reviews} setReviews={setReviews} />
-      )}
+      <section
+        id="reviews"
+        ref={reviewsRef}
+        aria-label="Reviews"
+        className="scroll-mt-36 pb-4"
+      >
+        <h2 className="mb-4 text-section-title">Reviews</h2>
+        <ReviewsTab songId={song.id} onStatsChange={refreshStats} />
+      </section>
     </div>
   )
 }

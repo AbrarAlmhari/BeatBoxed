@@ -68,10 +68,12 @@ export type LyricMatch = {
 
 export type SearchMode = 'songs' | 'artists' | 'lyrics'
 
+/** `warning` carries a non-fatal problem (e.g. the Spotify top-up failed) so
+ *  the UI can say so instead of silently showing fewer results. */
 export type SearchResults =
-  | { mode: 'songs'; songs: SongCardModel[] }
-  | { mode: 'artists'; artists: ArtistCardModel[] }
-  | { mode: 'lyrics'; lyrics: LyricMatch[] }
+  | { mode: 'songs'; songs: SongCardModel[]; warning?: string }
+  | { mode: 'artists'; artists: ArtistCardModel[]; warning?: string }
+  | { mode: 'lyrics'; lyrics: LyricMatch[]; warning?: string }
 
 /** A song plus its cached artist/album context, for the song detail page. */
 export type SongDetail = {
@@ -96,9 +98,14 @@ export type ReviewWithAuthor = {
   /** Needed to tell the signed-in user's own review apart from everyone else's. */
   userId: string
   rating: number
+  title: string | null
   body: string | null
   createdAt: string
   edited: boolean
+  likeCount: number
+  /** False when signed out — nobody's like state to show. */
+  likedByMe: boolean
+  commentCount: number
   author: {
     username: string | null
     displayName: string | null
@@ -109,3 +116,17 @@ export type ReviewWithAuthor = {
 export type LyricsResult =
   | { status: 'found'; lines: string[]; synced: boolean }
   | { status: 'empty' }
+
+export type ReviewComment = {
+  id: string
+  reviewId: string
+  userId: string
+  body: string
+  createdAt: string
+  edited: boolean
+  author: {
+    username: string | null
+    displayName: string | null
+    avatarUrl: string | null
+  } | null
+}
