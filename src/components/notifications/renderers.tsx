@@ -8,6 +8,17 @@ export type RenderedNotification = {
   href: string | null
 }
 
+/** Drives the filter chips. 'artists' has no producers yet, by design. */
+export type NotificationCategory = 'friends' | 'artists' | 'beatboxed'
+
+/** type -> which chip it belongs under. */
+export const NOTIFICATION_CATEGORIES: Record<string, NotificationCategory> = {
+  friend_accepted: 'friends',
+  // Reserved for the next wave — a trigger plus a renderer is all they need:
+  // artist_release: 'artists',
+  // song_added:     'artists',
+}
+
 /**
  * type -> renderer. Adding review_liked or artist_release later means a new
  * trigger plus one entry here; nothing else changes.

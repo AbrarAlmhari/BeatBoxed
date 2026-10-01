@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import {
-  ArrowLeft,
   ChevronDown,
   Disc3,
   Heart,
@@ -12,6 +11,7 @@ import {
 import { useLocation, useNavigate } from 'react-router-dom'
 import { cn } from '@/lib/cn'
 import { Chip } from '@/components/ui/Chip'
+import { BackButton } from '@/components/ui/BackButton'
 import { FollowButton } from '@/components/ui/FollowButton'
 import { StarRating } from '@/components/ui/StarRating'
 import { ReviewsTab } from '@/components/song/ReviewsTab'
@@ -278,13 +278,7 @@ export default function Song() {
 
   return (
     <div className="flex flex-col gap-8 pt-2">
-      <Link
-        to="/"
-        className="-ml-2 inline-flex w-fit items-center gap-1.5 rounded-button px-2 py-1 text-button text-muted-foreground transition-colors duration-200 ease-soft hover:text-foreground"
-      >
-        <ArrowLeft className="size-4" strokeWidth={2} />
-        Back
-      </Link>
+      <BackButton className="-ml-2" />
 
       <header className="flex flex-col items-center gap-5 text-center sm:flex-row sm:items-end sm:text-left">
         <div className="aspect-square w-44 shrink-0 overflow-hidden rounded-card shadow-card sm:w-56">

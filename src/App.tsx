@@ -9,6 +9,8 @@ import Explore from '@/pages/Explore'
 import LibraryPage from '@/pages/LibraryPage'
 import Profile from '@/pages/Profile'
 import Song from '@/pages/Song'
+import Notifications from '@/pages/Notifications'
+import FriendRequests from '@/pages/FriendRequests'
 import NotFound from '@/pages/NotFound'
 
 export default function App() {
@@ -27,6 +29,8 @@ export default function App() {
               <Route path="profile" element={<Profile />} />
               <Route path="profile/:userId" element={<Profile />} />
               <Route path="song/:id" element={<Song />} />
+              <Route path="notifications" element={<Notifications />} />
+              <Route path="notifications/requests" element={<FriendRequests />} />
               <Route path="*" element={<NotFound />} />
             </Route>
           </Route>
