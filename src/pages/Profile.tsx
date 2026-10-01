@@ -5,6 +5,7 @@ import { Chip } from '@/components/ui/Chip'
 import { StarRating } from '@/components/ui/StarRating'
 import { ProfileEditor } from '@/components/profile/ProfileEditor'
 import { FollowedArtistsGrid } from '@/components/profile/FollowedArtistsGrid'
+import { FriendsPanel } from '@/components/people/FriendsPanel'
 import { tintFor } from '@/components/explore/tint'
 import { useAuth } from '@/lib/auth'
 import {
@@ -15,9 +16,9 @@ import {
 } from '@/lib/catalog'
 import type { ArtistCardModel, ProfileDetail, ReviewWithSong } from '@/lib/types'
 
-type Tab = 'reviews' | 'playlists' | 'artists'
+type Tab = 'reviews' | 'playlists' | 'artists' | 'friends'
 
-const TABS: { id: Tab; label: string }[] = [
+const BASE_TABS: { id: Tab; label: string }[] = [
   { id: 'reviews', label: 'Reviews' },
   { id: 'playlists', label: 'Playlists' },
   { id: 'artists', label: 'Artists' },
@@ -128,6 +129,10 @@ export default function Profile() {
   }
 
   const name = profile.displayName || profile.username || 'Listener'
+  // friendships is private, so managing them only makes sense on your own page.
+  const tabs = isOwn
+    ? [...BASE_TABS, { id: 'friends' as Tab, label: 'Friends' }]
+    : BASE_TABS
 
   if (editing) {
     return (
@@ -202,8 +207,7 @@ export default function Profile() {
           </div>
         </div>
 
-        {/* No followers/following: that's the friendships table, not built yet. */}
-        <dl className="grid grid-cols-2 gap-3 sm:max-w-sm">
+        <dl className="grid grid-cols-2 gap-3 sm:max-w-md md:grid-cols-3">
           <div className="rounded-card bg-surface p-4 shadow-card">
             <dt className="text-meta text-muted-foreground">Reviews written</dt>
             <dd className="mt-1 text-section-title">{profile.reviewCount}</dd>
@@ -212,6 +216,12 @@ export default function Profile() {
             <dt className="text-meta text-muted-foreground">Artists followed</dt>
             <dd className="mt-1 text-section-title">{profile.followingCount}</dd>
           </div>
+          {isOwn && (
+            <div className="rounded-card bg-surface p-4 shadow-card">
+              <dt className="text-meta text-muted-foreground">Friends</dt>
+              <dd className="mt-1 text-section-title">{profile.friendCount}</dd>
+            </div>
+          )}
         </dl>
       </header>
 
@@ -219,7 +229,7 @@ export default function Profile() {
         className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
         role="tablist"
       >
-        {TABS.map((t) => (
+        {tabs.map((t) => (
           <Chip key={t.id} active={tab === t.id} onClick={() => setTab(t.id)}>
             {t.label}
           </Chip>
@@ -332,6 +342,15 @@ export default function Profile() {
             />
           )}
         </section>
+      )}
+
+      {tab === 'friends' && isOwn && user && (
+        <FriendsPanel
+          viewerId={user.id}
+          onCountChange={(n) =>
+            setProfile((p) => (p && p.friendCount !== n ? { ...p, friendCount: n } : p))
+          }
+        />
       )}
 
       {isOwn && (

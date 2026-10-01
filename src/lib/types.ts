@@ -140,6 +140,7 @@ export type ProfileDetail = {
   favoriteGenres: string[]
   reviewCount: number
   followingCount: number
+  friendCount: number
 }
 
 /** A review joined with enough song context to render it off the song page. */
@@ -156,4 +157,29 @@ export type ReviewWithSong = {
     artistName: string
     coverUrl: string | null
   } | null
+}
+
+export type PersonCardModel = {
+  id: string
+  username: string | null
+  displayName: string | null
+  avatarUrl: string | null
+}
+
+/**
+ * How the signed-in viewer relates to another person.
+ * `incoming` means they asked you; `outgoing` means you asked them.
+ */
+export type FriendState = 'none' | 'outgoing' | 'incoming' | 'friends'
+
+export type FriendEdge = {
+  person: PersonCardModel
+  state: FriendState
+}
+
+export type UnifiedResults = {
+  songs: SongCardModel[]
+  artists: ArtistCardModel[]
+  people: PersonCardModel[]
+  warning?: string
 }

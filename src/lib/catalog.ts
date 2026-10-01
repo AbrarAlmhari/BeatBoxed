@@ -11,6 +11,10 @@ import type {
   SongDetail,
   ProfileDetail,
   ReviewWithSong,
+  PersonCardModel,
+  FriendState,
+  FriendEdge,
+  UnifiedResults,
 } from './types'
 
 /**
@@ -920,7 +924,7 @@ export async function getProfileDetail(
   }
   if (!data) return null
 
-  const [reviews, follows] = await Promise.all([
+  const [reviews, follows, friends] = await Promise.all([
     client
       .from('reviews')
       .select('id', { count: 'exact', head: true })
@@ -929,6 +933,13 @@ export async function getProfileDetail(
       .from('follows')
       .select('artist_id', { count: 'exact', head: true })
       .eq('user_id', userId),
+    // friendships is private, so this only resolves for your own profile;
+    // viewing someone else's simply counts zero rather than erroring.
+    client
+      .from('friendships')
+      .select('user_id', { count: 'exact', head: true })
+      .eq('status', 'accepted')
+      .or(`user_id.eq.${userId},friend_id.eq.${userId}`),
   ])
   if (reviews.error) throw reviews.error
   if (follows.error) throw follows.error
@@ -942,6 +953,7 @@ export async function getProfileDetail(
     favoriteGenres: data.favorite_genres ?? [],
     reviewCount: reviews.count ?? 0,
     followingCount: follows.count ?? 0,
+    friendCount: friends.error ? 0 : (friends.count ?? 0),
   }
 }
 
@@ -1098,4 +1110,229 @@ export async function getLikedSongs(userId: string): Promise<SongCardModel[]> {
     .filter((s): s is NonNullable<typeof s> => Boolean(s)) as unknown as SongRow[]
 
   return decorate(rows)
+}
+
+/* ------------------------------------------------------- people & friendships */
+
+const PERSON_SELECT = 'id, username, display_name, avatar_url'
+
+function toPerson(r: {
+  id: string
+  username: string | null
+  display_name: string | null
+  avatar_url: string | null
+}): PersonCardModel {
+  return {
+    id: r.id,
+    username: r.username,
+    displayName: r.display_name,
+    avatarUrl: r.avatar_url,
+  }
+}
+
+/** Matches username or display name. Never returns the viewer themselves. */
+export async function searchPeople(
+  query: string,
+  viewerId?: string,
+  limit = 20
+): Promise<PersonCardModel[]> {
+  const q = query.trim()
+  if (!q) return []
+
+  const { data, error } = await requireClient()
+    .from('profiles')
+    .select(PERSON_SELECT)
+    .or(`username.ilike.%${q}%,display_name.ilike.%${q}%`)
+    .limit(limit)
+  if (error) throw error
+
+  return (data ?? []).filter((r) => r.id !== viewerId).map(toPerson)
+}
+
+type FriendshipRow = { user_id: string; friend_id: string; status: string }
+
+/**
+ * Friend state for a set of people, from the viewer's point of view.
+ * friendships is private, so this only ever returns rows the viewer is in.
+ */
+export async function getFriendStates(
+  viewerId: string,
+  personIds: string[]
+): Promise<Map<string, FriendState>> {
+  const states = new Map<string, FriendState>()
+  if (personIds.length === 0) return states
+
+  const { data, error } = await requireClient()
+    .from('friendships')
+    .select('user_id, friend_id, status')
+    .or(`user_id.eq.${viewerId},friend_id.eq.${viewerId}`)
+  if (error) throw error
+
+  const wanted = new Set(personIds)
+  for (const row of (data ?? []) as FriendshipRow[]) {
+    const other = row.user_id === viewerId ? row.friend_id : row.user_id
+    if (!wanted.has(other)) continue
+    if (row.status === 'accepted') states.set(other, 'friends')
+    else states.set(other, row.user_id === viewerId ? 'outgoing' : 'incoming')
+  }
+  return states
+}
+
+/**
+ * Sends a request, or accepts theirs if they already asked you. Done in one
+ * server-side statement so two people tapping at once can't create a pair of
+ * crossed pending rows.
+ */
+export async function requestFriendship(targetId: string): Promise<FriendState> {
+  const { data, error } = await requireClient().rpc('request_friendship', {
+    target: targetId,
+  })
+  if (error) throw error
+  return data === 'accepted' ? 'friends' : 'outgoing'
+}
+
+/** Only the recipient may accept, enforced by RLS. */
+export async function acceptFriendship(requesterId: string, viewerId: string) {
+  const { error } = await requireClient()
+    .from('friendships')
+    .update({ status: 'accepted' })
+    .eq('user_id', requesterId)
+    .eq('friend_id', viewerId)
+  if (error) throw error
+}
+
+/** Cancel, decline, or unfriend — the row goes either way round. */
+export async function removeFriendship(viewerId: string, otherId: string) {
+  const { error } = await requireClient()
+    .from('friendships')
+    .delete()
+    .or(
+      `and(user_id.eq.${viewerId},friend_id.eq.${otherId}),` +
+        `and(user_id.eq.${otherId},friend_id.eq.${viewerId})`
+    )
+  if (error) throw error
+}
+
+type FriendshipWithPeople = {
+  user_id: string
+  friend_id: string
+  status: string
+  requester: Rel<{
+    id: string
+    username: string | null
+    display_name: string | null
+    avatar_url: string | null
+  }>
+  recipient: Rel<{
+    id: string
+    username: string | null
+    display_name: string | null
+    avatar_url: string | null
+  }>
+}
+
+/** Everything the Friends view needs, in one query. */
+export async function getFriendships(viewerId: string): Promise<{
+  incoming: FriendEdge[]
+  outgoing: FriendEdge[]
+  friends: FriendEdge[]
+}> {
+  const { data, error } = await requireClient()
+    .from('friendships')
+    .select(
+      'user_id, friend_id, status, ' +
+        `requester:profiles!friendships_user_id_fkey(${PERSON_SELECT}), ` +
+        `recipient:profiles!friendships_friend_id_fkey(${PERSON_SELECT})`
+    )
+    .or(`user_id.eq.${viewerId},friend_id.eq.${viewerId}`)
+  if (error) throw error
+
+  const incoming: FriendEdge[] = []
+  const outgoing: FriendEdge[] = []
+  const friends: FriendEdge[] = []
+
+  for (const row of (data ?? []) as unknown as FriendshipWithPeople[]) {
+    const mine = row.user_id === viewerId
+    const other = one(mine ? row.recipient : row.requester)
+    if (!other) continue
+    const edge = { person: toPerson(other), state: 'none' as FriendState }
+
+    if (row.status === 'accepted') friends.push({ ...edge, state: 'friends' })
+    else if (mine) outgoing.push({ ...edge, state: 'outgoing' })
+    else incoming.push({ ...edge, state: 'incoming' })
+  }
+
+  return { incoming, outgoing, friends }
+}
+
+export async function getFriendCount(userId: string) {
+  const { count, error } = await requireClient()
+    .from('friendships')
+    .select('user_id', { count: 'exact', head: true })
+    .eq('status', 'accepted')
+    .or(`user_id.eq.${userId},friend_id.eq.${userId}`)
+  if (error) throw error
+  return count ?? 0
+}
+
+/** Case-insensitive availability check for the signup form. */
+export async function isUsernameAvailable(username: string) {
+  const name = username.trim().toLowerCase()
+  if (!name) return false
+  const { data, error } = await requireClient()
+    .from('profiles')
+    .select('id')
+    .ilike('username', name)
+    .limit(1)
+  if (error) throw error
+  return (data ?? []).length === 0
+}
+
+/* ------------------------------------------------------------ unified search */
+
+/**
+ * One query, every result type. Sections run in parallel and a failing
+ * section yields an empty list rather than taking the page down with it.
+ *
+ * Lyrics are deliberately excluded: that path costs one lyrics-lookup Edge
+ * Function call per candidate song, which is far too slow to run on every
+ * keystroke. Explore asks for it explicitly via searchCatalog(mode:'lyrics').
+ */
+export async function searchEverything(
+  query: string,
+  genre: string | null,
+  viewerId?: string
+): Promise<UnifiedResults> {
+  const trimmed = query.trim()
+
+  const [songsRes, artistsRes, peopleRes] = await Promise.allSettled([
+    searchCatalog(trimmed, 'songs', genre),
+    searchCatalog(trimmed, 'artists', genre),
+    // People aren't part of the music catalog, so no genre filter applies.
+    trimmed ? searchPeople(trimmed, viewerId) : Promise.resolve([]),
+  ])
+
+  if (songsRes.status === 'rejected')
+    console.error('[beatboxed] song search failed:', songsRes.reason)
+  if (artistsRes.status === 'rejected')
+    console.error('[beatboxed] artist search failed:', artistsRes.reason)
+  if (peopleRes.status === 'rejected')
+    console.error('[beatboxed] people search failed:', peopleRes.reason)
+
+  const songs =
+    songsRes.status === 'fulfilled' && songsRes.value.mode === 'songs'
+      ? songsRes.value.songs
+      : []
+  const artists =
+    artistsRes.status === 'fulfilled' && artistsRes.value.mode === 'artists'
+      ? artistsRes.value.artists
+      : []
+  const people = peopleRes.status === 'fulfilled' ? peopleRes.value : []
+
+  // Either catalog section may have hit the Spotify top-up; surface one note.
+  const warning =
+    (songsRes.status === 'fulfilled' ? songsRes.value.warning : undefined) ??
+    (artistsRes.status === 'fulfilled' ? artistsRes.value.warning : undefined)
+
+  return { songs, artists, people, warning }
 }

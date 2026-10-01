@@ -15,13 +15,14 @@ This is a starting proposal for the Supabase/Postgres schema, sized to the MVP f
 - **playlists** — `id`, `user_id (fk)`, `title`, `description`, `cover_url`, `created_at`
 - **playlist_songs** — `playlist_id (fk)`, `song_id (fk)`, `position`, `added_at`
 - **follows** (artist follows) — `user_id (fk)`, `artist_id (fk)`
-- **friendships** (mutual follows / social graph — stretch) — `user_id (fk)`, `friend_id (fk)`, `status (pending/accepted)`
+- **friendships** — `user_id (fk, requester)`, `friend_id (fk, recipient)`, `status (pending/accepted)`, `created_at` — unique on the ordered pair, with a check constraint blocking self-requests. **Private**: only the two people in a row can select it, unlike `follows`. Insert as `user_id` only; only the recipient may update to `accepted`; either side may delete (cancel / decline / unfriend). Requesting someone who already requested you is an accept, handled atomically by the `request_friendship(target)` RPC.
 - **notifications** (stretch) — `id`, `user_id (fk)`, `type`, `payload (jsonb)`, `read (bool)`, `created_at`
 
 ## Notes
 
 - Cache Spotify/lrclib/Genius data on first lookup rather than syncing a full catalog — the free tiers and the class-project timeline don't support a background sync job.
-- `song_views` is the one table that is **not** world-readable: browsing history is private, so even its select policy is scoped to the owner. Everything else below follows the read-public/write-own pattern.
+- `profiles.username` is unique **case-insensitively** (`profiles_username_lower_key`). The original constraint was case-sensitive, so `fara7` and `FARA7` could have coexisted.
+- `song_views` and `friendships` are the tables that are **not** world-readable: browsing history is private, so even its select policy is scoped to the owner. Everything else below follows the read-public/write-own pattern.
 - Every user-owned table (`profiles`, `reviews`, `review_likes`, `review_comments`, `playlists`) needs Row Level Security policies from the start: users can read public rows but only write/edit their own. Likes have no update policy — a like is binary, so it's insert or delete.
 - `reviews.rating` doubles as the "5-star rating" feature and the review body — no separate ratings table needed. `title` and `body` are both nullable, so a rating-only review is valid.
 - `songs.popularity` holds Deezer's `rank`, written when a row is cached. Spotify withholds its own `popularity` from this app — it's absent from search, from `/v1/tracks/{id}`, and from album tracks, and the batch endpoint is 403 — and every chart route is blocked too (editorial playlists 404/403, `/browse/*` 403, playlist track listings 403). Deezer's public API needs no key. It's matched on title + artist strings rather than an id, so it stays nullable: an unmatched track sorts last rather than being ranked zero.
