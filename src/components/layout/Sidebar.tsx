@@ -27,7 +27,7 @@ export function Sidebar() {
           <NavLink
             key={to}
             to={to}
-            end={to === '/'}
+            end
             title={label}
             className={({ isActive }) =>
               cn(

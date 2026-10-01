@@ -6,15 +6,22 @@ import { StarRating } from '@/components/ui/StarRating'
 import { ProfileEditor } from '@/components/profile/ProfileEditor'
 import { FollowedArtistsGrid } from '@/components/profile/FollowedArtistsGrid'
 import { FriendsPanel } from '@/components/people/FriendsPanel'
+import { FriendButton } from '@/components/people/FriendButton'
 import { tintFor } from '@/components/explore/tint'
 import { useAuth } from '@/lib/auth'
 import {
   getFollowedArtists,
+  getFriendStates,
   getGenres,
   getProfileDetail,
   getReviewsByUser,
 } from '@/lib/catalog'
-import type { ArtistCardModel, ProfileDetail, ReviewWithSong } from '@/lib/types'
+import type {
+  ArtistCardModel,
+  FriendState,
+  ProfileDetail,
+  ReviewWithSong,
+} from '@/lib/types'
 
 type Tab = 'reviews' | 'playlists' | 'artists' | 'friends'
 
@@ -46,6 +53,7 @@ export default function Profile() {
   const [reviews, setReviews] = useState<ReviewWithSong[] | null>(null)
   const [artists, setArtists] = useState<ArtistCardModel[] | null>(null)
   const [genres, setGenres] = useState<string[]>([])
+  const [friendState, setFriendState] = useState<FriendState>('none')
 
   useEffect(() => {
     if (!targetId) return
@@ -69,6 +77,21 @@ export default function Profile() {
       cancelled = true
     }
   }, [targetId])
+
+  // Resolve the relationship on open, so the button is right even when the
+  // request was sent from Explore rather than here.
+  useEffect(() => {
+    if (!user || !targetId || isOwn) return setFriendState('none')
+    let cancelled = false
+    getFriendStates(user.id, [targetId])
+      .then((m) => {
+        if (!cancelled) setFriendState(m.get(targetId) ?? 'none')
+      })
+      .catch((err) => console.warn('[beatboxed] friend state failed:', err))
+    return () => {
+      cancelled = true
+    }
+  }, [user, targetId, isOwn])
 
   useEffect(() => {
     if (tab !== 'reviews' || !profile || reviews) return
@@ -168,7 +191,7 @@ export default function Profile() {
               <h1 dir="auto" className="text-page-title">
                 {name}
               </h1>
-              {isOwn && (
+              {isOwn ? (
                 <button
                   type="button"
                   onClick={() => setEditing(true)}
@@ -177,6 +200,28 @@ export default function Profile() {
                   <Pencil className="size-3.5" strokeWidth={1.75} />
                   Edit profile
                 </button>
+              ) : (
+                <FriendButton
+                  personId={profile.id}
+                  state={friendState}
+                  onChange={(next) => {
+                    setFriendState(next)
+                    // Becoming or ceasing to be friends moves the count by one.
+                    setProfile((p) =>
+                      p
+                        ? {
+                            ...p,
+                            friendCount:
+                              next === 'friends'
+                                ? p.friendCount + 1
+                                : friendState === 'friends'
+                                  ? Math.max(0, p.friendCount - 1)
+                                  : p.friendCount,
+                          }
+                        : p
+                    )
+                  }}
+                />
               )}
             </div>
 
@@ -216,12 +261,10 @@ export default function Profile() {
             <dt className="text-meta text-muted-foreground">Artists followed</dt>
             <dd className="mt-1 text-section-title">{profile.followingCount}</dd>
           </div>
-          {isOwn && (
-            <div className="rounded-card bg-surface p-4 shadow-card">
-              <dt className="text-meta text-muted-foreground">Friends</dt>
-              <dd className="mt-1 text-section-title">{profile.friendCount}</dd>
-            </div>
-          )}
+          <div className="rounded-card bg-surface p-4 shadow-card">
+            <dt className="text-meta text-muted-foreground">Friends</dt>
+            <dd className="mt-1 text-section-title">{profile.friendCount}</dd>
+          </div>
         </dl>
       </header>
 

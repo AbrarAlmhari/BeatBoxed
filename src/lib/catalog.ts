@@ -933,13 +933,10 @@ export async function getProfileDetail(
       .from('follows')
       .select('artist_id', { count: 'exact', head: true })
       .eq('user_id', userId),
-    // friendships is private, so this only resolves for your own profile;
-    // viewing someone else's simply counts zero rather than erroring.
-    client
-      .from('friendships')
-      .select('user_id', { count: 'exact', head: true })
-      .eq('status', 'accepted')
-      .or(`user_id.eq.${userId},friend_id.eq.${userId}`),
+    // friendships RLS hides other people's rows, so a direct count would
+    // read 0 on anyone else's profile. friend_count() is security definer
+    // and returns only the number — never the rows.
+    client.rpc('friend_count', { target: userId }),
   ])
   if (reviews.error) throw reviews.error
   if (follows.error) throw follows.error
@@ -953,7 +950,7 @@ export async function getProfileDetail(
     favoriteGenres: data.favorite_genres ?? [],
     reviewCount: reviews.count ?? 0,
     followingCount: follows.count ?? 0,
-    friendCount: friends.error ? 0 : (friends.count ?? 0),
+    friendCount: friends.error ? 0 : ((friends.data as number | null) ?? 0),
   }
 }
 
@@ -1266,13 +1263,11 @@ export async function getFriendships(viewerId: string): Promise<{
 }
 
 export async function getFriendCount(userId: string) {
-  const { count, error } = await requireClient()
-    .from('friendships')
-    .select('user_id', { count: 'exact', head: true })
-    .eq('status', 'accepted')
-    .or(`user_id.eq.${userId},friend_id.eq.${userId}`)
+  const { data, error } = await requireClient().rpc('friend_count', {
+    target: userId,
+  })
   if (error) throw error
-  return count ?? 0
+  return (data as number | null) ?? 0
 }
 
 /** Case-insensitive availability check for the signup form. */

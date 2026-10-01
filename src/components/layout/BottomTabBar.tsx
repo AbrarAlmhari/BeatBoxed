@@ -15,7 +15,7 @@ export function BottomTabBar() {
           <li key={to} className="flex-1">
             <NavLink
               to={to}
-              end={to === '/'}
+              end
               className={({ isActive }) =>
                 cn(
                   'flex flex-col items-center gap-1 px-1 pb-2 pt-2.5 transition-colors duration-200 ease-soft',
