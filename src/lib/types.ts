@@ -183,3 +183,37 @@ export type UnifiedResults = {
   people: PersonCardModel[]
   warning?: string
 }
+
+/**
+ * A notification row. `type` is intentionally a plain string, not a union:
+ * the renderer maps known types to components and ignores the rest, so a
+ * trigger can start emitting a new type before the UI knows about it.
+ */
+export type NotificationRow = {
+  id: string
+  type: string
+  payload: Record<string, unknown>
+  read: boolean
+  createdAt: string
+}
+
+export type Announcement = {
+  id: string
+  title: string
+  body: string
+  link: string | null
+  createdAt: string
+  read: boolean
+}
+
+/** Announcements and notifications share one "Updates" list, newest first. */
+export type UpdateItem =
+  | { kind: 'notification'; at: string; notification: NotificationRow }
+  | { kind: 'announcement'; at: string; announcement: Announcement }
+
+export type NotificationCenter = {
+  requests: FriendEdge[]
+  updates: UpdateItem[]
+  /** Pending requests + unread notifications + unread announcements. */
+  badge: number
+}

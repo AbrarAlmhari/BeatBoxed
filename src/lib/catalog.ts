@@ -15,6 +15,10 @@ import type {
   FriendState,
   FriendEdge,
   UnifiedResults,
+  NotificationRow,
+  Announcement,
+  UpdateItem,
+  NotificationCenter,
 } from './types'
 
 /**
@@ -1330,4 +1334,128 @@ export async function searchEverything(
     (artistsRes.status === 'fulfilled' ? artistsRes.value.warning : undefined)
 
   return { songs, artists, people, warning }
+}
+
+/* ----------------------------------------------------------- notifications */
+
+/**
+ * Everything the bell needs, in one call.
+ *
+ * Pending friend requests come straight from friendships rather than from a
+ * stored notification, so cancelling or declining elsewhere removes them here
+ * with nothing to reconcile.
+ */
+export async function getNotificationCenter(
+  viewerId: string
+): Promise<NotificationCenter> {
+  const client = requireClient()
+
+  const [friendships, notifs, announcements, reads] = await Promise.all([
+    getFriendships(viewerId),
+    client
+      .from('notifications')
+      .select('id, type, payload, read, created_at')
+      .eq('user_id', viewerId)
+      .order('created_at', { ascending: false })
+      .limit(50),
+    client
+      .from('announcements')
+      .select('id, title, body, link, created_at')
+      .order('created_at', { ascending: false })
+      .limit(20),
+    client.from('announcement_reads').select('announcement_id').eq('user_id', viewerId),
+  ])
+  if (notifs.error) throw notifs.error
+  if (announcements.error) throw announcements.error
+  if (reads.error) throw reads.error
+
+  const readIds = new Set((reads.data ?? []).map((r) => r.announcement_id))
+
+  const notifications: NotificationRow[] = (notifs.data ?? []).map((n) => ({
+    id: n.id,
+    type: n.type,
+    payload: (n.payload ?? {}) as Record<string, unknown>,
+    read: n.read,
+    createdAt: n.created_at,
+  }))
+
+  const anns: Announcement[] = (announcements.data ?? []).map((a) => ({
+    id: a.id,
+    title: a.title,
+    body: a.body,
+    link: a.link,
+    createdAt: a.created_at,
+    read: readIds.has(a.id),
+  }))
+
+  const updates: UpdateItem[] = [
+    ...notifications.map(
+      (n): UpdateItem => ({ kind: 'notification', at: n.createdAt, notification: n })
+    ),
+    ...anns.map(
+      (a): UpdateItem => ({ kind: 'announcement', at: a.createdAt, announcement: a })
+    ),
+  ].sort((x, y) => (x.at < y.at ? 1 : -1))
+
+  const badge =
+    friendships.incoming.length +
+    notifications.filter((n) => !n.read).length +
+    anns.filter((a) => !a.read).length
+
+  return { requests: friendships.incoming, updates, badge }
+}
+
+export async function markNotificationRead(id: string) {
+  const { error } = await requireClient()
+    .from('notifications')
+    .update({ read: true })
+    .eq('id', id)
+  if (error) throw error
+}
+
+export async function markAnnouncementRead(announcementId: string, userId: string) {
+  const { error } = await requireClient()
+    .from('announcement_reads')
+    .insert({ user_id: userId, announcement_id: announcementId })
+  // Already marked is success, not an error.
+  if (error && error.code !== '23505') throw error
+}
+
+export async function markAllRead(viewerId: string, updates: UpdateItem[]) {
+  const client = requireClient()
+  const unreadNotifs = updates
+    .filter((u) => u.kind === 'notification' && !u.notification.read)
+    .map((u) => (u as Extract<UpdateItem, { kind: 'notification' }>).notification.id)
+  const unreadAnns = updates
+    .filter((u) => u.kind === 'announcement' && !u.announcement.read)
+    .map((u) => (u as Extract<UpdateItem, { kind: 'announcement' }>).announcement.id)
+
+  await Promise.all([
+    unreadNotifs.length
+      ? client.from('notifications').update({ read: true }).in('id', unreadNotifs)
+      : Promise.resolve(),
+    unreadAnns.length
+      ? client.from('announcement_reads').upsert(
+          unreadAnns.map((id) => ({ user_id: viewerId, announcement_id: id })),
+          { onConflict: 'user_id,announcement_id' }
+        )
+      : Promise.resolve(),
+  ])
+}
+
+/** Display details for the people referenced by notification payloads. */
+export async function getPeopleByIds(
+  ids: string[]
+): Promise<Map<string, PersonCardModel>> {
+  const map = new Map<string, PersonCardModel>()
+  if (ids.length === 0) return map
+
+  const { data, error } = await requireClient()
+    .from('profiles')
+    .select(PERSON_SELECT)
+    .in('id', ids)
+  if (error) throw error
+
+  for (const row of data ?? []) map.set(row.id, toPerson(row))
+  return map
 }

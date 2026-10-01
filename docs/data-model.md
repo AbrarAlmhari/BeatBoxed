@@ -16,7 +16,9 @@ This is a starting proposal for the Supabase/Postgres schema, sized to the MVP f
 - **playlist_songs** — `playlist_id (fk)`, `song_id (fk)`, `position`, `added_at`
 - **follows** (artist follows) — `user_id (fk)`, `artist_id (fk)`
 - **friendships** — `user_id (fk, requester)`, `friend_id (fk, recipient)`, `status (pending/accepted)`, `created_at` — unique on the ordered pair, with a check constraint blocking self-requests. **Private**: only the two people in a row can select it, unlike `follows`. Insert as `user_id` only; only the recipient may update to `accepted`; either side may delete (cancel / decline / unfriend). Requesting someone who already requested you is an accept, handled atomically by the `request_friendship(target)` RPC.
-- **notifications** (stretch) — `id`, `user_id (fk)`, `type`, `payload (jsonb)`, `read (bool)`, `created_at`
+- **notifications** — `id`, `user_id (fk)`, `type`, `payload (jsonb)`, `read (bool)`, `created_at`. **No insert policy at all**: rows come only from database triggers (security definer) or the service role, so nobody can push a fake notification to someone else. Payloads hold ids only, never names, so the UI resolves the current name at render and a rename can't leave stale text. Pending friend requests are *not* stored here — the bell reads them live from `friendships`, so cancelling or declining elsewhere clears them with nothing to sync. A trigger on `friendships` inserts `friend_accepted` for the requester when a request is accepted.
+- **announcements** — `id`, `title`, `body`, `link` (nullable), `created_at`. Readable by any signed-in user; **writes are service-role only** and there is no admin UI — the team posts one from the Supabase SQL editor (the insert statement is documented in `supabase/migrations/0013_notifications.sql`).
+- **announcement_reads** — `user_id (fk, cascade)`, `announcement_id (fk, cascade)`, `read_at` — primary key on the pair. Per-user read state, so an announcement isn't copied into every user's notifications.
 
 ## Notes
 
