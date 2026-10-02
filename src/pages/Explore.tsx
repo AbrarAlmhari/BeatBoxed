@@ -9,6 +9,7 @@ import { LyricResultCard } from '@/components/explore/LyricResultCard'
 import { PersonCard } from '@/components/people/PersonCard'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import { useAuth } from '@/lib/auth'
+import { usePlayer } from '@/lib/player'
 import {
   getFollowedArtistIds,
   getFriendStates,
@@ -42,6 +43,7 @@ const PREVIEW = 4
 
 export default function Explore() {
   const { user } = useAuth()
+  const player = usePlayer()
   const inputRef = useRef<HTMLInputElement>(null)
   const location = useLocation()
   const navigate = useNavigate()
@@ -324,6 +326,14 @@ export default function Explore() {
                     <MediaCard
                       key={song.id}
                       to={`/song/${song.id}`}
+                      onPlay={() =>
+                        player.current?.id === song.id
+                          ? player.toggle()
+                          : player.playQueue(results.songs, i)
+                      }
+                      isCurrent={player.current?.id === song.id}
+                      isPlaying={player.current?.id === song.id && player.isPlaying}
+                      isLoading={player.current?.id === song.id && player.loading}
                       title={song.title}
                       subtitle={song.artistName}
                       coverUrl={song.coverUrl}

@@ -114,6 +114,30 @@
 }
 
 @layer utilities {
+  /**
+   * Hover-reveal that degrades on touch.
+   *
+   * The play button used to be opacity-0 until group-hover, which meant it
+   * never appeared on phones or tablets at all. Devices that can't hover get
+   * it permanently, slightly smaller so it covers less artwork.
+   */
+  .play-affordance {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+  .group:hover .play-affordance,
+  .group:focus-visible .play-affordance {
+    opacity: 1;
+    transform: none;
+  }
+  @media (hover: none) {
+    .play-affordance {
+      opacity: 1;
+      transform: none;
+      scale: 0.85;
+    }
+  }
+
   /* Horizontal rails scroll without a visible scrollbar, like a music app. */
   .no-scrollbar {
     scrollbar-width: none;

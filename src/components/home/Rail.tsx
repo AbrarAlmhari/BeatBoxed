@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { MediaCard } from '@/components/ui/MediaCard'
+import { usePlayer } from '@/lib/player'
 import type { SongCardModel } from '@/lib/types'
 
 /** Card width steps up with viewport so rails never feel cramped on phones. */
@@ -34,6 +35,7 @@ export function Rail({
   songs: SongCardModel[]
   emptyMessage: string
 }) {
+  const { current, isPlaying, loading, playQueue, toggle } = usePlayer()
   if (songs.length === 0) {
     return (
       <RailShell title={title}>
@@ -63,6 +65,13 @@ export function Rail({
           <li key={song.id} className={`${CARD_WIDTH} shrink-0 snap-start`}>
             <MediaCard
               to={`/song/${song.id}`}
+              // Queues the whole rail from here, so next/previous work.
+              onPlay={() =>
+                current?.id === song.id ? toggle() : playQueue(songs, i)
+              }
+              isCurrent={current?.id === song.id}
+              isPlaying={current?.id === song.id && isPlaying}
+              isLoading={current?.id === song.id && loading}
               title={song.title}
               subtitle={song.artistName}
               coverUrl={song.coverUrl}

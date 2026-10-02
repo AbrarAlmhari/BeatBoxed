@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { Play, Star } from 'lucide-react'
+import { Loader2, Pause, Play, Star } from 'lucide-react'
+import { cn } from '@/lib/cn'
 
 export type MediaCardProps = {
   title: string
@@ -13,6 +14,11 @@ export type MediaCardProps = {
   reviewCount?: number
   /** When set the card becomes a real link, so middle-click and open-in-new-tab work. */
   to?: string
+  /** Press-play handler. The card itself still navigates to the song page. */
+  onPlay?: () => void
+  isCurrent?: boolean
+  isPlaying?: boolean
+  isLoading?: boolean
 }
 
 const CARD_CLASS =
@@ -26,6 +32,10 @@ export function MediaCard({
   ratingAvg,
   reviewCount,
   to,
+  onPlay,
+  isCurrent = false,
+  isPlaying = false,
+  isLoading = false,
 }: MediaCardProps) {
   const [coverFailed, setCoverFailed] = useState(false)
   const showCover = Boolean(coverUrl) && !coverFailed
@@ -53,9 +63,43 @@ export function MediaCard({
         )}
 
         <span className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/45 to-transparent opacity-0 transition-opacity duration-250 group-hover:opacity-100" />
-        <span className="absolute bottom-2.5 right-2.5 grid size-10 translate-y-2 place-items-center rounded-full bg-primary opacity-0 shadow-lg transition-all duration-250 ease-soft group-hover:translate-y-0 group-hover:opacity-100 group-focus-visible:translate-y-0 group-focus-visible:opacity-100">
-          <Play className="size-[18px] translate-x-[1px] fill-white text-white" />
-        </span>
+
+        {onPlay && (
+          <span
+            // 44px tap target around a 40px button, per the touch guidance.
+            role="button"
+            tabIndex={0}
+            aria-label={isPlaying ? `Pause ${title}` : `Play ${title}`}
+            onClick={(e) => {
+              // The card is a link; a tap here must not also navigate.
+              e.preventDefault()
+              e.stopPropagation()
+              onPlay()
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                e.stopPropagation()
+                onPlay()
+              }
+            }}
+            className={cn(
+              'absolute bottom-1 right-1 grid size-11 cursor-pointer place-items-center transition-all duration-250 ease-soft',
+              // Always visible once this is the playing track.
+              isCurrent ? 'opacity-100' : 'play-affordance'
+            )}
+          >
+            <span className="grid size-10 place-items-center rounded-full bg-primary shadow-lg">
+              {isLoading ? (
+                <Loader2 className="size-[18px] animate-spin text-white" strokeWidth={2.5} />
+              ) : isPlaying ? (
+                <Pause className="size-[18px] fill-white text-white" />
+              ) : (
+                <Play className="size-[18px] translate-x-[1px] fill-white text-white" />
+              )}
+            </span>
+          </span>
+        )}
       </div>
 
       <div className="min-w-0 pb-1">

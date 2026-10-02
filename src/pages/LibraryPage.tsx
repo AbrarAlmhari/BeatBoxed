@@ -3,6 +3,7 @@ import { Chip } from '@/components/ui/Chip'
 import { MediaCard } from '@/components/ui/MediaCard'
 import { FollowedArtistsGrid } from '@/components/profile/FollowedArtistsGrid'
 import { useAuth } from '@/lib/auth'
+import { usePlayer } from '@/lib/player'
 import { getFollowedArtists, getLikedSongs } from '@/lib/catalog'
 import type { ArtistCardModel, SongCardModel } from '@/lib/types'
 
@@ -17,6 +18,7 @@ const TABS: { id: Tab; label: string }[] = [
 /** Always the signed-in user's own library — there's no view of someone else's. */
 export default function LibraryPage() {
   const { user } = useAuth()
+  const player = usePlayer()
   const [tab, setTab] = useState<Tab>('liked')
 
   const [liked, setLiked] = useState<SongCardModel[] | null>(null)
@@ -82,6 +84,14 @@ export default function LibraryPage() {
                 <MediaCard
                   key={song.id}
                   to={`/song/${song.id}`}
+                  onPlay={() =>
+                    player.current?.id === song.id
+                      ? player.toggle()
+                      : player.playQueue(liked, i)
+                  }
+                  isCurrent={player.current?.id === song.id}
+                  isPlaying={player.current?.id === song.id && player.isPlaying}
+                  isLoading={player.current?.id === song.id && player.loading}
                   title={song.title}
                   subtitle={song.artistName}
                   coverUrl={song.coverUrl}

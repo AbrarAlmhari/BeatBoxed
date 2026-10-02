@@ -22,9 +22,7 @@ export async function fetchDeezerRank(
 ): Promise<number | null> {
   try {
     const q = encodeURIComponent(`${title} ${artist}`)
-    const res = await fetch(`https://api.deezer.com/search?q=${q}&limit=1`, {
-      headers: { 'User-Agent': 'Beatboxed/0.1 (CSC 305 class project)' },
-    })
+    const res = await fetch(`https://api.deezer.com/search?q=${q}&limit=1`)
     if (!res.ok) return null
 
     const body = await res.json() as {
@@ -58,4 +56,53 @@ export async function fetchDeezerRanks(
   )
   for (const hit of results) if (hit) out.set(hit[0], hit[1])
   return out
+}
+
+export type DeezerMatch = { id: number; rank: number | null; preview: string | null }
+
+/**
+ * Full match, not just the rank — song-preview needs the track id to store,
+ * and the preview URL to hand straight back on a first play.
+ */
+export async function findDeezerTrack(
+  title: string,
+  artist: string
+): Promise<DeezerMatch | null> {
+  try {
+    const q = encodeURIComponent(`${title} ${artist}`)
+    const res = await fetch(`https://api.deezer.com/search?q=${q}&limit=1`)
+    if (!res.ok) return null
+
+    const body = await res.json() as {
+      data?: { id?: number; rank?: number; preview?: string; artist?: { name?: string } }[]
+    }
+    const hit = body.data?.[0]
+    if (!hit?.id) return null
+
+    // Same guard as the rank lookup: a different act means a wrong match.
+    const theirs = norm(hit.artist?.name ?? '')
+    const ours = norm(artist)
+    if (theirs && ours && !theirs.startsWith(ours.slice(0, 6))) return null
+
+    return {
+      id: hit.id,
+      rank: typeof hit.rank === 'number' ? hit.rank : null,
+      preview: hit.preview || null,
+    }
+  } catch {
+    return null
+  }
+}
+
+/** Fresh signed preview link for a known track. These expire, so never cache. */
+export async function fetchDeezerPreview(trackId: number): Promise<string | null> {
+  try {
+    const res = await fetch(`https://api.deezer.com/track/${trackId}`)
+    if (!res.ok) return null
+    const body = await res.json() as { preview?: string; error?: unknown }
+    if (body.error) return null
+    return body.preview || null
+  } catch {
+    return null
+  }
 }

@@ -14,6 +14,7 @@ import FriendRequests from '@/pages/FriendRequests'
 import ProfileFriends from '@/pages/ProfileFriends'
 import ProfileArtists from '@/pages/ProfileArtists'
 import ProfileReviews from '@/pages/ProfileReviews'
+import NowPlaying from '@/pages/NowPlaying'
 import NotFound from '@/pages/NotFound'
 
 export default function App() {
@@ -25,6 +26,7 @@ export default function App() {
           <Route path="/signup" element={<SignUp />} />
 
           <Route element={<RequireAuth />}>
+            {/* Inside RequireAuth so logging out tears the player down with it. */}
             <Route element={<AppShell />}>
               <Route index element={<Home />} />
               <Route path="explore" element={<Explore />} />
@@ -37,6 +39,7 @@ export default function App() {
               <Route path="song/:id" element={<Song />} />
               <Route path="notifications" element={<Notifications />} />
               <Route path="notifications/requests" element={<FriendRequests />} />
+              <Route path="now-playing" element={<NowPlaying />} />
               <Route path="*" element={<NotFound />} />
             </Route>
           </Route>

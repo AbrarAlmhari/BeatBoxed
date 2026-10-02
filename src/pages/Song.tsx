@@ -6,10 +6,13 @@ import {
   Heart,
   Loader2,
   MicVocal,
+  Pause,
+  Play,
   SearchX,
 } from 'lucide-react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { cn } from '@/lib/cn'
+import { usePlayer } from '@/lib/player'
 import { Chip } from '@/components/ui/Chip'
 import { FollowButton } from '@/components/ui/FollowButton'
 import { StarRating } from '@/components/ui/StarRating'
@@ -54,6 +57,7 @@ function formatReleaseDate(iso: string | null) {
 export default function Song() {
   const { id = '' } = useParams()
   const { user } = useAuth()
+  const player = usePlayer()
   const navigate = useNavigate()
   const location = useLocation()
   // Notification deep links land here: /song/:id?review=…&comment=…
@@ -269,6 +273,7 @@ export default function Song() {
     )
   }
 
+  const isCurrent = player.current?.id === song.id
   const tint = tintFor(song.id)
   const releaseDate = formatReleaseDate(song.album?.releaseDate ?? null)
 
@@ -325,6 +330,45 @@ export default function Song() {
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-3 sm:justify-start">
+            {/* The main action on this page, so it gets the primary style. */}
+            <button
+              type="button"
+              onClick={() =>
+                isCurrent
+                  ? player.toggle()
+                  : player.playQueue(
+                      [
+                        {
+                          id: song.id,
+                          title: song.title,
+                          artistName: song.artist?.name ?? 'Unknown artist',
+                          coverUrl: song.album?.coverUrl ?? null,
+                          ratingAvg: stats.ratingAvg,
+                          reviewCount: stats.reviewCount,
+                          spotifyId: song.spotifyId,
+                        },
+                      ],
+                      0
+                    )
+              }
+              disabled={isCurrent && player.unavailable}
+              aria-label={isCurrent && player.isPlaying ? 'Pause' : 'Play preview'}
+              className="flex items-center gap-2 rounded-button bg-primary px-5 py-2.5 text-button text-white transition-all duration-200 ease-soft hover:bg-accent active:scale-[0.98] disabled:opacity-50 disabled:hover:bg-primary"
+            >
+              {isCurrent && player.loading ? (
+                <Loader2 className="size-[18px] animate-spin" strokeWidth={2.5} aria-hidden />
+              ) : isCurrent && player.isPlaying ? (
+                <Pause className="size-[18px] fill-current" strokeWidth={2} />
+              ) : (
+                <Play className="size-[18px] translate-x-px fill-current" strokeWidth={2} />
+              )}
+              {isCurrent && player.isPlaying ? 'Pause' : 'Play'}
+            </button>
+
+            {isCurrent && player.unavailable && (
+              <span className="text-meta text-danger">Preview unavailable</span>
+            )}
+
             <button
               type="button"
               onClick={toggleLike}
