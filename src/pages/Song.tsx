@@ -15,6 +15,7 @@ import { cn } from '@/lib/cn'
 import { usePlayer } from '@/lib/player'
 import { Chip } from '@/components/ui/Chip'
 import { FollowButton } from '@/components/ui/FollowButton'
+import { AddToPlaylistButton } from '@/components/playlist/AddToPlaylistButton'
 import { StarRating } from '@/components/ui/StarRating'
 import { ReviewsTab } from '@/components/song/ReviewsTab'
 import { tintFor } from '@/components/explore/tint'
@@ -367,6 +368,8 @@ export default function Song() {
               />
               {liked ? 'Liked' : 'Like'}
             </button>
+
+            <AddToPlaylistButton songId={song.id} />
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">

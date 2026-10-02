@@ -7,6 +7,7 @@ import { cn } from '@/lib/cn'
 import { MiniPlayer } from '@/components/player/MiniPlayer'
 import { PlayerProvider, usePlayer } from '@/lib/player'
 import { FollowsProvider } from '@/lib/follows'
+import { ToastProvider } from '@/lib/toast'
 
 /**
  * The provider wraps the shell rather than a page, so audio survives
@@ -16,7 +17,9 @@ export function AppShell() {
   return (
     <FollowsProvider>
       <PlayerProvider>
-        <ShellBody />
+        <ToastProvider>
+          <ShellBody />
+        </ToastProvider>
       </PlayerProvider>
     </FollowsProvider>
   )

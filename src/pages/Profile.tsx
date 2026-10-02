@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { LogOut, Pencil, UserX } from 'lucide-react'
 import { Chip } from '@/components/ui/Chip'
+import { PlaylistGrid, PlaylistGridSkeleton } from '@/components/playlist/PlaylistGrid'
+import { getUserPlaylists, type PlaylistSummary } from '@/lib/playlists'
 import { ProfileEditor } from '@/components/profile/ProfileEditor'
 import { FollowedArtistsGrid } from '@/components/profile/FollowedArtistsGrid'
 import { FriendsPanel } from '@/components/people/FriendsPanel'
@@ -49,6 +51,7 @@ export default function Profile() {
 
   const [reviews, setReviews] = useState<ReviewWithSong[] | null>(null)
   const [artists, setArtists] = useState<ArtistCardModel[] | null>(null)
+  const [playlists, setPlaylists] = useState<PlaylistSummary[] | null>(null)
   const [genres, setGenres] = useState<string[]>([])
   const [friendState, setFriendState] = useState<FriendState>('none')
 
@@ -99,6 +102,24 @@ export default function Profile() {
         setReviews([])
       })
   }, [tab, profile, reviews])
+
+  // Loaded for the stat as well as the tab, so the count is right before
+  // anyone opens it.
+  useEffect(() => {
+    if (!profile) return
+    let cancelled = false
+    getUserPlaylists(profile.id)
+      .then((p) => {
+        if (!cancelled) setPlaylists(p)
+      })
+      .catch((err) => {
+        console.error('[beatboxed] profile playlists failed:', err)
+        if (!cancelled) setPlaylists([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [profile])
 
   useEffect(() => {
     if (tab !== 'artists' || !profile || artists) return
@@ -266,6 +287,12 @@ export default function Profile() {
             label="Friends"
             value={profile.friendCount}
           />
+          {/* No full-list page for playlists — the tab below already shows
+              them all — so this is a plain figure rather than a link. */}
+          <div className="rounded-card bg-surface p-4 shadow-card">
+            <dt className="text-meta text-muted-foreground">Playlists</dt>
+            <dd className="mt-1 text-section-title">{playlists?.length ?? 0}</dd>
+          </div>
         </dl>
       </header>
 
@@ -310,10 +337,22 @@ export default function Profile() {
       )}
 
       {tab === 'playlists' && (
-        <EmptyPanel
-          title="No playlists yet"
-          detail="Playlists arrive with the Library feature."
-        />
+        <section className="flex flex-col gap-3">
+          {playlists === null ? (
+            <PlaylistGridSkeleton count={2} />
+          ) : playlists.length === 0 ? (
+            <EmptyPanel
+              title="No playlists yet"
+              detail={
+                isOwn
+                  ? 'Create one from your Library, then add songs from any song page.'
+                  : "This listener hasn't made any playlists yet."
+              }
+            />
+          ) : (
+            <PlaylistGrid playlists={playlists} />
+          )}
+        </section>
       )}
 
       {tab === 'artists' && (

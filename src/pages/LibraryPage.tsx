@@ -1,5 +1,14 @@
 import { useEffect, useState } from 'react'
+import { Plus } from 'lucide-react'
 import { Chip } from '@/components/ui/Chip'
+import { PlaylistGrid, PlaylistGridSkeleton } from '@/components/playlist/PlaylistGrid'
+import { PlaylistForm } from '@/components/playlist/PlaylistForm'
+import {
+  createPlaylist,
+  getUserPlaylists,
+  uploadPlaylistCover,
+  type PlaylistSummary,
+} from '@/lib/playlists'
 import { MediaCard } from '@/components/ui/MediaCard'
 import { FollowedArtistsGrid } from '@/components/profile/FollowedArtistsGrid'
 import { useAuth } from '@/lib/auth'
@@ -23,6 +32,8 @@ export default function LibraryPage() {
 
   const [liked, setLiked] = useState<SongCardModel[] | null>(null)
   const [artists, setArtists] = useState<ArtistCardModel[] | null>(null)
+  const [playlists, setPlaylists] = useState<PlaylistSummary[] | null>(null)
+  const [creating, setCreating] = useState(false)
 
   useEffect(() => {
     if (tab !== 'liked' || !user || liked) return
@@ -33,6 +44,16 @@ export default function LibraryPage() {
         setLiked([])
       })
   }, [tab, user, liked])
+
+  useEffect(() => {
+    if (tab !== 'playlists' || !user || playlists) return
+    getUserPlaylists(user.id)
+      .then(setPlaylists)
+      .catch((err) => {
+        console.error('[beatboxed] playlists failed:', err)
+        setPlaylists([])
+      })
+  }, [tab, user, playlists])
 
   useEffect(() => {
     if (tab !== 'artists' || !user || artists) return
@@ -106,10 +127,50 @@ export default function LibraryPage() {
       )}
 
       {tab === 'playlists' && (
-        <EmptyPanel
-          title="No playlists yet"
-          detail="Playlist creation is still to come."
-        />
+        <section className="flex flex-col gap-5">
+          {creating ? (
+            <div className="rounded-card bg-surface p-4 shadow-card sm:max-w-md">
+              <PlaylistForm
+                submitLabel="Create playlist"
+                onCancel={() => setCreating(false)}
+                onSubmit={async ({ title, description, coverFile }) => {
+                  if (!user) return
+                  const made = await createPlaylist(user.id, title, description)
+                  // The upload needs an id, so it can only happen now.
+                  if (coverFile) {
+                    made.coverUrl = await uploadPlaylistCover(
+                      user.id,
+                      made.id,
+                      coverFile
+                    )
+                  }
+                  setPlaylists((prev) => [made, ...(prev ?? [])])
+                  setCreating(false)
+                }}
+              />
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setCreating(true)}
+              className="flex w-fit items-center gap-2 rounded-button bg-primary px-4 py-2 text-button text-white transition-all duration-200 ease-soft hover:bg-primary/90 active:scale-[0.97]"
+            >
+              <Plus className="size-4" strokeWidth={2} aria-hidden />
+              New playlist
+            </button>
+          )}
+
+          {playlists === null ? (
+            <PlaylistGridSkeleton />
+          ) : playlists.length === 0 ? (
+            <EmptyPanel
+              title="No playlists yet"
+              detail="Make one above, then add songs from any song page."
+            />
+          ) : (
+            <PlaylistGrid playlists={playlists} />
+          )}
+        </section>
       )}
 
       {tab === 'artists' && (

@@ -17,6 +17,7 @@ import { usePlayer } from '@/lib/player'
 import { useAuth } from '@/lib/auth'
 import { getLyrics, isSongLiked, setSongLike } from '@/lib/catalog'
 import { cn } from '@/lib/cn'
+import { AddToPlaylistButton } from '@/components/playlist/AddToPlaylistButton'
 import type { LyricsResult } from '@/lib/types'
 
 function clock(seconds: number) {
@@ -32,6 +33,7 @@ export default function NowPlaying() {
     isPlaying,
     loading,
     unavailable,
+    skipNotice,
     position,
     duration,
     toggle,
@@ -187,14 +189,20 @@ export default function NowPlaying() {
               strokeWidth={1.75}
             />
           </button>
+
+          <AddToPlaylistButton songId={current.id} variant="subtle" />
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
           <span className="rounded-full bg-surface-2 px-2.5 py-1 text-meta text-muted-foreground">
             Preview
           </span>
-          {unavailable && (
-            <span className="text-meta text-danger">Preview unavailable</span>
+          {skipNotice ? (
+            <span className="text-meta text-muted-foreground">{skipNotice}</span>
+          ) : (
+            unavailable && (
+              <span className="text-meta text-danger">Preview unavailable</span>
+            )
           )}
         </div>
       </div>
