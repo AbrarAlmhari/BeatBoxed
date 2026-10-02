@@ -1459,3 +1459,52 @@ export async function getPeopleByIds(
   for (const row of data ?? []) map.set(row.id, toPerson(row))
   return map
 }
+
+/**
+ * Everything the notification renderers need to turn id-only payloads into
+ * readable text: who acted, which song, and the opening words of a comment.
+ * Three batched queries rather than one per notification.
+ */
+export async function getNotificationContext(
+  notifications: NotificationRow[]
+): Promise<{
+  people: Map<string, PersonCardModel>
+  songs: Map<string, string>
+  comments: Map<string, string>
+}> {
+  const client = requireClient()
+  const str = (v: unknown) => (typeof v === 'string' ? v : null)
+
+  const personIds = new Set<string>()
+  const songIds = new Set<string>()
+  const commentIds = new Set<string>()
+
+  for (const n of notifications) {
+    for (const key of ['actor_id', 'friend_id', 'review_author_id']) {
+      const v = str(n.payload[key])
+      if (v) personIds.add(v)
+    }
+    const song = str(n.payload.song_id)
+    if (song) songIds.add(song)
+    const comment = str(n.payload.comment_id)
+    if (comment) commentIds.add(comment)
+  }
+
+  const [people, songs, comments] = await Promise.all([
+    personIds.size ? getPeopleByIds([...personIds]) : Promise.resolve(new Map()),
+    songIds.size
+      ? client.from('songs').select('id, title').in('id', [...songIds])
+      : Promise.resolve({ data: [], error: null }),
+    commentIds.size
+      ? client.from('review_comments').select('id, body').in('id', [...commentIds])
+      : Promise.resolve({ data: [], error: null }),
+  ])
+
+  const songMap = new Map<string, string>()
+  if (!songs.error) for (const s of songs.data ?? []) songMap.set(s.id, s.title)
+
+  const commentMap = new Map<string, string>()
+  if (!comments.error) for (const c of comments.data ?? []) commentMap.set(c.id, c.body)
+
+  return { people, songs: songMap, comments: commentMap }
+}

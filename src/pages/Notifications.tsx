@@ -5,31 +5,27 @@ import { Chip } from '@/components/ui/Chip'
 import {
   NOTIFICATION_CATEGORIES,
   NOTIFICATION_RENDERERS,
-  referencedPersonIds,
   renderAnnouncement,
   type NotificationCategory,
+  type RenderContext,
   type RenderedNotification,
 } from '@/components/notifications/renderers'
 import { useAuth } from '@/lib/auth'
 import {
   getNotificationCenter,
-  getPeopleByIds,
+  getNotificationContext,
   markAllRead,
   markAnnouncementRead,
   markNotificationRead,
 } from '@/lib/catalog'
 import { cn } from '@/lib/cn'
-import type {
-  NotificationCenter,
-  PersonCardModel,
-  UpdateItem,
-} from '@/lib/types'
+import type { NotificationCenter, UpdateItem } from '@/lib/types'
 
 type Filter = 'all' | NotificationCategory
 
 const FILTERS: { value: Filter; label: string }[] = [
   { value: 'all', label: 'All' },
-  { value: 'friends', label: 'Friends' },
+  { value: 'social', label: 'Social' },
   { value: 'artists', label: 'Artists' },
   { value: 'beatboxed', label: 'Beatboxed' },
 ]
@@ -58,7 +54,11 @@ export default function Notifications() {
   const navigate = useNavigate()
 
   const [data, setData] = useState<NotificationCenter | null>(null)
-  const [people, setPeople] = useState<Map<string, PersonCardModel>>(new Map())
+  const [ctx, setCtx] = useState<RenderContext>({
+    people: new Map(),
+    songs: new Map(),
+    comments: new Map(),
+  })
   const [filter, setFilter] = useState<Filter>('all')
 
   const load = useCallback(async () => {
@@ -66,14 +66,10 @@ export default function Notifications() {
     const next = await getNotificationCenter(user.id)
     setData(next)
 
-    const ids = [
-      ...new Set(
-        next.updates.flatMap((u) =>
-          u.kind === 'notification' ? referencedPersonIds(u.notification) : []
-        )
-      ),
-    ]
-    if (ids.length) setPeople(await getPeopleByIds(ids))
+    const notifications = next.updates
+      .filter((u) => u.kind === 'notification')
+      .map((u) => (u as Extract<UpdateItem, { kind: 'notification' }>).notification)
+    if (notifications.length) setCtx(await getNotificationContext(notifications))
   }, [user])
 
   useEffect(() => {
@@ -113,9 +109,47 @@ export default function Notifications() {
     return NOTIFICATION_CATEGORIES[item.notification.type] ?? null
   }
 
-  const visible = (data?.updates ?? []).filter(
+  const filtered = (data?.updates ?? []).filter(
     (u) => filter === 'all' || categoryOf(u) === filter
   )
+
+  /**
+   * Several people liking the same review show as one row — "Sara and 4
+   * others" — with the newest actor's avatar. Grouping happens here, at
+   * display time; the table keeps one row per like so unread state and the
+   * undo trigger stay per-person.
+   */
+  type Display = { item: UpdateItem; alsoActorIds: string[] }
+
+  const visible: Display[] = []
+  const likeRowByReview = new Map<string, Display>()
+
+  for (const u of filtered) {
+    if (u.kind === 'notification' && u.notification.type === 'review_liked') {
+      const reviewId = u.notification.payload.review_id
+      const key = typeof reviewId === 'string' ? reviewId : null
+      if (key) {
+        const existing = likeRowByReview.get(key)
+        if (existing) {
+          const actor = u.notification.payload.actor_id
+          if (typeof actor === 'string') existing.alsoActorIds.push(actor)
+          // An unread like keeps the whole group unread.
+          if (!u.notification.read && existing.item.kind === 'notification') {
+            existing.item = {
+              ...existing.item,
+              notification: { ...existing.item.notification, read: false },
+            }
+          }
+          continue
+        }
+        const row: Display = { item: u, alsoActorIds: [] }
+        likeRowByReview.set(key, row)
+        visible.push(row)
+        continue
+      }
+    }
+    visible.push({ item: u, alsoActorIds: [] })
+  }
 
   const hasUnread = (data?.updates ?? []).some((u) =>
     u.kind === 'notification' ? !u.notification.read : !u.announcement.read
@@ -134,12 +168,12 @@ export default function Notifications() {
         : `${requestNames[0]} and ${requests.length - 1} others want to be friends`
 
   // Group after filtering, so an empty bucket never prints a heading.
-  const groups: [Bucket, UpdateItem[]][] = (
+  const groups: [Bucket, Display[]][] = (
     ['Today', 'This week', 'Earlier'] as Bucket[]
   )
-    .map((b): [Bucket, UpdateItem[]] => [
+    .map((b): [Bucket, Display[]] => [
       b,
-      visible.filter((u) => bucketFor(u.at) === b),
+      visible.filter((d) => bucketFor(d.item.at) === b),
     ])
     .filter(([, items]) => items.length > 0)
 
@@ -239,13 +273,14 @@ export default function Notifications() {
           {groups.map(([bucket, items]) => (
             <section key={bucket} className="flex flex-col gap-2">
               <h2 className="text-meta text-muted-foreground">{bucket}</h2>
-              {items.map((item) => {
+              {items.map(({ item, alsoActorIds }) => {
                 const rendered =
                   item.kind === 'announcement'
                     ? renderAnnouncement(item.announcement)
                     : NOTIFICATION_RENDERERS[item.notification.type]?.(
                         item.notification,
-                        people
+                        ctx,
+                        alsoActorIds
                       ) ?? null
 
                 // Unknown type, or a payload no renderer can use.
@@ -261,33 +296,47 @@ export default function Notifications() {
                     : item.announcement.id
 
                 return (
-                  <button
+                  <div
                     key={key}
-                    type="button"
-                    onClick={() => void openItem(item, rendered)}
                     className={cn(
-                      'flex w-full items-start gap-3 rounded-card p-4 text-left shadow-card transition-colors duration-200 ease-soft',
-                      unread
-                        ? 'bg-primary/10 hover:bg-primary/15'
-                        : 'bg-surface hover:bg-surface-2'
+                      'flex w-full items-start gap-3 rounded-card p-4 shadow-card transition-colors duration-200 ease-soft',
+                      unread ? 'bg-primary/10' : 'bg-surface'
                     )}
                   >
-                    <span className="mt-0.5 shrink-0">{rendered.icon}</span>
-                    <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                      <span className="text-secondary">{rendered.body}</span>
-                    </span>
-                    <span className="flex shrink-0 items-center gap-2">
-                      <span className="text-meta text-muted-foreground">
-                        {shortAgo(item.at)}
+                    {/* The avatar is its own link to the actor's profile; the
+                        rest of the row opens whatever the notification is about. */}
+                    {rendered.actorId ? (
+                      <Link
+                        to={`/profile/${rendered.actorId}`}
+                        className="shrink-0 transition-opacity duration-200 hover:opacity-80"
+                      >
+                        {rendered.avatar}
+                      </Link>
+                    ) : (
+                      rendered.avatar
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => void openItem(item, rendered)}
+                      className="flex min-w-0 flex-1 items-start gap-3 text-left"
+                    >
+                      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                        <span className="text-secondary">{rendered.body}</span>
                       </span>
-                      {unread && (
-                        <span
-                          aria-label="Unread"
-                          className="size-2 rounded-full bg-primary"
-                        />
-                      )}
-                    </span>
-                  </button>
+                      <span className="flex shrink-0 items-center gap-2">
+                        <span className="text-meta text-muted-foreground">
+                          {shortAgo(item.at)}
+                        </span>
+                        {unread && (
+                          <span
+                            aria-label="Unread"
+                            className="size-2 rounded-full bg-primary"
+                          />
+                        )}
+                      </span>
+                    </button>
+                  </div>
                 )
               })}
             </section>

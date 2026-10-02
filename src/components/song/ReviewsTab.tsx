@@ -14,10 +14,16 @@ const PAGE_SIZE = 10
 export function ReviewsTab({
   songId,
   onStatsChange,
+  targetReviewId,
+  targetCommentId,
 }: {
   songId: string
   /** Fires after any successful write so the header average can refresh. */
   onStatsChange: () => void
+  /** From ?review= on a notification deep link. */
+  targetReviewId?: string | null
+  /** From &comment= — opens that review's thread as well. */
+  targetCommentId?: string | null
 }) {
   const { user } = useAuth()
   const { displayName } = useProfile()
@@ -201,7 +207,11 @@ export function ReviewsTab({
       ) : myReview ? (
         <div className="flex flex-col gap-3 rounded-card bg-surface-2 p-4">
           <p className="text-meta text-muted-foreground">Your review</p>
-          <ReviewCard review={myReview} />
+          <ReviewCard
+            review={myReview}
+            highlight={myReview.id === targetReviewId}
+            openComments={Boolean(targetCommentId) && myReview.id === targetReviewId}
+          />
 
           {confirmingDelete ? (
             <div className="flex flex-wrap items-center gap-2">
@@ -268,7 +278,14 @@ export function ReviewsTab({
           </p>
         </div>
       ) : (
-        others.map((r) => <ReviewCard key={r.id} review={r} />)
+        others.map((r) => (
+          <ReviewCard
+            key={r.id}
+            review={r}
+            highlight={r.id === targetReviewId}
+            openComments={Boolean(targetCommentId) && r.id === targetReviewId}
+          />
+        ))
       )}
 
       {hasMore && (

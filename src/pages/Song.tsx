@@ -8,7 +8,7 @@ import {
   MicVocal,
   SearchX,
 } from 'lucide-react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { cn } from '@/lib/cn'
 import { Chip } from '@/components/ui/Chip'
 import { FollowButton } from '@/components/ui/FollowButton'
@@ -56,6 +56,10 @@ export default function Song() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
+  // Notification deep links land here: /song/:id?review=…&comment=…
+  const [searchParams] = useSearchParams()
+  const targetReviewId = searchParams.get('review')
+  const targetCommentId = searchParams.get('comment')
 
   const [song, setSong] = useState<SongDetail | null>(null)
   const [loading, setLoading] = useState(true)
@@ -450,7 +454,12 @@ export default function Song() {
         className="scroll-mt-36 pb-4"
       >
         <h2 className="mb-4 text-section-title">Reviews</h2>
-        <ReviewsTab songId={song.id} onStatsChange={refreshStats} />
+        <ReviewsTab
+          songId={song.id}
+          onStatsChange={refreshStats}
+          targetReviewId={targetReviewId}
+          targetCommentId={targetCommentId}
+        />
       </section>
     </div>
   )

@@ -1,69 +1,213 @@
-import { Megaphone, UserCheck } from 'lucide-react'
+import { Heart, Megaphone, MessageCircle, UserCheck } from 'lucide-react'
 import type { Announcement, NotificationRow, PersonCardModel } from '@/lib/types'
 
+/** Looked up at render time, so names and titles are never stale. */
+export type RenderContext = {
+  people: Map<string, PersonCardModel>
+  songs: Map<string, string>
+  comments: Map<string, string>
+}
+
 export type RenderedNotification = {
-  icon: React.ReactNode
+  /** Actor avatar with a small badge, or a plain icon for system items. */
+  avatar: React.ReactNode
   body: React.ReactNode
   /** Where clicking takes you, or null to stay put. */
   href: string | null
+  /** Whose profile the avatar links to, when there is an actor. */
+  actorId: string | null
 }
 
 /** Drives the filter chips. 'artists' has no producers yet, by design. */
-export type NotificationCategory = 'friends' | 'artists' | 'beatboxed'
+export type NotificationCategory = 'social' | 'artists' | 'beatboxed'
 
 /** type -> which chip it belongs under. */
 export const NOTIFICATION_CATEGORIES: Record<string, NotificationCategory> = {
-  friend_accepted: 'friends',
+  friend_accepted: 'social',
+  review_liked: 'social',
+  review_commented: 'social',
+  thread_reply: 'social',
   // Reserved for the next wave — a trigger plus a renderer is all they need:
   // artist_release: 'artists',
-  // song_added:     'artists',
 }
 
-/**
- * type -> renderer. Adding review_liked or artist_release later means a new
- * trigger plus one entry here; nothing else changes.
- *
- * A type with no entry renders nothing rather than throwing, so a trigger can
- * ship before the UI that understands it.
- */
+const str = (v: unknown) => (typeof v === 'string' ? v : null)
+
+function nameOf(id: string | null, ctx: RenderContext) {
+  if (!id) return 'Someone'
+  const p = ctx.people.get(id)
+  return p?.displayName || p?.username || 'Someone'
+}
+
+/** Actor's avatar with the action badged onto it, Instagram-style. */
+function Avatar({
+  person,
+  badge,
+  extra,
+}: {
+  person: PersonCardModel | undefined
+  badge: React.ReactNode
+  /** "+4" when several people did the same thing. */
+  extra?: number
+}) {
+  const name = person?.displayName || person?.username || '?'
+  return (
+    <span className="relative shrink-0">
+      {person?.avatarUrl ? (
+        <img src={person.avatarUrl} alt="" className="size-10 rounded-full object-cover" />
+      ) : (
+        <span className="grid size-10 place-items-center rounded-full bg-surface-2 text-card-title text-muted-foreground">
+          {name.charAt(0).toUpperCase()}
+        </span>
+      )}
+      <span className="absolute -bottom-0.5 -right-0.5 grid size-5 place-items-center rounded-full bg-background">
+        {badge}
+      </span>
+      {extra && extra > 0 ? (
+        <span className="absolute -left-1 -top-1 grid size-5 place-items-center rounded-full bg-surface-2 text-[10px] font-semibold text-muted-foreground">
+          +{extra}
+        </span>
+      ) : null}
+    </span>
+  )
+}
+
+const heart = <Heart className="size-3.5 fill-primary text-primary" strokeWidth={2} />
+const bubble = <MessageCircle className="size-3.5 text-primary" strokeWidth={2.25} />
+const check = <UserCheck className="size-3.5 text-primary" strokeWidth={2.25} />
+
+/** Deep link to the exact review, and the thread when there is a comment. */
+function reviewHref(payload: Record<string, unknown>) {
+  const song = str(payload.song_id)
+  const review = str(payload.review_id)
+  if (!song || !review) return null
+  const comment = str(payload.comment_id)
+  return `/song/${song}?review=${review}${comment ? `&comment=${comment}` : ''}`
+}
+
+function snippet(body: string | undefined, words = 6) {
+  if (!body) return null
+  const parts = body.trim().split(/\s+/)
+  return parts.slice(0, words).join(' ') + (parts.length > words ? '…' : '')
+}
+
 export type NotificationRenderer = (
   n: NotificationRow,
-  people: Map<string, PersonCardModel>
+  ctx: RenderContext,
+  /** Other actors when several people did the same thing to the same thing. */
+  alsoActorIds?: string[]
 ) => RenderedNotification | null
 
-const friendAccepted: NotificationRenderer = (n, people) => {
-  const id = typeof n.payload.friend_id === 'string' ? n.payload.friend_id : null
+const friendAccepted: NotificationRenderer = (n, ctx) => {
+  // Older rows used friend_id; notify() writes actor_id.
+  const id = str(n.payload.actor_id) ?? str(n.payload.friend_id)
   if (!id) return null
-
-  // Payloads hold ids only, so the name is always whatever it is right now.
-  const person = people.get(id)
-  const name = person?.displayName || person?.username || 'Someone'
-
   return {
-    icon: <UserCheck className="size-4 text-primary" strokeWidth={2} />,
+    avatar: <Avatar person={ctx.people.get(id)} badge={check} />,
     body: (
       <>
-        <span className="text-foreground">{name}</span>
+        <span className="text-foreground">{nameOf(id, ctx)}</span>
         <span className="text-muted-foreground"> accepted your friend request.</span>
       </>
     ),
     href: `/profile/${id}`,
+    actorId: id,
   }
 }
 
-export const NOTIFICATION_RENDERERS: Record<string, NotificationRenderer> = {
-  friend_accepted: friendAccepted,
+const reviewLiked: NotificationRenderer = (n, ctx, alsoActorIds = []) => {
+  const actor = str(n.payload.actor_id)
+  const song = str(n.payload.song_id)
+  if (!actor) return null
+
+  const title = song ? ctx.songs.get(song) : null
+  const others = alsoActorIds.length
+
+  return {
+    avatar: <Avatar person={ctx.people.get(actor)} badge={heart} extra={others} />,
+    body: (
+      <>
+        <span className="text-foreground">{nameOf(actor, ctx)}</span>
+        {others > 0 && (
+          <span className="text-foreground">
+            {' '}and {others} other{others > 1 ? 's' : ''}
+          </span>
+        )}
+        <span className="text-muted-foreground">
+          {' '}liked your review{title ? ' of ' : ''}
+        </span>
+        {title && <span dir="auto" className="text-foreground">{title}</span>}
+      </>
+    ),
+    href: reviewHref(n.payload),
+    actorId: actor,
+  }
 }
 
-/** Ids a notification needs resolved before it can render. */
-export function referencedPersonIds(n: NotificationRow): string[] {
-  const id = n.payload.friend_id
-  return typeof id === 'string' ? [id] : []
+const reviewCommented: NotificationRenderer = (n, ctx) => {
+  const actor = str(n.payload.actor_id)
+  if (!actor) return null
+  const text = snippet(ctx.comments.get(str(n.payload.comment_id) ?? ''))
+
+  return {
+    avatar: <Avatar person={ctx.people.get(actor)} badge={bubble} />,
+    body: (
+      <>
+        <span className="text-foreground">{nameOf(actor, ctx)}</span>
+        <span className="text-muted-foreground"> commented on your review</span>
+        {text && (
+          <span dir="auto" className="text-muted-foreground">: “{text}”</span>
+        )}
+      </>
+    ),
+    href: reviewHref(n.payload),
+    actorId: actor,
+  }
+}
+
+const threadReply: NotificationRenderer = (n, ctx) => {
+  const actor = str(n.payload.actor_id)
+  const author = str(n.payload.review_author_id)
+  const song = str(n.payload.song_id)
+  if (!actor) return null
+
+  const title = song ? ctx.songs.get(song) : null
+
+  return {
+    avatar: <Avatar person={ctx.people.get(actor)} badge={bubble} />,
+    body: (
+      <>
+        <span className="text-foreground">{nameOf(actor, ctx)}</span>
+        <span className="text-muted-foreground"> also commented on </span>
+        <span className="text-foreground">{nameOf(author, ctx)}’s</span>
+        <span className="text-muted-foreground"> review{title ? ' of ' : ''}</span>
+        {title && <span dir="auto" className="text-foreground">{title}</span>}
+      </>
+    ),
+    href: reviewHref(n.payload),
+    actorId: actor,
+  }
+}
+
+/**
+ * type -> renderer. A new social type is a trigger calling notify() plus one
+ * entry here. An unknown type renders nothing rather than throwing, so a
+ * trigger can ship before the UI that understands it.
+ */
+export const NOTIFICATION_RENDERERS: Record<string, NotificationRenderer> = {
+  friend_accepted: friendAccepted,
+  review_liked: reviewLiked,
+  review_commented: reviewCommented,
+  thread_reply: threadReply,
 }
 
 export function renderAnnouncement(a: Announcement): RenderedNotification {
   return {
-    icon: <Megaphone className="size-4 text-primary" strokeWidth={2} />,
+    avatar: (
+      <span className="grid size-10 shrink-0 place-items-center rounded-full bg-surface-2">
+        <Megaphone className="size-4 text-primary" strokeWidth={2} />
+      </span>
+    ),
     body: (
       <>
         <span className="text-foreground">{a.title}</span>
@@ -71,5 +215,6 @@ export function renderAnnouncement(a: Announcement): RenderedNotification {
       </>
     ),
     href: a.link,
+    actorId: null,
   }
 }

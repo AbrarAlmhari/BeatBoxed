@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Heart, MessageCircle } from 'lucide-react'
 import { StarRating } from '@/components/ui/StarRating'
@@ -14,7 +14,16 @@ const dateFmt = new Intl.DateTimeFormat(undefined, {
   day: 'numeric',
 })
 
-export function ReviewCard({ review }: { review: ReviewWithAuthor }) {
+export function ReviewCard({
+  review,
+  highlight = false,
+  openComments = false,
+}: {
+  review: ReviewWithAuthor
+  /** Arrived here from a notification — scroll to it and flash it once. */
+  highlight?: boolean
+  openComments?: boolean
+}) {
   const { user } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
@@ -24,7 +33,18 @@ export function ReviewCard({ review }: { review: ReviewWithAuthor }) {
   const [liked, setLiked] = useState(review.likedByMe)
   const [likeCount, setLikeCount] = useState(review.likeCount)
   const [commentCount, setCommentCount] = useState(review.commentCount)
-  const [commentsOpen, setCommentsOpen] = useState(false)
+  const [commentsOpen, setCommentsOpen] = useState(openComments)
+  const ref = useRef<HTMLElement>(null)
+  const [flash, setFlash] = useState(false)
+
+  useEffect(() => {
+    if (!highlight) return
+    ref.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    setFlash(true)
+    // Brief, then back to normal — a permanent highlight reads as a state.
+    const t = setTimeout(() => setFlash(false), 2000)
+    return () => clearTimeout(t)
+  }, [highlight])
 
   const name = review.author?.displayName || review.author?.username || 'Someone'
   const initial = name.trim().charAt(0).toUpperCase() || '?'
@@ -50,7 +70,13 @@ export function ReviewCard({ review }: { review: ReviewWithAuthor }) {
   }
 
   return (
-    <article className="flex flex-col gap-3 rounded-card bg-surface p-4 shadow-card">
+    <article
+      ref={ref}
+      className={cn(
+        'flex scroll-mt-36 flex-col gap-3 rounded-card bg-surface p-4 shadow-card transition-colors duration-500 ease-soft',
+        flash && 'ring-2 ring-primary/60'
+      )}
+    >
       <div className="flex gap-3">
         <Link to={`/profile/${review.userId}`} className="shrink-0">
           {review.author?.avatarUrl ? (
