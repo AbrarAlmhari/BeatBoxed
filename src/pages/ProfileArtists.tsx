@@ -4,7 +4,6 @@ import { FollowedArtistsGrid } from '@/components/profile/FollowedArtistsGrid'
 import { ListPageShell, FilterBox } from '@/components/profile/ListPageShell'
 import { useAuth } from '@/lib/auth'
 import {
-  getFollowedArtistIds,
   getFollowedArtistsPage,
   getProfileDetail,
 } from '@/lib/catalog'
@@ -20,7 +19,6 @@ export default function ProfileArtists() {
 
   const [name, setName] = useState<string | null>(null)
   const [artists, setArtists] = useState<ArtistCardModel[]>([])
-  const [myFollows, setMyFollows] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [exhausted, setExhausted] = useState(false)
@@ -34,15 +32,12 @@ export default function ProfileArtists() {
     Promise.all([
       getProfileDetail(targetId),
       getFollowedArtistsPage(targetId, { limit: PAGE }),
-      // Follow buttons show *your* state, even on someone else's list.
-      user ? getFollowedArtistIds(user.id) : Promise.resolve(new Set<string>()),
     ])
-      .then(([profile, page, mine]) => {
+      .then(([profile, page]) => {
         if (cancelled) return
         setName(profile?.displayName || profile?.username || 'Listener')
         setArtists(page)
         setExhausted(page.length < PAGE)
-        setMyFollows(mine)
       })
       .catch((err) => console.error('[beatboxed] artists list failed:', err))
       .finally(() => {
@@ -104,7 +99,6 @@ export default function ProfileArtists() {
         onUnfollowed={(artistId) =>
           setArtists((prev) => prev.filter((a) => a.id !== artistId))
         }
-        followedByViewer={myFollows}
       />
     </ListPageShell>
   )

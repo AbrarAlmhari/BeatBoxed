@@ -11,7 +11,6 @@ import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import { useAuth } from '@/lib/auth'
 import { usePlayer } from '@/lib/player'
 import {
-  getFollowedArtistIds,
   getFriendStates,
   getGenres,
   popularSearches,
@@ -80,7 +79,6 @@ export default function Explore() {
 
   const debouncedQuery = useDebouncedValue(query, 250)
   const [genres, setGenres] = useState<string[]>([])
-  const [followed, setFollowed] = useState<Set<string>>(new Set())
   const [friendStates, setFriendStates] = useState<Map<string, FriendState>>(
     new Map()
   )
@@ -100,13 +98,6 @@ export default function Explore() {
       .then(setGenres)
       .catch((err) => console.warn('[beatboxed] genre list failed:', err))
   }, [])
-
-  useEffect(() => {
-    if (!user) return setFollowed(new Set())
-    getFollowedArtistIds(user.id)
-      .then(setFollowed)
-      .catch((err) => console.warn('[beatboxed] follow state failed:', err))
-  }, [user])
 
   useEffect(() => {
     let current = true
@@ -361,19 +352,7 @@ export default function Explore() {
                 {results.artists
                   .slice(0, sliceFor('artists', results.artists))
                   .map((artist) => (
-                    <ArtistResultCard
-                      key={artist.id}
-                      artist={artist}
-                      following={followed.has(artist.id)}
-                      onFollowChange={(next) =>
-                        setFollowed((prev) => {
-                          const copy = new Set(prev)
-                          if (next) copy.add(artist.id)
-                          else copy.delete(artist.id)
-                          return copy
-                        })
-                      }
-                    />
+                    <ArtistResultCard key={artist.id} artist={artist} />
                   ))}
               </div>
             </Section>

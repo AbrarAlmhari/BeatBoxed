@@ -2,15 +2,7 @@ import type { ArtistCardModel } from '@/lib/types'
 import { FollowButton } from '@/components/ui/FollowButton'
 import { tintFor } from './tint'
 
-export function ArtistResultCard({
-  artist,
-  following = false,
-  onFollowChange,
-}: {
-  artist: ArtistCardModel
-  following?: boolean
-  onFollowChange?: (following: boolean) => void
-}) {
+export function ArtistResultCard({ artist }: { artist: ArtistCardModel }) {
   const t = tintFor(artist.id)
   return (
     <div className="flex w-full items-center gap-4 rounded-card bg-surface p-3 text-left shadow-card transition-colors duration-250 ease-soft hover:bg-surface-2">
@@ -48,12 +40,7 @@ export function ArtistResultCard({
         </span>
       </span>
 
-      <FollowButton
-        artistId={artist.id}
-        following={following}
-        onChange={onFollowChange}
-        size="sm"
-      />
+      <FollowButton artistId={artist.id} size="sm" />
     </div>
   )
 }

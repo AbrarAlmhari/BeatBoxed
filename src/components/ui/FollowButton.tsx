@@ -1,29 +1,39 @@
 import { useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Check, Plus } from 'lucide-react'
+import { AlertCircle, Check, Loader2, Plus } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
-import { setArtistFollow } from '@/lib/catalog'
+import { useFollows } from '@/lib/follows'
 import { cn } from '@/lib/cn'
 
+/**
+ * Follow state comes from the shared FollowsProvider, so a follow made on one
+ * song shows on every other song by that artist, in Explore, and on the
+ * Profile and Library lists — with no per-page fetching.
+ *
+ * The button stays usable: only the very first load shows a spinner, and a
+ * failed load becomes a retry rather than a dead control. An earlier version
+ * disabled it on `!ready`, which made a stalled load look like a broken app.
+ */
 export function FollowButton({
   artistId,
-  following,
   onChange,
   size = 'md',
 }: {
   artistId: string
-  following: boolean
-  /** Lets the parent keep its own list in step without a refetch. */
+  /** Fires with the settled value, for lists that drop a row on unfollow. */
   onChange?: (following: boolean) => void
   size?: 'sm' | 'md'
 }) {
   const { user } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
-  const [isFollowing, setIsFollowing] = useState(following)
-  const [pending, setPending] = useState(false)
+  const { isFollowing, loading, error, retry, toggleFollow } = useFollows()
+  const [writeFailed, setWriteFailed] = useState(false)
 
-  async function toggle(e: React.MouseEvent) {
+  const following = isFollowing(artistId)
+  const pad = size === 'sm' ? 'px-2.5 py-1 text-meta' : 'px-3 py-1.5 text-button'
+
+  async function onClick(e: React.MouseEvent) {
     // These sit inside clickable cards; don't trigger the card's navigation.
     e.preventDefault()
     e.stopPropagation()
@@ -32,41 +42,61 @@ export function FollowButton({
       navigate('/login', { state: { from: location.pathname } })
       return
     }
+    if (error && !following) {
+      // The set never loaded, so the displayed state can't be trusted.
+      retry()
+      return
+    }
 
-    const next = !isFollowing
-    setIsFollowing(next)
-    setPending(true)
+    setWriteFailed(false)
     try {
-      await setArtistFollow(user.id, artistId, next)
-      onChange?.(next)
-    } catch (err) {
-      console.error('[beatboxed] follow failed:', err)
-      setIsFollowing(!next)
-    } finally {
-      setPending(false)
+      // Keep the call on its own line. `onChange?.(await toggleFollow(id))`
+      // looks equivalent but is not: optional invocation short-circuits
+      // before evaluating its arguments, so when no onChange was passed —
+      // the Song page and Explore both omit it — the toggle never ran at
+      // all. The click did nothing, silently, with no request and no error.
+      const settled = await toggleFollow(artistId)
+      onChange?.(settled)
+    } catch {
+      setWriteFailed(true)
     }
   }
 
   return (
     <button
       type="button"
-      onClick={toggle}
-      disabled={pending}
-      aria-pressed={isFollowing}
+      onClick={onClick}
+      aria-pressed={following}
+      aria-label={
+        writeFailed
+          ? 'Follow failed, tap to retry'
+          : following
+            ? 'Unfollow this artist'
+            : 'Follow this artist'
+      }
+      title={writeFailed ? "That didn't save. Tap to try again." : undefined}
       className={cn(
-        'flex shrink-0 items-center gap-1.5 rounded-button border transition-colors duration-200 ease-soft active:scale-[0.97] disabled:opacity-60',
-        size === 'sm' ? 'px-2.5 py-1 text-meta' : 'px-3 py-1.5 text-button',
-        isFollowing
-          ? 'border-primary/60 bg-primary/15 text-foreground'
-          : 'border-white/10 bg-surface-2 text-muted-foreground hover:text-foreground'
+        'flex shrink-0 items-center gap-1.5 rounded-button border transition-colors duration-200 ease-soft active:scale-[0.97]',
+        pad,
+        writeFailed
+          ? 'border-danger/60 bg-danger/10 text-danger'
+          : following
+            ? 'border-primary/60 bg-primary/15 text-foreground'
+            : 'border-white/10 bg-surface-2 text-muted-foreground hover:text-foreground'
       )}
     >
-      {isFollowing ? (
+      {/* Only the initial load spins. A write in flight shows nothing: the
+          label has already flipped, and that is the feedback. */}
+      {loading ? (
+        <Loader2 className="size-3.5 animate-spin" strokeWidth={2} aria-hidden />
+      ) : writeFailed ? (
+        <AlertCircle className="size-3.5" strokeWidth={2} />
+      ) : following ? (
         <Check className="size-3.5" strokeWidth={2} />
       ) : (
         <Plus className="size-3.5" strokeWidth={2} />
       )}
-      {isFollowing ? 'Following' : 'Follow'}
+      {writeFailed ? 'Retry' : following ? 'Following' : 'Follow'}
     </button>
   )
 }

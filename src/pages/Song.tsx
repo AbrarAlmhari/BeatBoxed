@@ -19,7 +19,6 @@ import { StarRating } from '@/components/ui/StarRating'
 import { ReviewsTab } from '@/components/song/ReviewsTab'
 import { tintFor } from '@/components/explore/tint'
 import {
-  getFollowedArtistIds,
   getLyrics,
   getSongDetail,
   getSongRatingStats,
@@ -81,7 +80,6 @@ export default function Song() {
   // request, so the spinner never clears.
   const lyricsRequestedFor = useRef<string | null>(null)
 
-  const [followingArtist, setFollowingArtist] = useState(false)
   const [liked, setLiked] = useState(false)
   const [active, setActive] = useState<Section>('about')
   const aboutRef = useRef<HTMLElement>(null)
@@ -126,19 +124,6 @@ export default function Song() {
       cancelled = true
     }
   }, [id, user])
-
-  useEffect(() => {
-    if (!user || !song?.artist) return
-    let cancelled = false
-    getFollowedArtistIds(user.id)
-      .then((ids) => {
-        if (!cancelled && song.artist) setFollowingArtist(ids.has(song.artist.id))
-      })
-      .catch((err) => console.warn('[beatboxed] follow state failed:', err))
-    return () => {
-      cancelled = true
-    }
-  }, [user, song])
 
   useEffect(() => {
     if (!user || !song) return setLiked(false)
@@ -320,12 +305,7 @@ export default function Song() {
               {song.artist?.name ?? 'Unknown artist'}
             </span>
             {song.artist && (
-              <FollowButton
-                artistId={song.artist.id}
-                following={followingArtist}
-                onChange={setFollowingArtist}
-                size="sm"
-              />
+              <FollowButton artistId={song.artist.id} size="sm" />
             )}
           </div>
 

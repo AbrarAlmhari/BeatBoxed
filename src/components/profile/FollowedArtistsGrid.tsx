@@ -10,17 +10,11 @@ export function FollowedArtistsGrid({
   artists,
   showUnfollow,
   onUnfollowed,
-  followedByViewer,
 }: {
   artists: ArtistCardModel[]
-  /** Only on your own library/profile — you can't unfollow for someone else. */
+  /** Your own list, so unfollowing should drop the row from it. */
   showUnfollow: boolean
   onUnfollowed?: (artistId: string) => void
-  /**
-   * The viewer's own follows. On someone else's list the button has to show
-   * whether *you* follow them, not whether the list's owner does.
-   */
-  followedByViewer?: Set<string>
 }) {
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
@@ -51,22 +45,13 @@ export function FollowedArtistsGrid({
             {a.name}
           </span>
 
-          {showUnfollow ? (
-            <FollowButton
-              artistId={a.id}
-              following
-              size="sm"
-              onChange={(next) => {
-                if (!next) onUnfollowed?.(a.id)
-              }}
-            />
-          ) : followedByViewer ? (
-            <FollowButton
-              artistId={a.id}
-              following={followedByViewer.has(a.id)}
-              size="sm"
-            />
-          ) : null}
+          <FollowButton
+            artistId={a.id}
+            size="sm"
+            onChange={(next) => {
+              if (!next && showUnfollow) onUnfollowed?.(a.id)
+            }}
+          />
         </div>
       ))}
     </div>

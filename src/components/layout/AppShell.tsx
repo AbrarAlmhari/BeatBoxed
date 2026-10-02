@@ -6,6 +6,7 @@ import { TopBar } from './TopBar'
 import { cn } from '@/lib/cn'
 import { MiniPlayer } from '@/components/player/MiniPlayer'
 import { PlayerProvider, usePlayer } from '@/lib/player'
+import { FollowsProvider } from '@/lib/follows'
 
 /**
  * The provider wraps the shell rather than a page, so audio survives
@@ -13,9 +14,11 @@ import { PlayerProvider, usePlayer } from '@/lib/player'
  */
 export function AppShell() {
   return (
-    <PlayerProvider>
-      <ShellBody />
-    </PlayerProvider>
+    <FollowsProvider>
+      <PlayerProvider>
+        <ShellBody />
+      </PlayerProvider>
+    </FollowsProvider>
   )
 }
 
