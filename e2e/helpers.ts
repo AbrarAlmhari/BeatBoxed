@@ -52,6 +52,7 @@ export async function deleteTestUsers(onlyEmail?: string) {
     if (!email.endsWith(TEST_DOMAIN)) continue
     if (onlyEmail && email !== onlyEmail) continue
     await admin(`/rest/v1/follows?user_id=eq.${u.id}`, { method: 'DELETE' })
+    await admin(`/rest/v1/play_history?user_id=eq.${u.id}`, { method: 'DELETE' })
     await admin(`/rest/v1/song_views?user_id=eq.${u.id}`, { method: 'DELETE' })
     await admin(`/rest/v1/profiles?id=eq.${u.id}`, { method: 'DELETE' })
     await admin(`/auth/v1/admin/users/${u.id}`, { method: 'DELETE' })
@@ -165,4 +166,237 @@ export async function measureLabelFlip(
   return page.evaluate(
     () => (window as unknown as { __flipMs: number | null }).__flipMs
   )
+}
+
+/** A song we can drive the player with, named so assertions read clearly. */
+export type PlayableSong = { id: string; title: string; artistName: string }
+
+/** Two songs with different titles, for ordering and exclusion checks. */
+export async function twoDistinctSongs(): Promise<[PlayableSong, PlayableSong]> {
+  const res = await admin(
+    '/rest/v1/songs?select=id,title,artists(name)&order=title&limit=200'
+  )
+  const rows = (await res.json()) as {
+    id: string
+    title: string
+    artists: { name: string } | null
+  }[]
+
+  const picked: PlayableSong[] = []
+  const seen = new Set<string>()
+  for (const r of rows) {
+    const key = r.title.trim().toLowerCase()
+    // Distinct titles, because the rail collapses same-title duplicates and
+    // the assertions below identify cards by title.
+    if (seen.has(key)) continue
+    seen.add(key)
+    picked.push({ id: r.id, title: r.title, artistName: r.artists?.name ?? '' })
+    if (picked.length === 2) break
+  }
+  if (picked.length < 2) throw new Error('need two songs with distinct titles')
+  return [picked[0], picked[1]]
+}
+
+/** 8-bit mono silence, long enough to outlast the 5-second play threshold. */
+function silentWav(seconds: number) {
+  const rate = 8000
+  const samples = rate * seconds
+  const buf = Buffer.alloc(44 + samples)
+  buf.write('RIFF', 0)
+  buf.writeUInt32LE(36 + samples, 4)
+  buf.write('WAVE', 8)
+  buf.write('fmt ', 12)
+  buf.writeUInt32LE(16, 16)
+  buf.writeUInt16LE(1, 20) // PCM
+  buf.writeUInt16LE(1, 22) // mono
+  buf.writeUInt32LE(rate, 24)
+  buf.writeUInt32LE(rate, 28)
+  buf.writeUInt16LE(1, 32)
+  buf.writeUInt16LE(8, 34)
+  buf.write('data', 36)
+  buf.writeUInt32LE(samples, 40)
+  buf.fill(128, 44) // midpoint == silence for unsigned 8-bit
+  return buf
+}
+
+const CLIP_URL = 'https://preview.beatboxed.test/clip.wav'
+
+/**
+ * Makes playback deterministic and offline.
+ *
+ * Without this the test depends on the live iTunes Search API and Apple's
+ * CDN, and on whichever recording iTunes happens to rank first. Instead the
+ * lookup is answered locally and the audio is a generated silent clip, so the
+ * only thing under test is our own play accounting.
+ *
+ * It also swallows the PATCH that caches the matched iTunes id: these songs
+ * live in the shared project, and persisting a fake track id would leave the
+ * team's catalog pointing at a preview that doesn't exist.
+ */
+export async function stubPreviewAudio(page: Page, songs: PlayableSong[]) {
+  const wav = silentWav(30)
+  await installAudioProbe(page)
+
+  await page.route(/itunes\.apple\.com/, async (route) => {
+    const url = new URL(route.request().url())
+    const term = (url.searchParams.get('term') ?? '').toLowerCase()
+    const song =
+      songs.find((s) => term.includes(s.title.toLowerCase())) ?? songs[0]
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        resultCount: 1,
+        results: [
+          {
+            trackId: 999000001,
+            trackName: song.title,
+            artistName: song.artistName,
+            previewUrl: CLIP_URL,
+            kind: 'song',
+          },
+        ],
+      }),
+    })
+  })
+
+  // Honours Range like Apple's CDN does. Without it Chrome marks the clip
+  // unseekable and snaps every seek to 0, so resume could never be tested.
+  await page.route(CLIP_URL, async (route) => {
+    const range = /bytes=(\d*)-(\d*)/.exec(route.request().headers()['range'] ?? '')
+    if (!range) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'audio/wav',
+        headers: { 'accept-ranges': 'bytes', 'content-length': String(wav.length) },
+        body: wav,
+      })
+      return
+    }
+    const start = range[1] ? Number(range[1]) : 0
+    const end = range[2] ? Math.min(Number(range[2]), wav.length - 1) : wav.length - 1
+    await route.fulfill({
+      status: 206,
+      contentType: 'audio/wav',
+      headers: {
+        'accept-ranges': 'bytes',
+        'content-range': `bytes ${start}-${end}/${wav.length}`,
+        'content-length': String(end - start + 1),
+      },
+      body: wav.subarray(start, end + 1),
+    })
+  })
+
+  await page.route(
+    (url) => url.pathname.endsWith('/rest/v1/songs'),
+    async (route) => {
+      if (route.request().method() !== 'PATCH') return route.fallback()
+      await route.fulfill({ status: 204, body: '' })
+    }
+  )
+}
+
+/** The Rail section with this heading, or nothing if it isn't rendered. */
+export function rail(page: Page, title: string) {
+  return page
+    .locator('section')
+    .filter({ has: page.getByRole('heading', { name: title, exact: true }) })
+}
+
+/** Song ids of the cards in a rail, in display order. */
+export async function railSongIds(page: Page, title: string) {
+  const links = rail(page, title).locator('a[href^="/song/"]')
+  return links.evaluateAll((els) =>
+    els.map((el) => (el.getAttribute('href') ?? '').replace('/song/', ''))
+  )
+}
+
+/** Reads a user's play_history straight from Postgres, newest first. */
+export async function playHistoryRows(userId: string) {
+  const res = await admin(
+    `/rest/v1/play_history?user_id=eq.${userId}&select=song_id,position_seconds,played_at&order=played_at.desc`
+  )
+  return (await res.json()) as {
+    song_id: string
+    position_seconds: number
+    played_at: string
+  }[]
+}
+
+/**
+ * The player builds its element with `new Audio()`, which is never attached
+ * to the document, so a test can't reach it by selector. This records every
+ * instance as it's constructed, which is also how we observe playback without
+ * adding test-only hooks to the app.
+ */
+async function installAudioProbe(page: Page) {
+  await page.addInitScript(() => {
+    const Native = window.Audio
+    const seen: HTMLAudioElement[] = []
+    ;(window as unknown as { __audios: HTMLAudioElement[] }).__audios = seen
+    function Patched(this: unknown, ...args: unknown[]) {
+      const el = new (Native as unknown as new (
+        ...a: unknown[]
+      ) => HTMLAudioElement)(...args)
+      seen.push(el)
+      return el
+    }
+    Patched.prototype = Native.prototype
+    window.Audio = Patched as unknown as typeof Audio
+  })
+}
+
+/** Resolves once audio is genuinely playing, not merely asked to play. */
+export async function waitForPlaying(page: Page) {
+  await page.waitForFunction(
+    () => {
+      const list =
+        (window as unknown as { __audios?: HTMLAudioElement[] }).__audios ?? []
+      return list.some((a) => !a.paused && a.currentTime > 0)
+    },
+    undefined,
+    { timeout: 20_000 }
+  )
+}
+
+/** Pauses playback, which is what makes the player save its resume point. */
+export async function pauseAudio(page: Page) {
+  await page.evaluate(() => {
+    const list =
+      (window as unknown as { __audios?: HTMLAudioElement[] }).__audios ?? []
+    for (const a of list) a.pause()
+  })
+}
+
+/**
+ * Returns to Home the way a user does, through the app's own nav, so the
+ * player survives and nothing reloads. page.goto('/') would be a full page
+ * load and prove nothing about the rail updating without a refresh.
+ */
+export async function goHome(page: Page) {
+  await page
+    .getByRole('link', { name: 'Home', exact: true })
+    .filter({ visible: true })
+    .first()
+    .click()
+  await page.waitForURL((url) => url.pathname === '/')
+}
+
+/** The player's current position, in seconds. */
+export async function audioTime(page: Page) {
+  return page.evaluate(() => {
+    const list =
+      (window as unknown as { __audios?: HTMLAudioElement[] }).__audios ?? []
+    return list.at(-1)?.currentTime ?? 0
+  })
+}
+
+/** Jumps the player's audio to this position, like dragging the scrubber. */
+export async function seekAudio(page: Page, seconds: number) {
+  await page.evaluate((s) => {
+    const list =
+      (window as unknown as { __audios?: HTMLAudioElement[] }).__audios ?? []
+    const a = list.at(-1)
+    if (a) a.currentTime = s
+  }, seconds)
 }

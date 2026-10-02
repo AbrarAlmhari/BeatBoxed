@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react'
 import { MediaCard } from '@/components/ui/MediaCard'
-import { usePlayer } from '@/lib/player'
-import type { SongCardModel } from '@/lib/types'
+import { usePlayer, type PlayerTrack } from '@/lib/player'
 
 /** Card width steps up with viewport so rails never feel cramped on phones. */
 const CARD_WIDTH = 'w-[44vw] max-w-[190px] sm:w-[190px] lg:w-[200px]'
@@ -32,7 +31,11 @@ export function Rail({
   emptyMessage,
 }: {
   title: string
-  songs: SongCardModel[]
+  /**
+   * PlayerTrack rather than SongCardModel so a Continue Listening card keeps
+   * its resumeAt on the way into the queue.
+   */
+  songs: PlayerTrack[]
   emptyMessage: string
 }) {
   const { current, isPlaying, loading, playQueue, toggle } = usePlayer()

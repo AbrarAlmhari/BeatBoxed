@@ -1,11 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Search } from 'lucide-react'
 import { Logo } from '@/components/ui/Logo'
 import { Rail, RailSkeleton } from '@/components/home/Rail'
 import { useProfile } from '@/hooks/useProfile'
-import { getHomeFeedData, type HomeFeed } from '@/lib/catalog'
+import { getContinueListening, getHomeFeedData, type HomeFeed } from '@/lib/catalog'
 import { useAuth } from '@/lib/auth'
+import { usePlayer } from '@/lib/player'
 
 function greetingFor(hour: number) {
   if (hour < 12) return 'Good morning'
@@ -17,6 +18,7 @@ export default function Home() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const { displayName, loading: profileLoading } = useProfile()
+  const { historyVersion } = usePlayer()
   const [feed, setFeed] = useState<HomeFeed | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -37,6 +39,32 @@ export default function Home() {
       cancelled = true
     }
   }, [user?.id])
+
+  /**
+   * Playing something from a rail should update Continue Listening without a
+   * reload. Navigating away and back remounts this page and refetches
+   * anyway; this covers staying put while a play is recorded. Only the one
+   * rail is refetched — Trending and For You haven't changed.
+   */
+  const seenHistory = useRef(historyVersion)
+  useEffect(() => {
+    // Plays from before this mount are already in the initial feed load.
+    if (!user || historyVersion === seenHistory.current) return
+    seenHistory.current = historyVersion
+    let cancelled = false
+    getContinueListening(user.id)
+      .then((songs) => {
+        if (!cancelled) {
+          setFeed((f) => (f ? { ...f, continueListening: songs } : f))
+        }
+      })
+      .catch((err: unknown) => {
+        console.error('[beatboxed] could not refresh continue listening:', err)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [historyVersion, user])
 
   const greeting = greetingFor(new Date().getHours())
 
@@ -71,17 +99,22 @@ export default function Home() {
         </div>
       ) : feed === null ? (
         <>
-          <RailSkeleton title="Continue Listening" />
+          {/* No Continue Listening skeleton: we don't yet know whether this
+              user has any history, and a rail that appears then vanishes is
+              worse than one that arrives a moment late. */}
           <RailSkeleton title="Trending" />
           <RailSkeleton title="For You" />
         </>
       ) : (
         <>
-          <Rail
-            title="Continue Listening"
-            songs={feed.continueListening}
-            emptyMessage="Playback history isn't recorded yet, so there's nothing to resume."
-          />
+          {/* Hidden entirely with no history, rather than an empty row. */}
+          {feed.continueListening.length > 0 && (
+            <Rail
+              title="Continue Listening"
+              songs={feed.continueListening}
+              emptyMessage=""
+            />
+          )}
           <Rail
             title="Trending"
             songs={feed.trending}

@@ -100,8 +100,14 @@ async function decorate(rows: SongRow[]): Promise<SongCardModel[]> {
   return rows.map((r) => toCardModel(r, stats.get(r.id)))
 }
 
+/**
+ * A card plus where to pick it back up. The resume point rides along with the
+ * card so tapping play needs no second lookup.
+ */
+export type ContinueSong = SongCardModel & { resumeAt: number }
+
 export type HomeFeed = {
-  continueListening: SongCardModel[]
+  continueListening: ContinueSong[]
   trending: SongCardModel[]
   forYou: SongCardModel[]
 }
@@ -138,6 +144,96 @@ export async function recordSongView(songId: string, userId: string) {
       { onConflict: 'user_id,song_id' }
     )
   if (error) console.warn('[beatboxed] could not record song view:', error.message)
+}
+
+/**
+ * Marks a song as actually listened to. Called once per song per session,
+ * after the play passes the "this wasn't a skip" bar the player enforces.
+ *
+ * Upsert, so replaying moves the timestamp rather than adding a row.
+ * Best-effort: a failure here must never interrupt playback.
+ */
+export async function recordPlay(
+  userId: string,
+  songId: string,
+  positionSeconds: number
+) {
+  const { error } = await requireClient().from('play_history').upsert(
+    {
+      user_id: userId,
+      song_id: songId,
+      played_at: new Date().toISOString(),
+      position_seconds: Math.max(0, positionSeconds),
+    },
+    { onConflict: 'user_id,song_id' }
+  )
+  if (error) console.warn('[beatboxed] could not record play:', error.message)
+}
+
+/**
+ * Moves the resume point without touching played_at — pausing isn't a new
+ * play, and bumping the timestamp would reshuffle the rail every time the
+ * user hit pause. Update rather than upsert: a row exists only once the play
+ * cleared the minimum, so a 2-second skip can't create one through this path.
+ */
+export async function savePlayPosition(
+  userId: string,
+  songId: string,
+  positionSeconds: number
+) {
+  const { error } = await requireClient()
+    .from('play_history')
+    .update({ position_seconds: Math.max(0, positionSeconds) })
+    .eq('user_id', userId)
+    .eq('song_id', songId)
+  if (error) console.warn('[beatboxed] could not save position:', error.message)
+}
+
+/**
+ * Continue Listening: the songs this user actually played, newest first.
+ *
+ * The primary key already makes a song unique per user, but the catalog has
+ * genuine duplicate rows for the same recording (19 of them at last count),
+ * so the same title by the same artist is collapsed to its most recent row.
+ * That means over-fetching and trimming afterwards.
+ */
+export async function getContinueListening(
+  userId: string,
+  limit = 10
+): Promise<ContinueSong[]> {
+  const { data, error } = await requireClient()
+    .from('play_history')
+    .select(`played_at, position_seconds, songs(${SONG_SELECT})`)
+    .eq('user_id', userId)
+    .order('played_at', { ascending: false })
+    .limit(limit * 4)
+  if (error) throw error
+
+  const rows = (data ?? []) as unknown as {
+    played_at: string
+    position_seconds: number | null
+    songs: Rel<SongRow>
+  }[]
+
+  const seen = new Set<string>()
+  const picked: { song: SongRow; resumeAt: number }[] = []
+  for (const row of rows) {
+    const song = one(row.songs)
+    if (!song) continue
+    const key = `${song.title.trim().toLowerCase()}|${
+      one(song.artists)?.name.trim().toLowerCase() ?? ''
+    }`
+    if (seen.has(key)) continue
+    seen.add(key)
+    picked.push({ song, resumeAt: row.position_seconds ?? 0 })
+    if (picked.length >= limit) break
+  }
+
+  const stats = await ratingsFor(picked.map((p) => p.song.id))
+  return picked.map((p) => ({
+    ...toCardModel(p.song, stats.get(p.song.id)),
+    resumeAt: p.resumeAt,
+  }))
 }
 
 /**
@@ -275,9 +371,18 @@ async function fetchForYou(
 export async function getHomeFeedData(userId?: string): Promise<HomeFeed> {
   const trending = await fetchTrending()
 
-  // No play-history table exists in docs/data-model.md, so this stays empty
-  // rather than being faked with arbitrary songs.
-  const continueListening: SongCardModel[] = []
+  // The rail is a convenience, so it fails quietly: a problem reading play
+  // history hides one row rather than replacing the whole page with an error.
+  // That also keeps Home working on a checkout where 0018_play_history.sql
+  // hasn't been applied yet.
+  let continueListening: ContinueSong[] = []
+  if (userId) {
+    try {
+      continueListening = await getContinueListening(userId)
+    } catch (err) {
+      console.warn('[beatboxed] could not load continue listening:', err)
+    }
+  }
 
   let forYou: SongCardModel[] = []
   if (userId) forYou = await fetchForYou(userId)
