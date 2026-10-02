@@ -1,13 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { Disc3, LogOut, Pencil, UserX } from 'lucide-react'
+import { LogOut, Pencil, UserX } from 'lucide-react'
 import { Chip } from '@/components/ui/Chip'
-import { StarRating } from '@/components/ui/StarRating'
 import { ProfileEditor } from '@/components/profile/ProfileEditor'
 import { FollowedArtistsGrid } from '@/components/profile/FollowedArtistsGrid'
 import { FriendsPanel } from '@/components/people/FriendsPanel'
+import { ProfileReviewCard } from '@/components/profile/ProfileReviewCard'
 import { FriendButton } from '@/components/people/FriendButton'
-import { tintFor } from '@/components/explore/tint'
 import { useAuth } from '@/lib/auth'
 import {
   getFollowedArtists,
@@ -31,11 +30,9 @@ const BASE_TABS: { id: Tab; label: string }[] = [
   { id: 'artists', label: 'Artists' },
 ]
 
-const dateFmt = new Intl.DateTimeFormat(undefined, {
-  year: 'numeric',
-  month: 'short',
-  day: 'numeric',
-})
+/** Tabs preview; the full lists live on their own pages. */
+const REVIEW_PREVIEW = 5
+const ARTIST_PREVIEW = 8
 
 export default function Profile() {
   const { userId } = useParams()
@@ -252,19 +249,23 @@ export default function Profile() {
           </div>
         </div>
 
+        {/* Each stat opens its full list, the way tapping Followers does. */}
         <dl className="grid grid-cols-2 gap-3 sm:max-w-md md:grid-cols-3">
-          <div className="rounded-card bg-surface p-4 shadow-card">
-            <dt className="text-meta text-muted-foreground">Reviews written</dt>
-            <dd className="mt-1 text-section-title">{profile.reviewCount}</dd>
-          </div>
-          <div className="rounded-card bg-surface p-4 shadow-card">
-            <dt className="text-meta text-muted-foreground">Artists followed</dt>
-            <dd className="mt-1 text-section-title">{profile.followingCount}</dd>
-          </div>
-          <div className="rounded-card bg-surface p-4 shadow-card">
-            <dt className="text-meta text-muted-foreground">Friends</dt>
-            <dd className="mt-1 text-section-title">{profile.friendCount}</dd>
-          </div>
+          <StatLink
+            to={`/profile/${profile.id}/reviews`}
+            label="Reviews written"
+            value={profile.reviewCount}
+          />
+          <StatLink
+            to={`/profile/${profile.id}/artists`}
+            label="Artists followed"
+            value={profile.followingCount}
+          />
+          <StatLink
+            to={`/profile/${profile.id}/friends`}
+            label="Friends"
+            value={profile.friendCount}
+          />
         </dl>
       </header>
 
@@ -293,61 +294,17 @@ export default function Profile() {
               }
             />
           ) : (
-            reviews.map((r) => (
-              <Link
-                key={r.id}
-                to={r.song ? `/song/${r.song.id}` : '#'}
-                className="flex gap-3 rounded-card bg-surface p-4 shadow-card transition-colors duration-200 ease-soft hover:bg-surface-2"
-              >
-                <span className="size-14 shrink-0 overflow-hidden rounded-[10px]">
-                  {r.song?.coverUrl ? (
-                    <img
-                      src={r.song.coverUrl}
-                      alt=""
-                      loading="lazy"
-                      className="size-full object-cover"
-                    />
-                  ) : (
-                    <span
-                      className="grid size-full place-items-center"
-                      style={{
-                        background: `linear-gradient(135deg,
-                          color-mix(in oklab, var(--color-primary) ${20 + tintFor(r.id) * 50}%, var(--color-surface-2)),
-                          color-mix(in oklab, var(--color-accent) ${12 + tintFor(r.id) * 38}%, var(--color-background)))`,
-                      }}
-                    >
-                      <Disc3 className="size-5 text-white/70" strokeWidth={1.5} />
-                    </span>
-                  )}
-                </span>
-
-                <span className="flex min-w-0 flex-col gap-1">
-                  <span className="flex flex-wrap items-center gap-x-2">
-                    <span dir="auto" className="text-card-title">
-                      {r.song?.title ?? 'Unknown song'}
-                    </span>
-                    <StarRating value={r.rating} size={13} />
-                    <span className="text-meta text-muted-foreground">
-                      {dateFmt.format(new Date(r.createdAt))}
-                      {r.edited && ' · edited'}
-                    </span>
-                  </span>
-                  <span dir="auto" className="text-secondary text-muted-foreground">
-                    {r.song?.artistName}
-                  </span>
-                  {r.title && (
-                    <span dir="auto" className="text-card-title">
-                      {r.title}
-                    </span>
-                  )}
-                  {r.body && (
-                    <span dir="auto" className="text-body text-muted-foreground">
-                      {r.body}
-                    </span>
-                  )}
-                </span>
-              </Link>
-            ))
+            <>
+              {reviews.slice(0, REVIEW_PREVIEW).map((r) => (
+                <ProfileReviewCard key={r.id} review={r} />
+              ))}
+              {profile.reviewCount > REVIEW_PREVIEW && (
+                <SeeAllLink
+                  to={`/profile/${profile.id}/reviews`}
+                  count={profile.reviewCount}
+                />
+              )}
+            </>
           )}
         </section>
       )}
@@ -360,7 +317,7 @@ export default function Profile() {
       )}
 
       {tab === 'artists' && (
-        <section>
+        <section className="flex flex-col gap-3">
           {artists === null ? (
             <div className="h-24 animate-pulse rounded-card bg-surface" />
           ) : artists.length === 0 ? (
@@ -373,16 +330,24 @@ export default function Profile() {
               }
             />
           ) : (
-            <FollowedArtistsGrid
-              artists={artists}
-              showUnfollow={isOwn}
-              onUnfollowed={(artistId) => {
-                setArtists((prev) => (prev ?? []).filter((x) => x.id !== artistId))
-                setProfile((p) =>
-                  p ? { ...p, followingCount: Math.max(0, p.followingCount - 1) } : p
-                )
-              }}
-            />
+            <>
+              <FollowedArtistsGrid
+                artists={artists.slice(0, ARTIST_PREVIEW)}
+                showUnfollow={isOwn}
+                onUnfollowed={(artistId) => {
+                  setArtists((prev) => (prev ?? []).filter((x) => x.id !== artistId))
+                  setProfile((p) =>
+                    p ? { ...p, followingCount: Math.max(0, p.followingCount - 1) } : p
+                  )
+                }}
+              />
+              {profile.followingCount > ARTIST_PREVIEW && (
+                <SeeAllLink
+                  to={`/profile/${profile.id}/artists`}
+                  count={profile.followingCount}
+                />
+              )}
+            </>
           )}
         </section>
       )}
@@ -416,5 +381,36 @@ function EmptyPanel({ title, detail }: { title: string; detail: string }) {
       <p className="text-card-title">{title}</p>
       <p className="max-w-sm text-body text-muted-foreground">{detail}</p>
     </div>
+  )
+}
+
+function StatLink({
+  to,
+  label,
+  value,
+}: {
+  to: string
+  label: string
+  value: number
+}) {
+  return (
+    <Link
+      to={to}
+      className="rounded-card bg-surface p-4 shadow-card transition-all duration-200 ease-soft hover:-translate-y-0.5 hover:bg-surface-2 active:translate-y-0 active:scale-[0.98]"
+    >
+      <dt className="text-meta text-muted-foreground">{label}</dt>
+      <dd className="mt-1 text-section-title">{value}</dd>
+    </Link>
+  )
+}
+
+function SeeAllLink({ to, count }: { to: string; count: number }) {
+  return (
+    <Link
+      to={to}
+      className="flex items-center justify-center rounded-card bg-surface px-4 py-3 text-button text-muted-foreground shadow-card transition-colors duration-200 ease-soft hover:bg-surface-2 hover:text-foreground"
+    >
+      See all ({count})
+    </Link>
   )
 }

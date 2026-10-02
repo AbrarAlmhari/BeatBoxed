@@ -1508,3 +1508,128 @@ export async function getNotificationContext(
 
   return { people, songs: songMap, comments: commentMap }
 }
+
+/* ------------------------------------------------------------ full lists */
+
+/**
+ * Someone's accepted friends, via the security definer function — the
+ * friendships table itself is readable only by the two people in a row.
+ * Returns an empty list when the owner has hidden their list; callers read
+ * profiles.friends_list_visible to tell "hidden" from "none".
+ */
+export async function getFriendsPublic(
+  targetId: string,
+  opts: { limit?: number; offset?: number } = {}
+): Promise<PersonCardModel[]> {
+  const { data, error } = await requireClient().rpc('get_friends', {
+    target: targetId,
+  })
+  if (error) throw error
+
+  const rows = (data ?? []) as {
+    id: string
+    username: string | null
+    display_name: string | null
+    avatar_url: string | null
+  }[]
+
+  // The function returns the whole list; page it here rather than adding
+  // limit/offset arguments the UI would have to keep in step.
+  const offset = opts.offset ?? 0
+  const limit = opts.limit ?? rows.length
+  return rows.slice(offset, offset + limit).map(toPerson)
+}
+
+export async function getFollowedArtistsPage(
+  userId: string,
+  opts: { limit?: number; offset?: number } = {}
+): Promise<ArtistCardModel[]> {
+  const limit = opts.limit ?? 30
+  const offset = opts.offset ?? 0
+
+  const { data, error } = await requireClient()
+    .from('follows')
+    .select('artists(id, name, image_url, genres)')
+    .eq('user_id', userId)
+    .range(offset, offset + limit - 1)
+  if (error) throw error
+
+  return (data ?? [])
+    .map((row) =>
+      one(
+        (row as {
+          artists: Rel<{
+            id: string
+            name: string
+            image_url: string | null
+            genres: string[] | null
+          }>
+        }).artists
+      )
+    )
+    .filter((a): a is NonNullable<typeof a> => Boolean(a))
+    .map((a) => ({
+      id: a.id,
+      name: a.name,
+      imageUrl: a.image_url,
+      genres: a.genres ?? [],
+    }))
+}
+
+export type ReviewSort = 'newest' | 'highest' | 'lowest'
+
+export async function getReviewsByUserPage(
+  userId: string,
+  opts: { limit?: number; offset?: number; sort?: ReviewSort } = {}
+): Promise<ReviewWithSong[]> {
+  const limit = opts.limit ?? 30
+  const offset = opts.offset ?? 0
+  const sort = opts.sort ?? 'newest'
+
+  let q = requireClient()
+    .from('reviews')
+    .select(
+      'id, rating, title, body, created_at, edited, ' +
+        'songs(id, title, artists(name), albums(cover_url))'
+    )
+    .eq('user_id', userId)
+
+  if (sort === 'highest') q = q.order('rating', { ascending: false })
+  else if (sort === 'lowest') q = q.order('rating', { ascending: true })
+  // Newest is the tiebreak in every mode, so equal ratings stay stable.
+  q = q.order('created_at', { ascending: false }).range(offset, offset + limit - 1)
+
+  const { data, error } = await q
+  if (error) throw error
+
+  return ((data ?? []) as unknown as ReviewWithSongRow[]).map((r) => {
+    const song = one(r.songs)
+    return {
+      id: r.id,
+      rating: r.rating,
+      title: r.title,
+      body: r.body,
+      createdAt: r.created_at,
+      edited: r.edited,
+      song: song
+        ? {
+            id: song.id,
+            title: song.title,
+            artistName: one(song.artists)?.name ?? 'Unknown artist',
+            coverUrl: one(song.albums)?.cover_url ?? null,
+          }
+        : null,
+    }
+  })
+}
+
+/** Whether this person's friend list is public. profiles is world-readable. */
+export async function getFriendsListVisible(targetId: string) {
+  const { data, error } = await requireClient()
+    .from('profiles')
+    .select('friends_list_visible')
+    .eq('id', targetId)
+    .maybeSingle()
+  if (error) throw error
+  return data?.friends_list_visible ?? true
+}

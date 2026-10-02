@@ -4,7 +4,7 @@ This is a starting proposal for the Supabase/Postgres schema, sized to the MVP f
 
 ## Core tables
 
-- **profiles** — `id (uuid, fk auth.users)`, `username`, `display_name`, `avatar_url`, `bio`, `theme_preference`, `translation_language`, `created_at`
+- **profiles** — `id (uuid, fk auth.users)`, `username`, `display_name`, `avatar_url`, `bio`, `theme_preference`, `translation_language`, `favorite_genres`, `friends_list_visible (default true)`, `created_at`. `username` is unique case-insensitively. `friends_list_visible` gates `get_friends()`; the Settings toggle that flips it isn't built yet, so it's `true` for everyone.
 - **artists** — `id`, `spotify_id`, `name`, `image_url`, `genres` (cached from Spotify Client Credentials lookups, not a full mirror)
 - **albums** — `id`, `spotify_id`, `title`, `artist_id (fk)`, `cover_url`, `release_date`
 - **songs** — `id`, `spotify_id`, `title`, `artist_id (fk)`, `album_id (fk)`, `duration_ms`, `genre`, `popularity` (nullable; Deezer rank, see note below)

@@ -27,7 +27,7 @@ Keep this updated as the source of truth on progress — don't rely on chat hist
 - [ ] User profile (customization, stats, reviews/playlists tabs)
 - [ ] Library (liked songs, playlists, followed artists)
 - [ ] Playlist creation + detail view
-- [ ] Settings (theme, translation language, log out, notification preferences — per-type on/off for likes, comments, friend activity, and Beatboxed updates; enforce inside the shared `notify()` helper so no trigger needs to change)
+- [ ] Settings (theme, translation language, log out, notification preferences — per-type on/off for likes, comments, friend activity, and Beatboxed updates, enforced inside the shared `notify()` helper; friends list visibility toggle — flips `profiles.friends_list_visible`)
 - [ ] Beatie chatbot wired to Gemini + lrclib
 
 ## Week 7 — Polish pass + integration checkpoint (Nov 7 – Nov 13)

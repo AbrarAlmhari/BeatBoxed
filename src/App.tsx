@@ -11,6 +11,9 @@ import Profile from '@/pages/Profile'
 import Song from '@/pages/Song'
 import Notifications from '@/pages/Notifications'
 import FriendRequests from '@/pages/FriendRequests'
+import ProfileFriends from '@/pages/ProfileFriends'
+import ProfileArtists from '@/pages/ProfileArtists'
+import ProfileReviews from '@/pages/ProfileReviews'
 import NotFound from '@/pages/NotFound'
 
 export default function App() {
@@ -28,6 +31,9 @@ export default function App() {
               <Route path="library" element={<LibraryPage />} />
               <Route path="profile" element={<Profile />} />
               <Route path="profile/:userId" element={<Profile />} />
+              <Route path="profile/:userId/friends" element={<ProfileFriends />} />
+              <Route path="profile/:userId/artists" element={<ProfileArtists />} />
+              <Route path="profile/:userId/reviews" element={<ProfileReviews />} />
               <Route path="song/:id" element={<Song />} />
               <Route path="notifications" element={<Notifications />} />
               <Route path="notifications/requests" element={<FriendRequests />} />
