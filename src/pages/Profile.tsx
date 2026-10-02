@@ -7,7 +7,6 @@ import { ProfileEditor } from '@/components/profile/ProfileEditor'
 import { FollowedArtistsGrid } from '@/components/profile/FollowedArtistsGrid'
 import { FriendsPanel } from '@/components/people/FriendsPanel'
 import { FriendButton } from '@/components/people/FriendButton'
-import { BackButton } from '@/components/ui/BackButton'
 import { tintFor } from '@/components/explore/tint'
 import { useAuth } from '@/lib/auth'
 import {
@@ -173,9 +172,6 @@ export default function Profile() {
 
   return (
     <div className="flex flex-col gap-8 pt-2">
-      {/* Your own profile is a bottom-nav tab, so it needs no back arrow. */}
-      {!isOwn && <BackButton className="-ml-2" />}
-
       <header className="flex flex-col gap-5">
         <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:items-start sm:text-left">
           {profile.avatarUrl ? (

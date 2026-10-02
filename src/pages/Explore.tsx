@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { AlertTriangle, Loader2, MicVocal, Search, SearchX, X } from 'lucide-react'
 import { Chip } from '@/components/ui/Chip'
 import { MediaCard } from '@/components/ui/MediaCard'
@@ -46,9 +46,35 @@ export default function Explore() {
   const location = useLocation()
   const navigate = useNavigate()
 
-  const [query, setQuery] = useState('')
-  const [filter, setFilter] = useState<Filter>('all')
-  const [genre, setGenre] = useState<string | null>(null)
+  /**
+   * Search state lives in the URL, not just in component state. Going back to
+   * Explore from a song then restores the search instead of landing on a
+   * blank page, and a search is shareable.
+   */
+  const [searchParams, setSearchParams] = useSearchParams()
+  const query = searchParams.get('q') ?? ''
+  const filter = (searchParams.get('filter') as Filter | null) ?? 'all'
+  const genre = searchParams.get('genre')
+
+  function patchParams(patch: Record<string, string | null>) {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        for (const [k, v] of Object.entries(patch)) {
+          if (v === null || v === '') next.delete(k)
+          else next.set(k, v)
+        }
+        return next
+      },
+      // Typing shouldn't stack a history entry per keystroke — that would
+      // make one back tap walk through every character typed.
+      { replace: true }
+    )
+  }
+
+  const setQuery = (v: string) => patchParams({ q: v })
+  const setFilter = (v: Filter) => patchParams({ filter: v === 'all' ? null : v })
+  const setGenre = (v: string | null) => patchParams({ genre: v })
 
   const debouncedQuery = useDebouncedValue(query, 250)
   const [genres, setGenres] = useState<string[]>([])
@@ -141,7 +167,8 @@ export default function Explore() {
     if (!state?.autoFocus) return
     inputRef.current?.focus()
     // Drop the flag so back/forward onto this entry doesn't steal focus again.
-    navigate(location.pathname, { replace: true, state: null })
+    // Keep the search params: pathname alone would wipe an in-progress query.
+    navigate(location.pathname + location.search, { replace: true, state: null })
   }, [location, navigate])
 
   const isBrowsing = debouncedQuery.trim() === '' && genre === null

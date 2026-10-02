@@ -2,9 +2,22 @@ import { useEffect, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { Bell } from 'lucide-react'
 import { Logo } from '@/components/ui/Logo'
+import { BackButton } from '@/components/ui/BackButton'
+import { NAV_ITEMS } from '@/lib/nav'
 import { useAuth } from '@/lib/auth'
 import { getNotificationCenter } from '@/lib/catalog'
 import { cn } from '@/lib/cn'
+
+/**
+ * Main tabs are reachable from the bottom nav and sidebar, so a back arrow
+ * there would be confusing. Everything else gets one — driven off NAV_ITEMS,
+ * so a new detail page picks it up with no extra wiring.
+ *
+ * Exact match matters: /profile is a tab, /profile/:userId is not.
+ */
+function shouldShowBack(pathname: string) {
+  return !NAV_ITEMS.some((item) => item.to === pathname)
+}
 
 export function TopBar() {
   const { user } = useAuth()
@@ -26,14 +39,22 @@ export function TopBar() {
     }
   }, [user, location.pathname])
 
+  const showBack = shouldShowBack(location.pathname)
+
   return (
-    <header className="sticky top-0 z-20 -mx-4 mb-2 flex items-center justify-between gap-3 border-b border-white/5 bg-background/80 px-4 py-3 backdrop-blur-xl sm:-mx-6 sm:px-6 md:border-b-0 md:bg-transparent md:backdrop-blur-none lg:-mx-8 lg:px-8">
-      {/* The wordmark lives in the sidebar from `md` up, so only phones need it here. */}
-      <Logo
-        variant="full"
-        glow="md"
-        className="h-9 w-auto max-w-[150px] md:invisible"
-      />
+    <header className="sticky top-0 z-20 -mx-4 mb-2 flex items-center gap-3 border-b border-white/5 bg-background/80 px-4 py-3 backdrop-blur-xl sm:-mx-6 sm:px-6 md:border-b-0 md:bg-transparent md:backdrop-blur-none lg:-mx-8 lg:px-8">
+      {showBack ? (
+        <BackButton className="-ml-2" />
+      ) : (
+        // The wordmark lives in the sidebar from `md` up, so only phones need it.
+        <Logo
+          variant="full"
+          glow="md"
+          className="h-9 w-auto max-w-[150px] md:invisible"
+        />
+      )}
+
+      <div className="flex-1" />
 
       <NavLink
         to="/notifications"

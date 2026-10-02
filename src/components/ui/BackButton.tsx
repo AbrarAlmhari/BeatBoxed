@@ -3,24 +3,19 @@ import { ArrowLeft } from 'lucide-react'
 import { cn } from '@/lib/cn'
 
 /**
- * Shown on every page that isn't a main tab. The four tabs are reachable from
- * the bottom nav and sidebar, so a back arrow there would be noise.
- *
- * Opened from a shared link there's no in-app history to pop, and
- * navigate(-1) would walk the user out of the site — so that case goes Home.
+ * Rendered by TopBar, not by pages — see shouldShowBack() there for which
+ * routes get one.
  */
 export function BackButton({ className }: { className?: string }) {
   const navigate = useNavigate()
   const location = useLocation()
 
   function goBack() {
-    // react-router sets idx on entries it created; 0 means we arrived here
-    // directly rather than from somewhere inside the app.
-    const idx = (location.state as { idx?: number } | null)?.idx
-    const hasHistory = typeof idx === 'number' ? idx > 0 : window.history.length > 1
-
-    if (hasHistory) navigate(-1)
-    else navigate('/', { replace: true })
+    // React Router labels the first entry of a visit 'default'. Seeing it
+    // means there's nothing of ours to go back to — a shared link opened
+    // cold, or a refresh — and navigate(-1) would leave the site entirely.
+    if (location.key === 'default') navigate('/', { replace: true })
+    else navigate(-1)
   }
 
   return (

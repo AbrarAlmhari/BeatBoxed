@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Loader2 } from 'lucide-react'
-import { BackButton } from '@/components/ui/BackButton'
 import { FriendButton } from '@/components/people/FriendButton'
 import { useAuth } from '@/lib/auth'
 import { getFriendships } from '@/lib/catalog'
@@ -31,10 +30,7 @@ export default function FriendRequests() {
 
   return (
     <div className="flex flex-col gap-6 pt-2">
-      <div className="flex items-center gap-2">
-        <BackButton className="-ml-2" />
-        <h1 className="text-page-title">Friend requests</h1>
-      </div>
+      <h1 className="text-page-title">Friend requests</h1>
 
       {requests === null ? (
         <div className="flex items-center gap-2 px-1 text-body text-muted-foreground">

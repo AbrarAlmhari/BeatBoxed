@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { CheckCheck, ChevronRight, Loader2, Users } from 'lucide-react'
-import { BackButton } from '@/components/ui/BackButton'
 import { Chip } from '@/components/ui/Chip'
 import {
   NOTIFICATION_CATEGORIES,
@@ -147,7 +146,6 @@ export default function Notifications() {
   return (
     <div className="flex flex-col gap-6 pt-2">
       <div className="flex items-center gap-2">
-        <BackButton className="-ml-2" />
         <h1 className="flex-1 text-page-title">Notifications</h1>
         {hasUnread && (
           <button

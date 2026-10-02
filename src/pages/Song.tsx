@@ -11,7 +11,6 @@ import {
 import { useLocation, useNavigate } from 'react-router-dom'
 import { cn } from '@/lib/cn'
 import { Chip } from '@/components/ui/Chip'
-import { BackButton } from '@/components/ui/BackButton'
 import { FollowButton } from '@/components/ui/FollowButton'
 import { StarRating } from '@/components/ui/StarRating'
 import { ReviewsTab } from '@/components/song/ReviewsTab'
@@ -278,8 +277,6 @@ export default function Song() {
 
   return (
     <div className="flex flex-col gap-8 pt-2">
-      <BackButton className="-ml-2" />
-
       <header className="flex flex-col items-center gap-5 text-center sm:flex-row sm:items-end sm:text-left">
         <div className="aspect-square w-44 shrink-0 overflow-hidden rounded-card shadow-card sm:w-56">
           {song.album?.coverUrl ? (
