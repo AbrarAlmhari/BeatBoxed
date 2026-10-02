@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { Disc3, Loader2, Pause, Play, SkipForward } from 'lucide-react'
+import { Disc3, Loader2, Pause, Play, SkipBack, SkipForward, X } from 'lucide-react'
 import { usePlayer } from '@/lib/player'
 import { cn } from '@/lib/cn'
 
@@ -9,8 +9,19 @@ import { cn } from '@/lib/cn'
  * page never hides behind it.
  */
 export function MiniPlayer() {
-  const { current, isPlaying, loading, unavailable, position, duration, toggle, next } =
-    usePlayer()
+  const {
+    current,
+    isPlaying,
+    loading,
+    unavailable,
+    skipNotice,
+    position,
+    duration,
+    toggle,
+    next,
+    previous,
+    stop,
+  } = usePlayer()
 
   if (!current) return null
   const pct = duration > 0 ? (position / duration) * 100 : 0
@@ -43,10 +54,23 @@ export function MiniPlayer() {
               {current.title}
             </span>
             <span dir="auto" className="truncate text-meta text-muted-foreground">
-              {unavailable ? 'Preview unavailable' : current.artistName}
+              {/* The skip notice takes the artist's place rather than adding
+                  a row, so the bar doesn't change height mid-queue. */}
+              {skipNotice ?? (unavailable ? 'Preview unavailable' : current.artistName)}
             </span>
           </span>
         </Link>
+
+        {/* Hidden on the narrowest phones, where four controls and the title
+            leave the title no room. Now Playing still has it there. */}
+        <button
+          type="button"
+          onClick={previous}
+          aria-label="Previous"
+          className="hidden size-10 shrink-0 place-items-center rounded-full text-muted-foreground transition-all duration-200 ease-soft hover:bg-white/5 hover:text-foreground active:scale-95 min-[380px]:grid"
+        >
+          <SkipBack className="size-5" strokeWidth={2} />
+        </button>
 
         <button
           type="button"
@@ -74,6 +98,20 @@ export function MiniPlayer() {
           className="grid size-10 shrink-0 place-items-center rounded-full text-muted-foreground transition-all duration-200 ease-soft hover:bg-white/5 hover:text-foreground active:scale-95"
         >
           <SkipForward className="size-5" strokeWidth={2} />
+        </button>
+
+        {/* Stops playback and unmounts the bar: stop() clears the queue, and
+            this component renders nothing without a current track. Separated
+            by a hairline so it doesn't read as another transport control —
+            it's the one button here that ends the session. */}
+        <button
+          type="button"
+          onClick={stop}
+          aria-label="Close player"
+          title="Stop and close the player"
+          className="ms-1 grid size-10 shrink-0 place-items-center rounded-full border-s border-white/5 ps-1 text-muted-foreground transition-all duration-200 ease-soft hover:bg-white/5 hover:text-foreground active:scale-95"
+        >
+          <X className="size-5" strokeWidth={2} />
         </button>
       </div>
     </div>

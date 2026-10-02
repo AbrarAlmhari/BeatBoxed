@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { getPreview } from './preview'
+import { getPreview, type PreviewResult } from './preview'
 import { recordPlay, savePlayPosition } from './catalog'
 import { useAuth } from './auth'
 import type { SongCardModel } from './types'
@@ -34,6 +34,12 @@ const MIN_PLAY_SECONDS = 5
  */
 const NEARLY_DONE_SECONDS = 3
 
+/**
+ * How long "no preview, skipping" stays up before moving on. Long enough to
+ * read why the song changed by itself, short enough not to feel stuck.
+ */
+const SKIP_NOTICE_MS = 2000
+
 type PlayerState = {
   current: PlayerTrack | null
   queue: PlayerTrack[]
@@ -43,6 +49,11 @@ type PlayerState = {
   loading: boolean
   /** No iTunes match — offer Spotify instead of a dead play button. */
   unavailable: boolean
+  /**
+   * Why the player is about to move on by itself, shown where the mini
+   * player normally puts the artist name. Null when nothing to say.
+   */
+  skipNotice: string | null
   position: number
   duration: number
 }
@@ -80,6 +91,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     isPlaying: false,
     loading: false,
     unavailable: false,
+    skipNotice: null,
     position: 0,
     duration: 0,
   })
@@ -121,6 +133,49 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       console.warn('[beatboxed] play history write failed:', err)
     })
   }, [])
+  /**
+   * Songs known to have no preview, for this session. iTunes is rate
+   * limited and the answer doesn't change mid-session, so a queue full of
+   * unplayable songs costs one lookup each rather than one per attempt.
+   */
+  const noPreview = useRef(new Set<string>())
+  /** One song looked up ahead of time, so the next track starts instantly. */
+  const prefetched = useRef(new Map<string, PreviewResult>())
+  /** The pending auto-skip, so Next can pre-empt it. */
+  const skipTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  /** Queue and position, readable from async code without a stale closure. */
+  const queueRef = useRef<PlayerTrack[]>([])
+  const indexRef = useRef(-1)
+  /** load() needs to start the next track, which is defined after it. */
+  const playAtRef = useRef<(index: number, direction: 1 | -1) => void>(() => {})
+
+  const cancelSkip = useCallback(() => {
+    if (skipTimer.current) clearTimeout(skipTimer.current)
+    skipTimer.current = null
+  }, [])
+
+  /** Preview lookup with the session cache and the one-ahead prefetch in front. */
+  const resolvePreview = useCallback(
+    async (track: PlayerTrack): Promise<PreviewResult> => {
+      if (noPreview.current.has(track.id)) return { status: 'unavailable' }
+      const ready = prefetched.current.get(track.id)
+      if (ready) {
+        prefetched.current.delete(track.id)
+        return ready
+      }
+      const result = await getPreview({
+        id: track.id,
+        title: track.title,
+        artistName: track.artistName,
+        itunesTrackId: track.itunesTrackId,
+        itunesCheckedAt: track.itunesCheckedAt,
+      })
+      if (result.status !== 'ok') noPreview.current.add(track.id)
+      return result
+    },
+    []
+  )
+
   const userId = useRef<string | null>(null)
   useEffect(() => {
     userId.current = user?.id ?? null
@@ -145,9 +200,15 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     enqueueWrite(() => savePlayPosition(uid, songId, at))
   }, [enqueueWrite])
 
-  const load = useCallback(async (track: PlayerTrack, autoplay: boolean) => {
+  const load = useCallback(async (
+    track: PlayerTrack,
+    autoplay: boolean,
+    /** Which way to keep going if this song turns out to be unplayable. */
+    direction: 1 | -1 = 1
+  ) => {
     const audio = audioRef.current
     if (!audio) return
+    cancelSkip()
 
     // Save where the outgoing track got to before its currentTime is lost.
     flushPosition()
@@ -171,27 +232,62 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       current: track,
       loading: true,
       unavailable: false,
+      skipNotice: null,
       position: 0,
       duration: 0,
     }))
 
-    const result = await getPreview({
-      id: track.id,
-      title: track.title,
-      artistName: track.artistName,
-      itunesTrackId: track.itunesTrackId,
-      itunesCheckedAt: track.itunesCheckedAt,
-    })
+    const result = await resolvePreview(track)
     if (token !== loadToken.current) return
 
     if (result.status !== 'ok') {
       audio.pause()
-      setState((s) => ({ ...s, loading: false, unavailable: true, isPlaying: false }))
+
+      // A song played on its own isn't a queue to move through: there's
+      // nowhere to skip to, so it keeps the existing dead-end treatment with
+      // the Open in Spotify fallback.
+      const queue = queueRef.current
+      if (queue.length <= 1) {
+        setState((s) => ({
+          ...s,
+          loading: false,
+          unavailable: true,
+          isPlaying: false,
+          skipNotice: null,
+        }))
+        return
+      }
+
+      const nextIndex = indexRef.current + direction
+      if (!queue[nextIndex]) {
+        // Walked off the end with nothing playable. Stop and say so rather
+        // than leaving a silent player that looks broken.
+        setState((s) => ({
+          ...s,
+          loading: false,
+          unavailable: true,
+          isPlaying: false,
+          skipNotice: 'No previews available for the rest of this list.',
+        }))
+        return
+      }
+
+      setState((s) => ({
+        ...s,
+        loading: false,
+        unavailable: true,
+        isPlaying: false,
+        skipNotice: `No preview for ${track.title} — skipping`,
+      }))
+      skipTimer.current = setTimeout(() => {
+        skipTimer.current = null
+        playAtRef.current(nextIndex, direction)
+      }, SKIP_NOTICE_MS)
       return
     }
 
     audio.src = result.url
-    setState((s) => ({ ...s, loading: false, unavailable: false }))
+    setState((s) => ({ ...s, loading: false, unavailable: false, skipNotice: null }))
     if (autoplay) {
       try {
         await audio.play()
@@ -201,12 +297,29 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         setState((s) => ({ ...s, isPlaying: false }))
       }
     }
-  }, [flushPosition])
+  }, [cancelSkip, flushPosition, resolvePreview])
+
+  /** Moves to a queue position and starts it, remembering which way we're going. */
+  const playAt = useCallback(
+    (index: number, direction: 1 | -1) => {
+      const track = queueRef.current[index]
+      if (!track) return
+      indexRef.current = index
+      setState((s) => ({ ...s, index }))
+      void load(track, true, direction)
+    },
+    [load]
+  )
+  useEffect(() => {
+    playAtRef.current = playAt
+  }, [playAt])
 
   const playQueue = useCallback(
     (tracks: PlayerTrack[], startIndex: number) => {
       const track = tracks[startIndex]
       if (!track) return
+      queueRef.current = tracks
+      indexRef.current = startIndex
       setState((s) => ({ ...s, queue: tracks, index: startIndex }))
       void load(track, true)
     },
@@ -220,6 +333,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
       // Tapping a different song replaces what's playing.
       if (track && track.id !== state.current?.id) {
+        queueRef.current = [track]
+        indexRef.current = 0
         setState((s) => ({ ...s, queue: [track], index: 0 }))
         void load(track, true)
         return
@@ -232,30 +347,30 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     [load, state.current]
   )
 
+  // Reads the refs, not state, so it still works while a load is in flight
+  // or an auto-skip is counting down — and pre-empts that countdown.
   const next = useCallback(() => {
-    const at = state.index + 1
-    const track = state.queue[at]
-    if (!track) return
-    setState((s) => ({ ...s, index: at }))
-    void load(track, true)
-  }, [load, state.index, state.queue])
+    cancelSkip()
+    playAt(indexRef.current + 1, 1)
+  }, [cancelSkip, playAt])
 
   const previous = useCallback(() => {
     const audio = audioRef.current
-    // Restart first, like every other player, before stepping back.
-    if (audio && audio.currentTime > 3) {
+    const skipping = skipTimer.current !== null
+    // Restart first, like every other player, before stepping back — but not
+    // while the current song is failing, where restarting means nothing.
+    if (!skipping && audio && audio.currentTime > 3) {
       audio.currentTime = 0
       return
     }
-    const at = state.index - 1
-    const track = state.queue[at]
-    if (!track) {
+    cancelSkip()
+    const at = indexRef.current - 1
+    if (!queueRef.current[at]) {
       if (audio) audio.currentTime = 0
       return
     }
-    setState((s) => ({ ...s, index: at }))
-    void load(track, true)
-  }, [load, state.index, state.queue])
+    playAt(at, -1)
+  }, [cancelSkip, playAt])
 
   const seek = useCallback((seconds: number) => {
     const audio = audioRef.current
@@ -264,6 +379,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   const stop = useCallback(() => {
     const audio = audioRef.current
+    cancelSkip()
     flushPosition()
     if (audio) {
       audio.pause()
@@ -278,13 +394,53 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       isPlaying: false,
       loading: false,
       unavailable: false,
+      skipNotice: null,
       position: 0,
       duration: 0,
     })
+    queueRef.current = []
+    indexRef.current = -1
     recorded.current = null
     resuming.current = null
     resumeCandidate.current = null
-  }, [flushPosition])
+  }, [cancelSkip, flushPosition])
+
+  /**
+   * Look one song ahead while the current one plays, so a skip is instant and
+   * an unplayable next track is usually known before the user gets there.
+   * One ahead only — iTunes is rate limited and a whole queue of lookups on
+   * every track change would be rude.
+   */
+  useEffect(() => {
+    const upcoming = state.queue[state.index + 1]
+    if (!upcoming) return
+    if (noPreview.current.has(upcoming.id)) return
+    if (prefetched.current.has(upcoming.id)) return
+
+    let cancelled = false
+    void getPreview({
+      id: upcoming.id,
+      title: upcoming.title,
+      artistName: upcoming.artistName,
+      itunesTrackId: upcoming.itunesTrackId,
+      itunesCheckedAt: upcoming.itunesCheckedAt,
+    })
+      .then((result) => {
+        if (cancelled) return
+        if (result.status === 'ok') prefetched.current.set(upcoming.id, result)
+        else noPreview.current.add(upcoming.id)
+      })
+      .catch((err: unknown) => {
+        console.warn('[beatboxed] preview prefetch failed:', err)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [state.queue, state.index])
+
+  // Clearing the countdown on unmount keeps a torn-down provider from
+  // starting a track nobody is listening to.
+  useEffect(() => cancelSkip, [cancelSkip])
 
   // Audio element -> state
   useEffect(() => {
