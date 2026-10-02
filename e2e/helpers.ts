@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs'
+import { deflateSync } from 'node:zlib'
 import type { Page } from '@playwright/test'
 
 /** Service-role REST helper, used only to create and destroy test fixtures. */
@@ -53,6 +54,8 @@ export async function deleteTestUsers(onlyEmail?: string) {
     if (onlyEmail && email !== onlyEmail) continue
     await admin(`/rest/v1/follows?user_id=eq.${u.id}`, { method: 'DELETE' })
     await admin(`/rest/v1/play_history?user_id=eq.${u.id}`, { method: 'DELETE' })
+    await admin(`/rest/v1/playlists?user_id=eq.${u.id}`, { method: 'DELETE' })
+    await removeCoverFolder(u.id)
     await admin(`/rest/v1/song_views?user_id=eq.${u.id}`, { method: 'DELETE' })
     await admin(`/rest/v1/profiles?id=eq.${u.id}`, { method: 'DELETE' })
     await admin(`/auth/v1/admin/users/${u.id}`, { method: 'DELETE' })
@@ -171,6 +174,26 @@ export async function measureLabelFlip(
 /** A song we can drive the player with, named so assertions read clearly. */
 export type PlayableSong = { id: string; title: string; artistName: string }
 
+/**
+ * Clears a user's uploaded covers. Deleting the account doesn't: storage
+ * objects aren't rows, so nothing cascades, and a suite that uploads would
+ * otherwise leave files behind in the shared bucket on every run.
+ */
+async function removeCoverFolder(userId: string) {
+  const listed = await fetch(`${SB}/storage/v1/object/list/playlist-covers`, {
+    method: 'POST',
+    headers: { apikey: SR, Authorization: `Bearer ${SR}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prefix: userId, limit: 100 }),
+  })
+  const files = (await listed.json()) as { name: string }[]
+  if (!Array.isArray(files) || files.length === 0) return
+  await fetch(`${SB}/storage/v1/object/playlist-covers`, {
+    method: 'DELETE',
+    headers: { apikey: SR, Authorization: `Bearer ${SR}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prefixes: files.map((f) => `${userId}/${f.name}`) }),
+  })
+}
+
 /** Two songs with different titles, for ordering and exclusion checks. */
 export async function twoDistinctSongs(): Promise<[PlayableSong, PlayableSong]> {
   const res = await admin(
@@ -195,6 +218,56 @@ export async function twoDistinctSongs(): Promise<[PlayableSong, PlayableSong]> 
   }
   if (picked.length < 2) throw new Error('need two songs with distinct titles')
   return [picked[0], picked[1]]
+}
+
+/** Same, for however many the test needs. */
+export async function distinctSongs(count: number): Promise<PlayableSong[]> {
+  const res = await admin(
+    '/rest/v1/songs?select=id,title,artists(name)&order=title&limit=400'
+  )
+  const rows = (await res.json()) as {
+    id: string
+    title: string
+    artists: { name: string } | null
+  }[]
+  const picked: PlayableSong[] = []
+  const seen = new Set<string>()
+  for (const r of rows) {
+    const key = r.title.trim().toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    picked.push({ id: r.id, title: r.title, artistName: r.artists?.name ?? '' })
+    if (picked.length === count) break
+  }
+  if (picked.length < count) throw new Error(`need ${count} distinct song titles`)
+  return picked
+}
+
+/** Builds a playlist straight through the API, for tests about playback. */
+export async function createPlaylistWithSongs(
+  userId: string,
+  title: string,
+  songIds: string[]
+) {
+  const res = await admin('/rest/v1/playlists', {
+    method: 'POST',
+    headers: { Prefer: 'return=representation' },
+    body: JSON.stringify({ user_id: userId, title }),
+  })
+  const [row] = (await res.json()) as { id: string }[]
+  if (songIds.length) {
+    await admin('/rest/v1/playlist_songs', {
+      method: 'POST',
+      body: JSON.stringify(
+        songIds.map((song_id, position) => ({
+          playlist_id: row.id,
+          song_id,
+          position,
+        }))
+      ),
+    })
+  }
+  return row.id
 }
 
 /** 8-bit mono silence, long enough to outlast the 5-second play threshold. */
@@ -233,8 +306,14 @@ const CLIP_URL = 'https://preview.beatboxed.test/clip.wav'
  * live in the shared project, and persisting a fake track id would leave the
  * team's catalog pointing at a preview that doesn't exist.
  */
-export async function stubPreviewAudio(page: Page, songs: PlayableSong[]) {
+export async function stubPreviewAudio(
+  page: Page,
+  songs: PlayableSong[],
+  /** Song ids the stubbed lookup should report as having no preview. */
+  noPreviewFor: string[] = []
+) {
   const wav = silentWav(30)
+  const silentIds = new Set(noPreviewFor)
   await installAudioProbe(page)
 
   await page.route(/itunes\.apple\.com/, async (route) => {
@@ -242,6 +321,18 @@ export async function stubPreviewAudio(page: Page, songs: PlayableSong[]) {
     const term = (url.searchParams.get('term') ?? '').toLowerCase()
     const song =
       songs.find((s) => term.includes(s.title.toLowerCase())) ?? songs[0]
+
+    // An empty result set is exactly what iTunes returns for a song it
+    // doesn't carry, so the app takes its real no-preview path.
+    if (silentIds.has(song.id)) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ resultCount: 0, results: [] }),
+      })
+      return
+    }
+
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -399,4 +490,103 @@ export async function seekAudio(page: Page, seconds: number) {
     const a = list.at(-1)
     if (a) a.currentTime = s
   }, seconds)
+}
+
+/** A playlist's rows straight from Postgres, in stored position order. */
+export async function playlistRows(playlistId: string) {
+  const res = await admin(
+    `/rest/v1/playlist_songs?playlist_id=eq.${playlistId}&select=song_id,position&order=position.asc`
+  )
+  return (await res.json()) as { song_id: string; position: number }[]
+}
+
+/** The playlists owned by a user, newest first. */
+export async function playlistsOf(userId: string) {
+  const res = await admin(
+    `/rest/v1/playlists?user_id=eq.${userId}&select=id,title&order=created_at.desc`
+  )
+  return (await res.json()) as { id: string; title: string }[]
+}
+
+
+/* ------------------------------------------------------------ cover uploads */
+
+function crc32(buf: Buffer) {
+  let c = ~0
+  for (const byte of buf) {
+    c ^= byte
+    for (let k = 0; k < 8; k++) c = (c >>> 1) ^ (0xedb88320 & -(c & 1))
+  }
+  return ~c >>> 0
+}
+
+function chunk(type: string, data: Buffer) {
+  const head = Buffer.alloc(8)
+  head.writeUInt32BE(data.length, 0)
+  head.write(type, 4, 'ascii')
+  const crc = Buffer.alloc(4)
+  crc.writeUInt32BE(crc32(Buffer.concat([Buffer.from(type, 'ascii'), data])), 0)
+  return Buffer.concat([head, data, crc])
+}
+
+/**
+ * A real, decodable PNG, built here rather than committed as a fixture.
+ *
+ * Deliberately non-square so the upload path's centre crop actually has
+ * something to do; a square fixture would pass even if cropping were broken.
+ */
+export function pngBytes(width = 40, height = 90, rgb: [number, number, number] = [140, 90, 240]) {
+  const sig = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+  const ihdr = Buffer.alloc(13)
+  ihdr.writeUInt32BE(width, 0)
+  ihdr.writeUInt32BE(height, 4)
+  ihdr[8] = 8 // bit depth
+  ihdr[9] = 2 // truecolour
+  const raw = Buffer.alloc(height * (1 + width * 3))
+  for (let y = 0; y < height; y++) {
+    const row = y * (1 + width * 3)
+    raw[row] = 0 // no filter
+    for (let x = 0; x < width; x++) {
+      const at = row + 1 + x * 3
+      raw[at] = rgb[0]
+      raw[at + 1] = rgb[1]
+      raw[at + 2] = rgb[2]
+    }
+  }
+  return Buffer.concat([
+    sig,
+    chunk('IHDR', ihdr),
+    chunk('IDAT', deflateSync(raw)),
+    chunk('IEND', Buffer.alloc(0)),
+  ])
+}
+
+/** A real signed-in access token, for testing storage policies directly. */
+export async function tokenFor(email: string) {
+  const res = await fetch(`${SB}/auth/v1/token?grant_type=password`, {
+    method: 'POST',
+    headers: { apikey: env.VITE_SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password: TEST_PASSWORD }),
+  })
+  const body = (await res.json()) as { access_token?: string }
+  if (!body.access_token) throw new Error(`could not sign in as ${email}`)
+  return body.access_token
+}
+
+/** Attempts a raw storage write, to prove the policy and not just the UI. */
+export async function tryCoverUpload(
+  token: string,
+  path: string,
+  bytes: Buffer
+) {
+  const res = await fetch(`${SB}/storage/v1/object/playlist-covers/${path}`, {
+    method: 'POST',
+    headers: {
+      apikey: env.VITE_SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'image/png',
+    },
+    body: new Uint8Array(bytes),
+  })
+  return { status: res.status, body: (await res.text()).slice(0, 160) }
 }
