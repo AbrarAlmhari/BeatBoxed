@@ -241,9 +241,17 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Track results carry nested artist/album stubs; cache those first so the
-    // song rows have real foreign keys to point at.
-    const artistRefs = tracks.flatMap((t) => [...t.artists, ...t.album.artists])
+    // Only each track's primary artist and each album's own primary artist —
+    // the two the catalog actually points at.
+    //
+    // This used to cache every featured and album-level artist too, leaving
+    // 555 of 903 artist rows owning no songs, no albums and no follows. Those
+    // extras also surfaced as apparent duplicates, because Spotify has
+    // several distinct artists sharing a name.
+    const artistRefs = [
+      ...tracks.map((t) => t.artists[0]),
+      ...tracks.map((t) => t.album.artists[0]),
+    ].filter((a): a is SpotifyArtistRef => Boolean(a?.id))
     const uniqueArtistIds = [...new Set(artistRefs.map((a) => a.id))]
     const images = await fetchArtistImages(uniqueArtistIds, token)
 
