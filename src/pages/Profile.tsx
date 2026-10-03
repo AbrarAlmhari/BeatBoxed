@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { LogOut, Pencil, UserX } from 'lucide-react'
+import { Pencil, Settings, UserX } from 'lucide-react'
 import { Chip } from '@/components/ui/Chip'
 import { PlaylistGrid, PlaylistGridSkeleton } from '@/components/playlist/PlaylistGrid'
 import { getUserPlaylists, type PlaylistSummary } from '@/lib/playlists'
@@ -38,7 +38,7 @@ const ARTIST_PREVIEW = 8
 
 export default function Profile() {
   const { userId } = useParams()
-  const { user, signOut } = useAuth()
+  const { user } = useAuth()
 
   // /profile is your own; /profile/:userId is someone else's.
   const targetId = userId ?? user?.id ?? ''
@@ -171,6 +171,14 @@ export default function Profile() {
 
   const name = profile.displayName || profile.username || 'Listener'
   // friendships is private, so managing them only makes sense on your own page.
+  /**
+   * A private account shows its header and counts to everyone but keeps its
+   * reviews, playlists, artists and friends to accepted friends. RLS already
+   * returns nothing for these viewers; this is so the page says why instead
+   * of looking empty.
+   */
+  const locked = Boolean(profile?.isPrivate) && !isOwn && friendState !== 'friends'
+
   const tabs = isOwn
     ? [...BASE_TABS, { id: 'friends' as Tab, label: 'Friends' }]
     : BASE_TABS
@@ -218,6 +226,16 @@ export default function Profile() {
                   <Pencil className="size-3.5" strokeWidth={1.75} />
                   Edit profile
                 </button>
+              ) : null}
+              {isOwn ? (
+                <Link
+                  to="/settings"
+                  aria-label="Settings"
+                  title="Settings"
+                  className="grid size-9 shrink-0 place-items-center rounded-full text-muted-foreground transition-all duration-200 ease-soft hover:bg-white/5 hover:text-foreground active:scale-95"
+                >
+                  <Settings className="size-[18px]" strokeWidth={1.75} />
+                </Link>
               ) : (
                 <FriendButton
                   personId={profile.id}
@@ -287,8 +305,8 @@ export default function Profile() {
             label="Friends"
             value={profile.friendCount}
           />
-          {/* No full-list page for playlists — the tab below already shows
-              them all — so this is a plain figure rather than a link. */}
+          {/* No full-list page for playlists yet — the tab below shows them
+              all — so this is a plain figure rather than a link. */}
           <div className="rounded-card bg-surface p-4 shadow-card">
             <dt className="text-meta text-muted-foreground">Playlists</dt>
             <dd className="mt-1 text-section-title">{playlists?.length ?? 0}</dd>
@@ -296,6 +314,16 @@ export default function Profile() {
         </dl>
       </header>
 
+      {locked ? (
+        <div className="rounded-card bg-surface px-6 py-12 text-center">
+          <p className="text-card-title">This account is private</p>
+          <p className="mx-auto mt-2 max-w-sm text-body text-muted-foreground">
+            This account is private. Add them as a friend to see their reviews
+            and playlists.
+          </p>
+        </div>
+      ) : (
+        <>
       <div
         className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
         role="tablist"
@@ -399,17 +427,9 @@ export default function Profile() {
           }
         />
       )}
-
-      {isOwn && (
-        <button
-          type="button"
-          onClick={() => void signOut()}
-          className="flex w-fit items-center gap-2 rounded-button bg-surface-2 px-3.5 py-2.5 text-button text-muted-foreground transition-all duration-200 ease-soft hover:bg-white/10 hover:text-foreground active:scale-[0.98]"
-        >
-          <LogOut className="size-[18px]" strokeWidth={1.75} />
-          Log out
-        </button>
+        </>
       )}
+
     </div>
   )
 }

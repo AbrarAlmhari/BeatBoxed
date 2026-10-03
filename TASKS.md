@@ -59,4 +59,5 @@ Keep this updated as the source of truth on progress — don't rely on chat hist
 
 Things worth revisiting once the whole app exists, not mid-build. Add to this as you notice something rather than stopping to fix it immediately (unless it's an actual bug, not a nice-to-have — fix those now).
 
+- [ ] Light theme (needs a design pass with Ghadah first; `profiles.theme_preference` already exists)
 - [ ] _(add items here as they come up)_

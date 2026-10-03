@@ -141,6 +141,8 @@ export type ProfileDetail = {
   reviewCount: number
   followingCount: number
   friendCount: number
+  /** Private accounts show counts but hide the rows behind them. */
+  isPrivate: boolean
 }
 
 /** A review joined with enough song context to render it off the song page. */

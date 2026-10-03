@@ -10,6 +10,7 @@ import LibraryPage from '@/pages/LibraryPage'
 import Profile from '@/pages/Profile'
 import Song from '@/pages/Song'
 import Playlist from '@/pages/Playlist'
+import SettingsPage from '@/pages/Settings'
 import Notifications from '@/pages/Notifications'
 import FriendRequests from '@/pages/FriendRequests'
 import ProfileFriends from '@/pages/ProfileFriends'
@@ -39,6 +40,7 @@ export default function App() {
               <Route path="profile/:userId/reviews" element={<ProfileReviews />} />
               <Route path="song/:id" element={<Song />} />
               <Route path="playlist/:id" element={<Playlist />} />
+              <Route path="settings" element={<SettingsPage />} />
               <Route path="notifications" element={<Notifications />} />
               <Route path="notifications/requests" element={<FriendRequests />} />
               <Route path="now-playing" element={<NowPlaying />} />

@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { getNotificationPrefs } from './settings'
 import type {
   ArtistCardModel,
   LyricMatch,
@@ -66,14 +67,50 @@ function requireClient() {
 }
 
 /**
- * Review aggregates for a set of songs. Postgres could do this in one grouped
- * query via a view, but the schema is locked for Week 1 — aggregating a single
- * fetched page client-side avoids a migration for now.
+ * Review aggregates for a set of songs.
+ *
+ * Read through song_rating_stats(), a security definer function that returns
+ * only the average and the count. It used to fetch raw review rows and
+ * average them here, which stopped being correct once account privacy landed
+ * in 0022: a private user's reviews are hidden from everyone but their
+ * friends, so a client-side average would silently drop them from every
+ * song's score. Their ratings still count — anonymously — and no caller ever
+ * receives the rows behind the number.
+ *
+ * This is the aggregate behind every song card in the app, via decorate().
  */
 async function ratingsFor(songIds: string[]) {
   const stats = new Map<string, { avg: number | null; count: number }>()
   if (songIds.length === 0) return stats
 
+  const { data, error } = await requireClient().rpc('song_rating_stats', {
+    song_ids: songIds,
+  })
+
+  if (error) {
+    // pre-0022: fall back to the old client-side aggregate so a checkout
+    // ahead of the database still renders. Delete once 0022 is applied.
+    if (error.code === 'PGRST202') return ratingsForClientSide(songIds)
+    throw error
+  }
+
+  for (const row of (data ?? []) as {
+    song_id: string
+    rating_avg: number | string | null
+    review_count: number | string
+  }[]) {
+    stats.set(row.song_id, {
+      // numeric comes back as a string from PostgREST.
+      avg: row.rating_avg == null ? null : Number(row.rating_avg),
+      count: Number(row.review_count),
+    })
+  }
+  return stats
+}
+
+/** The pre-0022 path. Only reachable when song_rating_stats() is missing. */
+async function ratingsForClientSide(songIds: string[]) {
+  const stats = new Map<string, { avg: number | null; count: number }>()
   const { data, error } = await requireClient()
     .from('reviews')
     .select('song_id, rating')
@@ -1024,7 +1061,9 @@ export async function getProfileDetail(
 
   const { data, error } = await client
     .from('profiles')
-    .select('id, username, display_name, bio, avatar_url, favorite_genres')
+    // `*` rather than a column list so this keeps working either side of
+    // 0022, which adds is_private.
+    .select('*')
     .eq('id', userId)
     .maybeSingle()
   if (error) {
@@ -1033,22 +1072,17 @@ export async function getProfileDetail(
   }
   if (!data) return null
 
+  // All three counts go through security definer functions. A private
+  // profile still shows its numbers to a non-friend — only the rows behind
+  // them are hidden — and after 0022 a direct count over reviews or follows
+  // would read 0 for exactly those viewers.
   const [reviews, follows, friends] = await Promise.all([
-    client
-      .from('reviews')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', userId),
-    client
-      .from('follows')
-      .select('artist_id', { count: 'exact', head: true })
-      .eq('user_id', userId),
-    // friendships RLS hides other people's rows, so a direct count would
-    // read 0 on anyone else's profile. friend_count() is security definer
-    // and returns only the number — never the rows.
+    client.rpc('review_count', { target: userId }),
+    client.rpc('following_count', { target: userId }),
     client.rpc('friend_count', { target: userId }),
   ])
-  if (reviews.error) throw reviews.error
-  if (follows.error) throw follows.error
+  if (reviews.error && reviews.error.code !== 'PGRST202') throw reviews.error
+  if (follows.error && follows.error.code !== 'PGRST202') throw follows.error
 
   return {
     id: data.id,
@@ -1057,9 +1091,10 @@ export async function getProfileDetail(
     bio: data.bio,
     avatarUrl: data.avatar_url,
     favoriteGenres: data.favorite_genres ?? [],
-    reviewCount: reviews.count ?? 0,
-    followingCount: follows.count ?? 0,
+    reviewCount: reviews.error ? 0 : Number(reviews.data ?? 0),
+    followingCount: follows.error ? 0 : Number(follows.data ?? 0),
     friendCount: friends.error ? 0 : ((friends.data as number | null) ?? 0),
+    isPrivate: Boolean((data as { is_private?: boolean }).is_private),
   }
 }
 
@@ -1455,7 +1490,7 @@ export async function getNotificationCenter(
 ): Promise<NotificationCenter> {
   const client = requireClient()
 
-  const [friendships, notifs, announcements, reads] = await Promise.all([
+  const [friendships, notifs, announcements, reads, prefs] = await Promise.all([
     getFriendships(viewerId),
     client
       .from('notifications')
@@ -1469,6 +1504,10 @@ export async function getNotificationCenter(
       .order('created_at', { ascending: false })
       .limit(20),
     client.from('announcement_reads').select('announcement_id').eq('user_id', viewerId),
+    // Two of the six switches can't be enforced in notify(): pending friend
+    // requests are read live from friendships, and announcements are a
+    // shared table with no per-user rows. They're applied here instead.
+    getNotificationPrefs(viewerId),
   ])
   if (notifs.error) throw notifs.error
   if (announcements.error) throw announcements.error
@@ -1484,7 +1523,8 @@ export async function getNotificationCenter(
     createdAt: n.created_at,
   }))
 
-  const anns: Announcement[] = (announcements.data ?? []).map((a) => ({
+  // Turned off, so they leave the page and the badge entirely.
+  const anns: Announcement[] = (prefs.announcements ? (announcements.data ?? []) : []).map((a) => ({
     id: a.id,
     title: a.title,
     body: a.body,
@@ -1503,7 +1543,10 @@ export async function getNotificationCenter(
   ].sort((x, y) => (x.at < y.at ? 1 : -1))
 
   const badge =
-    friendships.incoming.length +
+    // Turning requests off stops them counting, but they stay listed on the
+    // Friend requests page: losing sight of a request someone sent you is
+    // worse than a quiet badge.
+    (prefs.friend_requests ? friendships.incoming.length : 0) +
     notifications.filter((n) => !n.read).length +
     anns.filter((a) => !a.read).length
 
