@@ -40,12 +40,14 @@ type SongRow = {
   id: string
   title: string
   genre: string | null
+  album_id?: string | null
   artist_id: string
   artists: Rel<{ name: string }>
   albums: Rel<{ cover_url: string | null }>
 }
 
-const SONG_SELECT = 'id, title, genre, artist_id, artists(name), albums(cover_url)'
+const SONG_SELECT =
+  'id, title, genre, artist_id, album_id, artists(name), albums(cover_url)'
 
 function toCardModel(
   row: SongRow,
@@ -58,6 +60,8 @@ function toCardModel(
     coverUrl: one(row.albums)?.cover_url ?? null,
     ratingAvg: stats?.avg ?? null,
     reviewCount: stats?.count ?? 0,
+    artistId: row.artist_id ?? null,
+    albumId: row.album_id ?? null,
   }
 }
 
@@ -455,18 +459,85 @@ const REMOTE_TOPUP_THRESHOLD = 5
 
 /** Same columns, but inner-joined so we can filter on the artist's name. */
 const SONG_SELECT_BY_ARTIST =
-  'id, title, genre, artist_id, artists!inner(name), albums(cover_url)'
+  'id, title, genre, artist_id, album_id, artists!inner(name), albums(cover_url)'
 
 /**
- * Matches the query against the song title OR the artist name.
+ * Mirrors normalize_search_text() in 0024. Both sides have to agree or a
+ * query will never match the column it is compared against.
+ */
+export function normalizeSearch(input: string) {
+  return input
+    .toLowerCase()
+    .replace(/['’`]/g, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+}
+
+/**
+ * Orders results so the closest match leads, keeping the server's
+ * popularity order inside each group:
  *
- * Title-only matching was the reason the Spotify top-up looked broken: a
- * search for "Radiohead" found no song *titled* Radiohead, triggered the
- * top-up, cached the songs, then re-queried by title and still found nothing.
- * PostgREST can't OR across a base column and an embedded one in a single
- * filter, so this is two queries merged by id.
+ *   0. the title is exactly what was typed
+ *   1. the title alone contains every word
+ *   2. the title and artist together contain every word
+ *
+ * A stable sort by (group, original index) preserves popularity within a
+ * group, which is why the rows aren't re-sorted by any other key here.
+ */
+function rankSongMatches(words: string[], rows: SongRow[]): SongRow[] {
+  if (words.length === 0) return rows
+  const typed = words.join(' ')
+
+  const group = (row: SongRow) => {
+    const title = normalizeSearch(row.title)
+    if (title === typed) return 0
+    if (words.every((w) => title.includes(w))) return 1
+    return 2
+  }
+
+  return rows
+    .map((row, index) => ({ row, index, group: group(row) }))
+    .sort((a, b) => a.group - b.group || a.index - b.index)
+    .map((entry) => entry.row)
+}
+
+/**
+ * Finds songs by title, artist, or any mix of the two.
+ *
+ * Every word has to appear somewhere in the song's search_text — its title
+ * and artist name combined — so word order doesn't matter and a query can
+ * span both. One query rather than the two this used to run; the words are
+ * ANDed server-side and each ILIKE is served by the trigram index.
+ *
+ * The words come from normalizeSearch(), which strips everything that isn't
+ * alphanumeric, so nothing reaching the LIKE pattern can be a wildcard.
  */
 async function localSongs(query: string, genre: string | null) {
+  const client = requireClient()
+  const words = normalizeSearch(query).split(' ').filter(Boolean)
+
+  let q = client
+    .from('songs')
+    .select(SONG_SELECT)
+    .order('popularity', { ascending: false, nullsFirst: false })
+    .limit(40)
+  if (genre) q = q.eq('genre', genre)
+  for (const word of words) q = q.ilike('search_text', `%${word}%`)
+
+  const { data, error } = await q
+  if (error) {
+    // pre-0024: no search_text column. Fall back to the old title/artist
+    // pair so a checkout ahead of the database still searches, just without
+    // mixed-query support. Delete once 0024 is applied.
+    if (error.code === '42703') return localSongsLegacy(query, genre)
+    throw error
+  }
+
+  return rankSongMatches(words, (data ?? []) as unknown as SongRow[])
+}
+
+/** The pre-0024 path: whole query against the title, then against the artist. */
+async function localSongsLegacy(query: string, genre: string | null) {
   const client = requireClient()
 
   const byTitleQuery = () => {
