@@ -3,7 +3,11 @@ import { Link, useParams } from 'react-router-dom'
 import { Pencil, Settings, UserX } from 'lucide-react'
 import { Chip } from '@/components/ui/Chip'
 import { PlaylistGrid, PlaylistGridSkeleton } from '@/components/playlist/PlaylistGrid'
-import { getUserPlaylists, type PlaylistSummary } from '@/lib/playlists'
+import {
+  getPlaylistCount,
+  getUserPlaylists,
+  type PlaylistSummary,
+} from '@/lib/playlists'
 import { ProfileEditor } from '@/components/profile/ProfileEditor'
 import { FollowedArtistsGrid } from '@/components/profile/FollowedArtistsGrid'
 import { FriendsPanel } from '@/components/people/FriendsPanel'
@@ -34,6 +38,8 @@ const BASE_TABS: { id: Tab; label: string }[] = [
 
 /** Tabs preview; the full lists live on their own pages. */
 const REVIEW_PREVIEW = 5
+/** Two rows of the grid at the widest breakpoint. */
+const PLAYLIST_PREVIEW = 6
 const ARTIST_PREVIEW = 8
 
 export default function Profile() {
@@ -52,6 +58,11 @@ export default function Profile() {
   const [reviews, setReviews] = useState<ReviewWithSong[] | null>(null)
   const [artists, setArtists] = useState<ArtistCardModel[] | null>(null)
   const [playlists, setPlaylists] = useState<PlaylistSummary[] | null>(null)
+  /**
+   * Counted separately from the list: a private profile shows its numbers to
+   * a non-friend even though RLS returns none of the rows.
+   */
+  const [playlistCount, setPlaylistCount] = useState(0)
   const [genres, setGenres] = useState<string[]>([])
   const [friendState, setFriendState] = useState<FriendState>('none')
 
@@ -108,9 +119,11 @@ export default function Profile() {
   useEffect(() => {
     if (!profile) return
     let cancelled = false
-    getUserPlaylists(profile.id)
-      .then((p) => {
-        if (!cancelled) setPlaylists(p)
+    Promise.all([getUserPlaylists(profile.id), getPlaylistCount(profile.id)])
+      .then(([p, count]) => {
+        if (cancelled) return
+        setPlaylists(p)
+        setPlaylistCount(count)
       })
       .catch((err) => {
         console.error('[beatboxed] profile playlists failed:', err)
@@ -305,12 +318,20 @@ export default function Profile() {
             label="Friends"
             value={profile.friendCount}
           />
-          {/* No full-list page for playlists yet — the tab below shows them
-              all — so this is a plain figure rather than a link. */}
-          <div className="rounded-card bg-surface p-4 shadow-card">
-            <dt className="text-meta text-muted-foreground">Playlists</dt>
-            <dd className="mt-1 text-section-title">{playlists?.length ?? 0}</dd>
-          </div>
+          {/* Locked profiles still show the number, but there's nothing to
+              open, so it isn't a link. */}
+          {locked ? (
+            <div className="rounded-card bg-surface p-4 shadow-card">
+              <dt className="text-meta text-muted-foreground">Playlists</dt>
+              <dd className="mt-1 text-section-title">{playlistCount}</dd>
+            </div>
+          ) : (
+            <StatLink
+              to={`/profile/${profile.id}/playlists`}
+              label="Playlists"
+              value={playlistCount}
+            />
+          )}
         </dl>
       </header>
 
@@ -378,7 +399,15 @@ export default function Profile() {
               }
             />
           ) : (
-            <PlaylistGrid playlists={playlists} />
+            <>
+              <PlaylistGrid playlists={playlists.slice(0, PLAYLIST_PREVIEW)} />
+              {playlistCount > PLAYLIST_PREVIEW && (
+                <SeeAllLink
+                  to={`/profile/${profile.id}/playlists`}
+                  count={playlistCount}
+                />
+              )}
+            </>
           )}
         </section>
       )}

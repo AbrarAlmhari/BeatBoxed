@@ -32,11 +32,15 @@ const coverPath = (userId: string, playlistId: string, ext: string) =>
 /** Both possible extensions, since the encoder picks one at upload time. */
 const COVER_EXTENSIONS = ['webp', 'jpg']
 
+export type PlaylistSort = 'recent' | 'az' | 'songs'
+
 export type PlaylistSummary = {
   id: string
   title: string
   description: string | null
   ownerId: string
+  /** updated_at where 0019 has been applied, created_at otherwise. */
+  sortedAt: string
   /** A custom upload, or null to fall back to the artwork grid. */
   coverUrl: string | null
   songCount: number
@@ -113,9 +117,11 @@ export async function getUserPlaylists(
 ): Promise<PlaylistSummary[]> {
   const client = requireClient()
 
+  // `*` rather than a column list so this works either side of 0019, which
+  // adds updated_at.
   const { data: lists, error } = await client
     .from('playlists')
-    .select('id, title, description, user_id, cover_url')
+    .select('*')
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
   if (error) throw error
@@ -150,9 +156,64 @@ export async function getUserPlaylists(
     description: l.description,
     ownerId: l.user_id,
     coverUrl: l.cover_url,
+    sortedAt: (l as { updated_at?: string }).updated_at ?? l.created_at,
     songCount: counts.get(l.id) ?? 0,
     coverUrls: covers.get(l.id) ?? [],
   }))
+}
+
+/**
+ * One page of a person's playlists, sorted across the whole list.
+ *
+ * The full set is read and sorted here rather than in Postgres. Two reasons:
+ * "most songs" can't be ordered by PostgREST without an aggregate view, and
+ * the song counts and cover art need every playlist_songs row for these
+ * playlists anyway — so paging in the database would cost the same two
+ * queries and then sort a slice instead of the list. People have tens of
+ * playlists, not thousands.
+ *
+ * limit/offset are kept so the page behaves like the other full lists.
+ */
+export async function getUserPlaylistsPage(
+  userId: string,
+  opts: { limit?: number; offset?: number; sort?: PlaylistSort } = {}
+): Promise<PlaylistSummary[]> {
+  const { limit = 30, offset = 0, sort = 'recent' } = opts
+  const all = await getUserPlaylists(userId)
+
+  const sorted = [...all].sort((a, b) => {
+    if (sort === 'az') {
+      return a.title.localeCompare(b.title, undefined, { sensitivity: 'base' })
+    }
+    if (sort === 'songs') {
+      // Equal counts keep the recent order, so the list doesn't shuffle
+      // arbitrarily between renders.
+      return b.songCount - a.songCount || (a.sortedAt < b.sortedAt ? 1 : -1)
+    }
+    return a.sortedAt < b.sortedAt ? 1 : -1
+  })
+
+  return sorted.slice(offset, offset + limit)
+}
+
+/**
+ * How many playlists someone has, including when RLS hides the rows.
+ *
+ * A private profile still shows its counts to a non-friend, so this goes
+ * through the security definer playlist_count() for the same reason the
+ * review and friend counts do.
+ */
+export async function getPlaylistCount(userId: string): Promise<number> {
+  const { data, error } = await requireClient().rpc('playlist_count', {
+    target: userId,
+  })
+  if (error) {
+    // pre-0023: fall back to what this viewer can actually see. Correct for
+    // a public profile, and 0 for a private one until the migration lands.
+    if (error.code === 'PGRST202') return (await getUserPlaylists(userId)).length
+    throw error
+  }
+  return Number(data ?? 0)
 }
 
 /** Null when the playlist doesn't exist (or a signed-out user asks). */
@@ -219,6 +280,7 @@ export async function createPlaylist(
     description: data.description,
     ownerId: data.user_id,
     coverUrl: data.cover_url,
+    sortedAt: new Date().toISOString(),
     songCount: 0,
     coverUrls: [],
   }

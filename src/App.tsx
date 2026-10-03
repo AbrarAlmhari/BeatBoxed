@@ -15,6 +15,7 @@ import Notifications from '@/pages/Notifications'
 import FriendRequests from '@/pages/FriendRequests'
 import ProfileFriends from '@/pages/ProfileFriends'
 import ProfileArtists from '@/pages/ProfileArtists'
+import ProfilePlaylists from '@/pages/ProfilePlaylists'
 import ProfileReviews from '@/pages/ProfileReviews'
 import NowPlaying from '@/pages/NowPlaying'
 import NotFound from '@/pages/NotFound'
@@ -37,6 +38,7 @@ export default function App() {
               <Route path="profile/:userId" element={<Profile />} />
               <Route path="profile/:userId/friends" element={<ProfileFriends />} />
               <Route path="profile/:userId/artists" element={<ProfileArtists />} />
+              <Route path="profile/:userId/playlists" element={<ProfilePlaylists />} />
               <Route path="profile/:userId/reviews" element={<ProfileReviews />} />
               <Route path="song/:id" element={<Song />} />
               <Route path="playlist/:id" element={<Playlist />} />
