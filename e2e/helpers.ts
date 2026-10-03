@@ -692,3 +692,158 @@ export async function songRatingFacts(songId: string) {
   const avg = count ? rows.reduce((a, r) => a + r.rating, 0) / count : null
   return { count, avg }
 }
+
+/**
+ * The mini player bar. A named region rather than the /now-playing link,
+ * because the bar holds two of those now (the cover and the title) and the
+ * cover has no text to assert against.
+ */
+export function miniPlayer(page: Page) {
+  return page.getByRole('region', { name: 'Mini player' })
+}
+
+/* ------------------------------------------------- artist / album fixtures */
+
+/** Marks every catalog row these tests create, so cleanup can find them. */
+export const TEST_SPOTIFY_PREFIX = 'e2e-'
+
+export type SeededTrack = {
+  id: string
+  title: string
+  trackNumber: number
+  discNumber: number
+  artistName: string
+}
+
+export type SeededArtist = {
+  id: string
+  name: string
+  albumId: string
+  albumTitle: string
+  tracks: SeededTrack[]
+  featureArtistId: string
+}
+
+/**
+ * Builds a complete artist, album and track list straight in the database.
+ *
+ * Deliberately not driven through Spotify: the pages read our own tables, so
+ * seeding keeps these deterministic and off a rate-limited third party whose
+ * catalog can change under us.
+ */
+export async function seedArtistWithAlbum(label: string): Promise<SeededArtist> {
+  const stamp = `${TEST_SPOTIFY_PREFIX}${label}-${Date.now()}`
+
+  const insert = async (path: string, body: unknown) => {
+    const res = await admin(path, {
+      method: 'POST',
+      headers: { Prefer: 'return=representation' },
+      body: JSON.stringify(body),
+    })
+    const parsed = await res.json()
+    if (!Array.isArray(parsed)) {
+      throw new Error(`seed failed on ${path}: ${JSON.stringify(parsed)}`)
+    }
+    return parsed
+  }
+
+  const [main] = (await insert('/rest/v1/artists', {
+    spotify_id: `${stamp}-artist`,
+    name: `Test Artist ${label}`,
+  })) as { id: string }[]
+
+  const [feature] = (await insert('/rest/v1/artists', {
+    spotify_id: `${stamp}-feature`,
+    name: `Guest ${label}`,
+  })) as { id: string }[]
+
+  const [album] = (await insert('/rest/v1/albums', {
+    spotify_id: `${stamp}-album`,
+    title: `Album ${label}`,
+    artist_id: main.id,
+    release_date: '2020-05-01',
+    total_tracks: 3,
+    album_type: 'album',
+  })) as { id: string }[]
+
+  // Track three is by the guest and on disc two, so the album page has both
+  // a feature to name and a disc divider to draw.
+  const spec = [
+    { n: 1, d: 1, title: `One ${label}`, artist: main.id, artistName: `Test Artist ${label}` },
+    { n: 2, d: 1, title: `Two ${label}`, artist: main.id, artistName: `Test Artist ${label}` },
+    { n: 3, d: 2, title: `Three ${label}`, artist: feature.id, artistName: `Guest ${label}` },
+  ]
+
+  const rows = (await insert(
+    '/rest/v1/songs',
+    spec.map((t) => ({
+      spotify_id: `${stamp}-track-${t.n}`,
+      title: t.title,
+      artist_id: t.artist,
+      album_id: album.id,
+      duration_ms: 180000,
+      track_number: t.n,
+      disc_number: t.d,
+      popularity: 1000 - t.n,
+    }))
+  )) as { id: string; title: string }[]
+
+  const byTitle = new Map(rows.map((r) => [r.title, r.id]))
+
+  return {
+    id: main.id,
+    name: `Test Artist ${label}`,
+    albumId: album.id,
+    albumTitle: `Album ${label}`,
+    featureArtistId: feature.id,
+    tracks: spec.map((t) => ({
+      id: byTitle.get(t.title)!,
+      title: t.title,
+      trackNumber: t.n,
+      discNumber: t.d,
+      artistName: t.artistName,
+    })),
+  }
+}
+
+/** Removes every catalog row these tests created. */
+export async function deleteSeededCatalog() {
+  await admin(`/rest/v1/songs?spotify_id=like.${TEST_SPOTIFY_PREFIX}*`, { method: 'DELETE' })
+  await admin(`/rest/v1/albums?spotify_id=like.${TEST_SPOTIFY_PREFIX}*`, { method: 'DELETE' })
+  await admin(`/rest/v1/artists?spotify_id=like.${TEST_SPOTIFY_PREFIX}*`, { method: 'DELETE' })
+}
+
+/** An album dated today, the way a genuinely new release looks. */
+export async function seedNewRelease(artistId: string, label: string) {
+  const res = await admin('/rest/v1/albums', {
+    method: 'POST',
+    headers: { Prefer: 'return=representation' },
+    body: JSON.stringify({
+      spotify_id: `${TEST_SPOTIFY_PREFIX}${label}-new-${Date.now()}`,
+      title: `Brand New ${label}`,
+      artist_id: artistId,
+      release_date: new Date().toISOString().slice(0, 10),
+      total_tracks: 1,
+      album_type: 'album',
+    }),
+  })
+  const [album] = (await res.json()) as { id: string; title: string }[]
+  return album
+}
+
+/** Runs the database fan-out the Edge Function calls after a sync. */
+export async function fanOutRelease(artistId: string, albumId: string) {
+  const res = await admin('/rest/v1/rpc/notify_artist_release', {
+    method: 'POST',
+    body: JSON.stringify({ target_artist: artistId, target_album: albumId }),
+  })
+  const text = await res.text()
+  return { status: res.status, sent: Number(text) }
+}
+
+export async function followArtistAs(userId: string, artistId: string) {
+  await admin('/rest/v1/follows', {
+    method: 'POST',
+    body: JSON.stringify({ user_id: userId, artist_id: artistId }),
+  })
+}

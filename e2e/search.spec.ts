@@ -39,11 +39,18 @@ test.describe('song search', () => {
   test('finds a song from its title and artist in either order', async ({ page }) => {
     await login(page, user.email)
 
+    /*
+     * startsWith, not equals: the catalog holds both "Karma Police" and
+     * "Karma Police - Remastered", and neither title equals the typed query,
+     * so both land in the same rank group and popularity decides between
+     * them. Which pressing comes first isn't what this test is about —
+     * that the song is found at all, from either word order, is.
+     */
     const forwards = await search(page, 'karma police radiohead')
-    expect(forwards[0]).toBe('Karma Police')
+    expect(forwards[0]).toMatch(/^Karma Police/)
 
     const backwards = await search(page, 'radiohead karma police')
-    expect(backwards[0]).toBe('Karma Police')
+    expect(backwards[0]).toMatch(/^Karma Police/)
   })
 
   test('ignores punctuation, so "gods plan" finds God’s Plan', async ({ page }) => {
@@ -64,6 +71,16 @@ test.describe('song search', () => {
     await login(page, user.email)
     const titles = await search(page, 'radiohead')
     expect(titles.length).toBeGreaterThan(0)
-    expect(titles).toContain('Karma Police')
+
+    /*
+     * Asserts whose songs came back rather than which ones. Results are
+     * ordered by popularity and capped, so naming a specific track makes
+     * the test depend on the catalog's current ranking — it broke once
+     * already when a remaster outranked the original.
+     */
+    const subtitles = await page
+      .locator('a[href^="/song/"] .text-muted-foreground')
+      .allInnerTexts()
+    expect(subtitles.filter((s) => /radiohead/i.test(s)).length).toBeGreaterThan(0)
   })
 })

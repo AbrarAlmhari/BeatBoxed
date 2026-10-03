@@ -219,7 +219,7 @@ test.describe('playlists', () => {
 
     // The mini player names what's playing, so it's the honest check that
     // the queue started at the top rather than wherever was tapped.
-    const mini = page.locator('a[href="/now-playing"]').first()
+    const mini = page.getByRole('region', { name: 'Mini player' })
     await expect(mini).toContainText(songs[0].title)
 
     // Next steps through the queue the playlist built.

@@ -29,7 +29,8 @@ test.describe('songs with no preview', () => {
   })
 
   /** What the mini player is currently showing. */
-  const miniPlayer = (page: Page) => page.locator('a[href="/now-playing"]').first()
+  const miniPlayer = (page: Page) =>
+    page.getByRole('region', { name: 'Mini player' })
 
   test('announces the missing preview and moves on by itself', async ({ page }) => {
     // First song unplayable, second fine.
@@ -89,11 +90,13 @@ test.describe('songs with no preview', () => {
     await page.getByRole('button', { name: /^Play$/ }).click()
     await expect(miniPlayer(page)).toContainText(songs[0].title)
 
-    // Previous only exists on Now Playing — the mini player bar has Play and
-    // Next and nothing else — so the rest of this runs there. The mini player
-    // stays mounted underneath, so Next and the notice both appear twice;
-    // .first() is the Now Playing copy, which precedes it in the DOM.
-    await miniPlayer(page).click()
+    // The rest runs on Now Playing. The mini player stays mounted
+    // underneath, so Next and the notice both appear twice; .first() is the
+    // Now Playing copy, which precedes it in the DOM.
+    //
+    // The bar itself is a region, not a link, so this clicks the artwork
+    // link inside it rather than the container.
+    await miniPlayer(page).getByRole('link', { name: 'Now playing' }).click()
     const nowPlaying = page.getByRole('heading', { level: 1 })
     await expect(nowPlaying).toHaveText(songs[0].title)
 

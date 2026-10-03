@@ -27,7 +27,9 @@ test.describe('mini player controls', () => {
     await deleteTestUsers()
   })
 
-  const bar = (page: Page) => page.locator('a[href="/now-playing"]').first()
+  // The bar holds two /now-playing links now (cover and title), so it is
+  // addressed as a named region rather than by its first link.
+  const bar = (page: Page) => page.getByRole('region', { name: 'Mini player' })
 
   test('steps back with Previous and closes with the X', async ({ page }) => {
     await stubPreviewAudio(page, songs)
