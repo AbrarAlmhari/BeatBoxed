@@ -16,6 +16,10 @@ export const env = Object.fromEntries(
 const SB = env.VITE_SUPABASE_URL
 const SR = env.SUPABASE_SERVICE_ROLE_KEY
 
+export async function adminFetch(path: string, init: RequestInit = {}) {
+  return admin(path, init)
+}
+
 async function admin(path: string, init: RequestInit = {}) {
   return fetch(`${SB}${path}`, {
     ...init,
@@ -54,6 +58,12 @@ export async function deleteTestUsers(onlyEmail?: string) {
     if (onlyEmail && email !== onlyEmail) continue
     await admin(`/rest/v1/follows?user_id=eq.${u.id}`, { method: 'DELETE' })
     await admin(`/rest/v1/play_history?user_id=eq.${u.id}`, { method: 'DELETE' })
+    await admin(`/rest/v1/notification_preferences?user_id=eq.${u.id}`, { method: 'DELETE' })
+    await admin(`/rest/v1/review_likes?user_id=eq.${u.id}`, { method: 'DELETE' })
+    await admin(`/rest/v1/reviews?user_id=eq.${u.id}`, { method: 'DELETE' })
+    await admin(`/rest/v1/notifications?user_id=eq.${u.id}`, { method: 'DELETE' })
+    await admin(`/rest/v1/friendships?user_id=eq.${u.id}`, { method: 'DELETE' })
+    await admin(`/rest/v1/friendships?friend_id=eq.${u.id}`, { method: 'DELETE' })
     await admin(`/rest/v1/playlists?user_id=eq.${u.id}`, { method: 'DELETE' })
     await removeCoverFolder(u.id)
     await admin(`/rest/v1/song_views?user_id=eq.${u.id}`, { method: 'DELETE' })
@@ -100,7 +110,8 @@ export async function login(page: Page, email: string) {
 }
 
 export async function logout(page: Page) {
-  await page.goto('/profile')
+  // Log out lives in Settings now, not on the profile page.
+  await page.goto('/settings')
   await page.getByRole('button', { name: /log out/i }).click()
   await page.waitForURL(/\/login/)
 }
@@ -589,4 +600,95 @@ export async function tryCoverUpload(
     body: new Uint8Array(bytes),
   })
   return { status: res.status, body: (await res.text()).slice(0, 160) }
+}
+
+
+/* --------------------------------------------------------------- settings */
+
+/** Writes a review as the service role, for fixtures the test doesn't drive. */
+export async function createReview(
+  userId: string,
+  songId: string,
+  rating: number,
+  body: string
+) {
+  const res = await admin('/rest/v1/reviews', {
+    method: 'POST',
+    headers: { Prefer: 'return=representation' },
+    body: JSON.stringify({ user_id: userId, song_id: songId, rating, body }),
+  })
+  const [row] = (await res.json()) as { id: string }[]
+  return row.id
+}
+
+/** An accepted friendship both ways round, however the pair is ordered. */
+export async function makeFriends(a: string, b: string) {
+  await admin('/rest/v1/friendships', {
+    method: 'POST',
+    body: JSON.stringify({ user_id: a, friend_id: b, status: 'accepted' }),
+  })
+}
+
+/**
+ * Likes a review as a real signed-in user, so the database trigger fires
+ * with a genuine actor. Liking as the service role would bypass the very
+ * path under test.
+ */
+export async function likeReviewAs(token: string, reviewId: string, userId: string) {
+  return fetch(`${SB}/rest/v1/review_likes`, {
+    method: 'POST',
+    headers: {
+      apikey: env.VITE_SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ review_id: reviewId, user_id: userId }),
+  })
+}
+
+export async function notificationsOf(userId: string) {
+  const res = await admin(
+    `/rest/v1/notifications?user_id=eq.${userId}&select=type,payload`
+  )
+  return (await res.json()) as { type: string; payload: Record<string, unknown> }[]
+}
+
+/** The stored settings row, to prove a toggle actually persisted. */
+export async function settingsOf(userId: string) {
+  const profileBody = await (
+    await admin(
+      `/rest/v1/profiles?id=eq.${userId}&select=translation_language,is_private,friends_list_visible`
+    )
+  ).json()
+  const prefsBody = await (
+    await admin(`/rest/v1/notification_preferences?user_id=eq.${userId}&select=*`)
+  ).json()
+
+  // PostgREST answers with an error object, not an array, when a column or
+  // table is missing. Say so plainly rather than failing on a destructure.
+  if (!Array.isArray(profileBody) || !Array.isArray(prefsBody)) {
+    throw new Error(
+      'settings schema missing — apply 0021 and 0022: ' +
+        JSON.stringify(Array.isArray(profileBody) ? prefsBody : profileBody)
+    )
+  }
+
+  return {
+    profile: profileBody[0] as {
+      translation_language: string
+      is_private: boolean
+      friends_list_visible: boolean
+    },
+    prefs: (prefsBody[0] ?? null) as Record<string, boolean> | null,
+  }
+}
+
+/** A song's average as the database sees it, ignoring RLS. */
+export async function songRatingFacts(songId: string) {
+  const rows = (await (
+    await admin(`/rest/v1/reviews?song_id=eq.${songId}&select=rating`)
+  ).json()) as { rating: number }[]
+  const count = rows.length
+  const avg = count ? rows.reduce((a, r) => a + r.rating, 0) / count : null
+  return { count, avg }
 }
