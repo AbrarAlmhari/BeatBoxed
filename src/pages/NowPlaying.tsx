@@ -171,10 +171,29 @@ export default function NowPlaying() {
             <h1 dir="auto" className="truncate text-page-title">
               {current.title}
             </h1>
-            {/* No artist page yet, same as the Song page. */}
-            <p dir="auto" className="truncate text-body text-accent">
-              {current.artistName}
-            </p>
+            {current.artistId ? (
+              <Link
+                to={`/artist/${current.artistId}`}
+                dir="auto"
+                className="block truncate text-body text-accent transition-colors duration-200 ease-soft hover:text-foreground"
+              >
+                {current.artistName}
+              </Link>
+            ) : (
+              <p dir="auto" className="truncate text-body text-accent">
+                {current.artistName}
+              </p>
+            )}
+            {/* The album only appears once we know which one it is; a queue
+                built from a rail carries the id, a bare track may not. */}
+            {current.albumId && (
+              <Link
+                to={`/album/${current.albumId}`}
+                className="block truncate text-meta text-muted-foreground transition-colors duration-200 ease-soft hover:text-foreground"
+              >
+                View album
+              </Link>
+            )}
           </div>
 
           <button

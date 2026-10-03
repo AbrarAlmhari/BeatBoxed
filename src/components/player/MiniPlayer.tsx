@@ -28,6 +28,10 @@ export function MiniPlayer() {
 
   return (
     <div
+      // A named region: the bar holds several links now, so "the mini
+      // player" needs a handle of its own for assistive tech and tests.
+      role="region"
+      aria-label="Mini player"
       className="fixed inset-x-0 bottom-[68px] z-30 border-t border-white/5 bg-surface/95 backdrop-blur-xl md:bottom-0 md:left-20 lg:left-60"
       style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
     >
@@ -39,8 +43,15 @@ export function MiniPlayer() {
       </div>
 
       <div className="mx-auto flex w-full max-w-[1400px] items-center gap-3 px-4 py-2 sm:px-6 lg:px-8">
-        <Link to="/now-playing" className="flex min-w-0 flex-1 items-center gap-3">
-          <span className="size-10 shrink-0 overflow-hidden rounded-[8px]">
+        {/* Cover and title open Now Playing; the artist line is its own link
+            to the artist page. They're siblings rather than nested, because
+            an anchor inside an anchor is invalid and the browser drops it. */}
+        <div className="flex min-w-0 flex-1 items-center gap-3">
+          <Link
+            to="/now-playing"
+            aria-label="Now playing"
+            className="size-10 shrink-0 overflow-hidden rounded-[8px]"
+          >
             {current.coverUrl ? (
               <img src={current.coverUrl} alt="" className="size-full object-cover" />
             ) : (
@@ -48,18 +59,40 @@ export function MiniPlayer() {
                 <Disc3 className="size-5 text-muted-foreground" strokeWidth={1.5} />
               </span>
             )}
-          </span>
+          </Link>
           <span className="flex min-w-0 flex-col">
-            <span dir="auto" className="truncate text-secondary text-foreground">
+            <Link
+              to="/now-playing"
+              dir="auto"
+              className="truncate text-secondary text-foreground"
+            >
               {current.title}
-            </span>
-            <span dir="auto" className="truncate text-meta text-muted-foreground">
-              {/* The skip notice takes the artist's place rather than adding
-                  a row, so the bar doesn't change height mid-queue. */}
-              {skipNotice ?? (unavailable ? 'Preview unavailable' : current.artistName)}
-            </span>
+            </Link>
+            {/* The skip notice takes the artist's place rather than adding a
+                row, so the bar doesn't change height mid-queue. */}
+            {skipNotice ? (
+              <span className="truncate text-meta text-muted-foreground">
+                {skipNotice}
+              </span>
+            ) : unavailable ? (
+              <span className="truncate text-meta text-muted-foreground">
+                Preview unavailable
+              </span>
+            ) : current.artistId ? (
+              <Link
+                to={`/artist/${current.artistId}`}
+                dir="auto"
+                className="truncate text-meta text-muted-foreground transition-colors duration-200 ease-soft hover:text-foreground"
+              >
+                {current.artistName}
+              </Link>
+            ) : (
+              <span dir="auto" className="truncate text-meta text-muted-foreground">
+                {current.artistName}
+              </span>
+            )}
           </span>
-        </Link>
+        </div>
 
         {/* Hidden on the narrowest phones, where four controls and the title
             leave the title no room. Now Playing still has it there. */}

@@ -1,4 +1,4 @@
-import { Heart, Megaphone, MessageCircle, UserCheck } from 'lucide-react'
+import { Disc3, Heart, Megaphone, MessageCircle, UserCheck } from 'lucide-react'
 import type { Announcement, NotificationRow, PersonCardModel } from '@/lib/types'
 
 /** Looked up at render time, so names and titles are never stale. */
@@ -6,6 +6,10 @@ export type RenderContext = {
   people: Map<string, PersonCardModel>
   songs: Map<string, string>
   comments: Map<string, string>
+  /** Artist id -> name and picture, for release notifications. */
+  artists: Map<string, { name: string; imageUrl: string | null }>
+  /** Album id -> title and cover. */
+  albums: Map<string, { title: string; coverUrl: string | null }>
 }
 
 export type RenderedNotification = {
@@ -27,8 +31,7 @@ export const NOTIFICATION_CATEGORIES: Record<string, NotificationCategory> = {
   review_liked: 'social',
   review_commented: 'social',
   thread_reply: 'social',
-  // Reserved for the next wave — a trigger plus a renderer is all they need:
-  // artist_release: 'artists',
+  artist_release: 'artists',
 }
 
 const str = (v: unknown) => (typeof v === 'string' ? v : null)
@@ -194,11 +197,70 @@ const threadReply: NotificationRenderer = (n, ctx) => {
  * entry here. An unknown type renders nothing rather than throwing, so a
  * trigger can ship before the UI that understands it.
  */
+/**
+ * A release, not a person: the actor is the artist, so the avatar is their
+ * picture and the album cover rides alongside it. Tapping opens the album.
+ */
+const artistRelease: NotificationRenderer = (n, ctx) => {
+  const artistId = str(n.payload.actor_id) ?? str(n.payload.artist_id)
+  const albumId = str(n.payload.album_id)
+  if (!artistId || !albumId) return null
+
+  const artist = ctx.artists.get(artistId)
+  const album = ctx.albums.get(albumId)
+
+  return {
+    avatar: (
+      <span className="relative shrink-0">
+        {artist?.imageUrl ? (
+          <img
+            src={artist.imageUrl}
+            alt=""
+            className="size-10 rounded-full object-cover"
+          />
+        ) : (
+          <span className="grid size-10 place-items-center rounded-full bg-surface-2">
+            <Disc3 className="size-4 text-muted-foreground" strokeWidth={2} />
+          </span>
+        )}
+        <span className="absolute -bottom-0.5 -right-0.5 grid size-5 place-items-center rounded-full bg-background">
+          <Disc3 className="size-3.5 text-primary" strokeWidth={2.25} />
+        </span>
+      </span>
+    ),
+    body: (
+      <span className="flex items-center gap-2">
+        <span className="min-w-0 flex-1">
+          <span className="text-muted-foreground">New release from </span>
+          <span className="text-foreground">{artist?.name ?? 'an artist'}</span>
+          {album?.title && (
+            <>
+              <span className="text-muted-foreground">: </span>
+              <span className="text-foreground">{album.title}</span>
+            </>
+          )}
+        </span>
+        {album?.coverUrl && (
+          <img
+            src={album.coverUrl}
+            alt=""
+            className="size-10 shrink-0 rounded-[6px] object-cover"
+          />
+        )}
+      </span>
+    ),
+    href: `/album/${albumId}`,
+    // The actor is an artist, not a profile, so there's no person to open.
+    actorId: null,
+  }
+}
+
 export const NOTIFICATION_RENDERERS: Record<string, NotificationRenderer> = {
   friend_accepted: friendAccepted,
   review_liked: reviewLiked,
   review_commented: reviewCommented,
   thread_reply: threadReply,
+  artist_release: artistRelease,
 }
 
 export function renderAnnouncement(a: Announcement): RenderedNotification {

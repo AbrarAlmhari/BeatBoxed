@@ -1690,6 +1690,8 @@ export async function getNotificationContext(
   people: Map<string, PersonCardModel>
   songs: Map<string, string>
   comments: Map<string, string>
+  artists: Map<string, { name: string; imageUrl: string | null }>
+  albums: Map<string, { title: string; coverUrl: string | null }>
 }> {
   const client = requireClient()
   const str = (v: unknown) => (typeof v === 'string' ? v : null)
@@ -1697,8 +1699,20 @@ export async function getNotificationContext(
   const personIds = new Set<string>()
   const songIds = new Set<string>()
   const commentIds = new Set<string>()
+  const artistIds = new Set<string>()
+  const albumIds = new Set<string>()
 
   for (const n of notifications) {
+    // On a release the actor is the artist, not a person, so it must not be
+    // looked up in profiles — it would just miss.
+    if (n.type === 'artist_release') {
+      const artist = str(n.payload.actor_id) ?? str(n.payload.artist_id)
+      if (artist) artistIds.add(artist)
+      const album = str(n.payload.album_id)
+      if (album) albumIds.add(album)
+      continue
+    }
+
     for (const key of ['actor_id', 'friend_id', 'review_author_id']) {
       const v = str(n.payload[key])
       if (v) personIds.add(v)
@@ -1709,13 +1723,19 @@ export async function getNotificationContext(
     if (comment) commentIds.add(comment)
   }
 
-  const [people, songs, comments] = await Promise.all([
+  const [people, songs, comments, artists, albums] = await Promise.all([
     personIds.size ? getPeopleByIds([...personIds]) : Promise.resolve(new Map()),
     songIds.size
       ? client.from('songs').select('id, title').in('id', [...songIds])
       : Promise.resolve({ data: [], error: null }),
     commentIds.size
       ? client.from('review_comments').select('id, body').in('id', [...commentIds])
+      : Promise.resolve({ data: [], error: null }),
+    artistIds.size
+      ? client.from('artists').select('id, name, image_url').in('id', [...artistIds])
+      : Promise.resolve({ data: [], error: null }),
+    albumIds.size
+      ? client.from('albums').select('id, title, cover_url').in('id', [...albumIds])
       : Promise.resolve({ data: [], error: null }),
   ])
 
@@ -1725,7 +1745,27 @@ export async function getNotificationContext(
   const commentMap = new Map<string, string>()
   if (!comments.error) for (const c of comments.data ?? []) commentMap.set(c.id, c.body)
 
-  return { people, songs: songMap, comments: commentMap }
+  const artistMap = new Map<string, { name: string; imageUrl: string | null }>()
+  if (!artists.error) {
+    for (const a of (artists.data ?? []) as { id: string; name: string; image_url: string | null }[]) {
+      artistMap.set(a.id, { name: a.name, imageUrl: a.image_url })
+    }
+  }
+
+  const albumMap = new Map<string, { title: string; coverUrl: string | null }>()
+  if (!albums.error) {
+    for (const a of (albums.data ?? []) as { id: string; title: string; cover_url: string | null }[]) {
+      albumMap.set(a.id, { title: a.title, coverUrl: a.cover_url })
+    }
+  }
+
+  return {
+    people,
+    songs: songMap,
+    comments: commentMap,
+    artists: artistMap,
+    albums: albumMap,
+  }
 }
 
 /* ------------------------------------------------------------ full lists */

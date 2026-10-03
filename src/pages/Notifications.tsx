@@ -58,6 +58,8 @@ export default function Notifications() {
     people: new Map(),
     songs: new Map(),
     comments: new Map(),
+    artists: new Map(),
+    albums: new Map(),
   })
   const [filter, setFilter] = useState<Filter>('all')
 

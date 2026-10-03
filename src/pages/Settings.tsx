@@ -13,7 +13,6 @@ import {
   setNotificationPref,
   updateAccountSettings,
   type AccountSettings,
-  type LanguageCode,
   type NotificationPrefKey,
   type NotificationPrefs,
 } from '@/lib/settings'
@@ -23,6 +22,10 @@ const NOTIFICATION_ROWS: { key: NotificationPrefKey; label: string; hint?: strin
   { key: 'review_commented', label: 'Comments on your reviews' },
   { key: 'thread_reply', label: 'Replies in threads you’ve commented in' },
   { key: 'friend_accepted', label: 'Friend request accepted' },
+  {
+    key: 'artist_release',
+    label: 'New releases from artists you follow',
+  },
   {
     key: 'friend_requests',
     label: 'New friend requests',

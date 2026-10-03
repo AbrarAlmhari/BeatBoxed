@@ -39,6 +39,7 @@ export type NotificationPrefs = {
   review_commented: boolean
   thread_reply: boolean
   friend_accepted: boolean
+  artist_release: boolean
   friend_requests: boolean
   announcements: boolean
 }
@@ -51,6 +52,7 @@ export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
   review_commented: true,
   thread_reply: true,
   friend_accepted: true,
+  artist_release: true,
   friend_requests: true,
   announcements: true,
 }
@@ -60,9 +62,9 @@ export async function getNotificationPrefs(
 ): Promise<NotificationPrefs> {
   const { data, error } = await requireClient()
     .from('notification_preferences')
-    .select(
-      'review_liked, review_commented, thread_reply, friend_accepted, friend_requests, announcements'
-    )
+    // `*` rather than a column list so this survives 0026 adding
+    // artist_release, and keeps working before it is applied.
+    .select('*')
     .eq('user_id', userId)
     .maybeSingle()
 
