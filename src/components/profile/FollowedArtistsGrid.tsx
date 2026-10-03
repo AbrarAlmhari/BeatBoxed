@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { FollowButton } from '@/components/ui/FollowButton'
 import { tintFor } from '@/components/explore/tint'
 import type { ArtistCardModel } from '@/lib/types'
@@ -41,9 +42,13 @@ export function FollowedArtistsGrid({
             />
           )}
 
-          <span dir="auto" className="line-clamp-2 text-card-title">
+          <Link
+            to={`/artist/${a.id}`}
+            dir="auto"
+            className="line-clamp-2 text-card-title transition-colors duration-200 ease-soft hover:text-accent"
+          >
             {a.name}
-          </span>
+          </Link>
 
           <FollowButton
             artistId={a.id}

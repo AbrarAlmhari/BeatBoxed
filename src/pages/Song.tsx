@@ -263,17 +263,18 @@ export default function Song() {
   const tint = tintFor(song.id)
   const releaseDate = formatReleaseDate(song.album?.releaseDate ?? null)
 
-  const facts: [string, string][] = [
-    ['Album', song.album?.title ?? '—'],
-    ['Released', releaseDate ?? '—'],
-    ['Genre', song.genre ?? 'Not tagged'],
-    ['Duration', formatDuration(song.durationMs)],
+  const facts: [string, string, string | null][] = [
+    ['Album', song.album?.title ?? '—', song.album?.id ?? null],
+    ['Released', releaseDate ?? '—', null],
+    ['Genre', song.genre ?? 'Not tagged', null],
+    ['Duration', formatDuration(song.durationMs), null],
   ]
 
   return (
     <div className="flex flex-col gap-8 pt-2">
       <header className="flex flex-col items-center gap-5 text-center sm:flex-row sm:items-end sm:text-left">
-        <div className="aspect-square w-44 shrink-0 overflow-hidden rounded-card shadow-card sm:w-56">
+        {/* Wrapped in the album link when there's an album to open. */}
+        <AlbumLink albumId={song.album?.id ?? null} className="aspect-square w-44 shrink-0 overflow-hidden rounded-card shadow-card sm:w-56">
           {song.album?.coverUrl ? (
             <img
               src={song.album.coverUrl}
@@ -292,7 +293,7 @@ export default function Song() {
               <Disc3 className="size-10 text-white/70" strokeWidth={1.5} />
             </div>
           )}
-        </div>
+        </AlbumLink>
 
         <div className="flex min-w-0 flex-col gap-2">
           <h1 dir="auto" className="text-page-title">
@@ -302,9 +303,19 @@ export default function Song() {
           {/* No artist page yet, so the name is text — the Follow toggle is
               the real affordance here. */}
           <div className="flex flex-wrap items-center justify-center gap-2.5 sm:justify-start">
-            <span dir="auto" className="text-body text-accent">
-              {song.artist?.name ?? 'Unknown artist'}
-            </span>
+            {song.artist ? (
+              <Link
+                to={`/artist/${song.artist.id}`}
+                dir="auto"
+                className="text-body text-accent transition-colors duration-200 ease-soft hover:text-foreground"
+              >
+                {song.artist.name}
+              </Link>
+            ) : (
+              <span dir="auto" className="text-body text-accent">
+                Unknown artist
+              </span>
+            )}
             {song.artist && (
               <FollowButton artistId={song.artist.id} size="sm" />
             )}
@@ -409,11 +420,20 @@ export default function Song() {
       <section id="about" ref={aboutRef} aria-label="About" className="scroll-mt-36">
         <h2 className="mb-4 text-section-title">About</h2>
         <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {facts.map(([label, value]) => (
+          {facts.map(([label, value, albumId]) => (
             <div key={label} className="rounded-card bg-surface p-4 shadow-card">
               <dt className="text-meta text-muted-foreground">{label}</dt>
               <dd dir="auto" className="mt-1 text-card-title capitalize">
-                {value}
+                {albumId ? (
+                  <Link
+                    to={`/album/${albumId}`}
+                    className="text-accent transition-colors duration-200 ease-soft hover:text-foreground"
+                  >
+                    {value}
+                  </Link>
+                ) : (
+                  value
+                )}
               </dd>
             </div>
           ))}
@@ -489,5 +509,31 @@ export default function Song() {
         />
       </section>
     </div>
+  )
+}
+
+/**
+ * The cover, as a link to the album when there is one.
+ *
+ * An album row always exists for a song cached from search, so this is
+ * normally a link; the album's own page fetches its track list on open, so
+ * "not cached yet" means an album page that fills itself in, not a dead
+ * link. A song with no album at all stays a plain div rather than a link to
+ * nowhere.
+ */
+function AlbumLink({
+  albumId,
+  className,
+  children,
+}: {
+  albumId: string | null
+  className?: string
+  children: React.ReactNode
+}) {
+  if (!albumId) return <div className={className}>{children}</div>
+  return (
+    <Link to={`/album/${albumId}`} aria-label="Open album" className={className}>
+      {children}
+    </Link>
   )
 }

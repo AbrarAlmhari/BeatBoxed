@@ -49,6 +49,10 @@ export type SongCardModel = {
   coverUrl: string | null
   ratingAvg: number | null
   reviewCount: number
+  /** For linking the artist name through to their page, where known. */
+  artistId?: string | null
+  /** Likewise for the album. */
+  albumId?: string | null
 }
 
 export type ArtistCardModel = {

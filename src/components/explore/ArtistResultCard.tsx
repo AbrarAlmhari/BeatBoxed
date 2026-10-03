@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import type { ArtistCardModel } from '@/lib/types'
 import { FollowButton } from '@/components/ui/FollowButton'
 import { tintFor } from './tint'
@@ -27,7 +28,13 @@ export function ArtistResultCard({ artist }: { artist: ArtistCardModel }) {
       </span>
 
       <span className="flex min-w-0 flex-1 flex-col gap-1">
-        <span className="truncate text-card-title">{artist.name}</span>
+        <Link
+          to={`/artist/${artist.id}`}
+          dir="auto"
+          className="truncate text-card-title transition-colors duration-200 ease-soft hover:text-accent"
+        >
+          {artist.name}
+        </Link>
         <span className="flex flex-wrap gap-1.5">
           {artist.genres.map((g) => (
             <span
