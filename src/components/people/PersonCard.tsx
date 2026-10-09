@@ -1,19 +1,27 @@
+import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { FriendButton } from './FriendButton'
-import type { FriendState, PersonCardModel } from '@/lib/types'
+import { UserFollowButton } from './UserFollowButton'
+import { useAuth } from '@/lib/auth'
+import type { FollowState, PersonCardModel } from '@/lib/types'
 
 export function PersonCard({
   person,
   state,
   onStateChange,
   showAction = true,
+  action,
 }: {
   person: PersonCardModel
-  state: FriendState
-  onStateChange?: (next: FriendState) => void
+  state: FollowState
+  onStateChange?: (next: FollowState, previous: FollowState) => void
   showAction?: boolean
+  /** Replaces the follow button, e.g. Accept/Decline on the requests page. */
+  action?: ReactNode
 }) {
+  const { user } = useAuth()
   const name = person.displayName || person.username || 'Listener'
+  // Follower lists can include the viewer; there's nothing to do on yourself.
+  const isSelf = user?.id === person.id
 
   return (
     <Link
@@ -44,14 +52,15 @@ export function PersonCard({
         )}
       </span>
 
-      {showAction && (
-        <FriendButton
-          personId={person.id}
-          state={state}
-          onChange={onStateChange}
-          size="sm"
-        />
-      )}
+      {action ??
+        (showAction && !isSelf && (
+          <UserFollowButton
+            personId={person.id}
+            state={state}
+            onChange={onStateChange}
+            size="sm"
+          />
+        ))}
     </Link>
   )
 }

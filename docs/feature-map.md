@@ -20,7 +20,7 @@
 
 ## Stretch (only after MVP is fully working — cut these first under time pressure)
 
-- Friends page — mutual follows, requests, "similar taste %"
+- Followers / following — one-way follows (Instagram-style: instant for public accounts, a request for private ones), "similar taste %"
 - Notification center
 - Import playlists from Spotify / Apple Music
 - Genre-taste graph on profile

@@ -10,27 +10,26 @@ import {
 } from '@/lib/playlists'
 import { ProfileEditor } from '@/components/profile/ProfileEditor'
 import { FollowedArtistsGrid } from '@/components/profile/FollowedArtistsGrid'
-import { FriendsPanel } from '@/components/people/FriendsPanel'
 import { ProfileReviewCard } from '@/components/profile/ProfileReviewCard'
-import { FriendButton } from '@/components/people/FriendButton'
+import { UserFollowButton } from '@/components/people/UserFollowButton'
 import { useAuth } from '@/lib/auth'
 import {
   getFollowedArtists,
-  getFriendStates,
+  getFollowStates,
   getGenres,
   getProfileDetail,
   getReviewsByUser,
 } from '@/lib/catalog'
 import type {
   ArtistCardModel,
-  FriendState,
+  FollowState,
   ProfileDetail,
   ReviewWithSong,
 } from '@/lib/types'
 
-type Tab = 'reviews' | 'playlists' | 'artists' | 'friends'
+type Tab = 'reviews' | 'playlists' | 'artists'
 
-const BASE_TABS: { id: Tab; label: string }[] = [
+const TABS: { id: Tab; label: string }[] = [
   { id: 'reviews', label: 'Reviews' },
   { id: 'playlists', label: 'Playlists' },
   { id: 'artists', label: 'Artists' },
@@ -60,11 +59,11 @@ export default function Profile() {
   const [playlists, setPlaylists] = useState<PlaylistSummary[] | null>(null)
   /**
    * Counted separately from the list: a private profile shows its numbers to
-   * a non-friend even though RLS returns none of the rows.
+   * someone who doesn't follow it even though RLS returns none of the rows.
    */
   const [playlistCount, setPlaylistCount] = useState(0)
   const [genres, setGenres] = useState<string[]>([])
-  const [friendState, setFriendState] = useState<FriendState>('none')
+  const [followState, setFollowState] = useState<FollowState>('none')
 
   useEffect(() => {
     if (!targetId) return
@@ -90,15 +89,15 @@ export default function Profile() {
   }, [targetId])
 
   // Resolve the relationship on open, so the button is right even when the
-  // request was sent from Explore rather than here.
+  // follow was made from Explore rather than here.
   useEffect(() => {
-    if (!user || !targetId || isOwn) return setFriendState('none')
+    if (!user || !targetId || isOwn) return setFollowState('none')
     let cancelled = false
-    getFriendStates(user.id, [targetId])
+    getFollowStates(user.id, [targetId])
       .then((m) => {
-        if (!cancelled) setFriendState(m.get(targetId) ?? 'none')
+        if (!cancelled) setFollowState(m.get(targetId) ?? 'none')
       })
-      .catch((err) => console.warn('[beatboxed] friend state failed:', err))
+      .catch((err) => console.warn('[beatboxed] follow state failed:', err))
     return () => {
       cancelled = true
     }
@@ -183,18 +182,13 @@ export default function Profile() {
   }
 
   const name = profile.displayName || profile.username || 'Listener'
-  // friendships is private, so managing them only makes sense on your own page.
   /**
    * A private account shows its header and counts to everyone but keeps its
-   * reviews, playlists, artists and friends to accepted friends. RLS already
-   * returns nothing for these viewers; this is so the page says why instead
-   * of looking empty.
+   * reviews, playlists, artists and follow lists to accepted followers. RLS
+   * already returns nothing for these viewers; this is so the page says why
+   * instead of looking empty.
    */
-  const locked = Boolean(profile?.isPrivate) && !isOwn && friendState !== 'friends'
-
-  const tabs = isOwn
-    ? [...BASE_TABS, { id: 'friends' as Tab, label: 'Friends' }]
-    : BASE_TABS
+  const locked = Boolean(profile?.isPrivate) && !isOwn && followState !== 'following'
 
   if (editing) {
     return (
@@ -250,25 +244,21 @@ export default function Profile() {
                   <Settings className="size-[18px]" strokeWidth={1.75} />
                 </Link>
               ) : (
-                <FriendButton
+                <UserFollowButton
                   personId={profile.id}
-                  state={friendState}
-                  onChange={(next) => {
-                    setFriendState(next)
-                    // Becoming or ceasing to be friends moves the count by one.
-                    setProfile((p) =>
-                      p
-                        ? {
-                            ...p,
-                            friendCount:
-                              next === 'friends'
-                                ? p.friendCount + 1
-                                : friendState === 'friends'
-                                  ? Math.max(0, p.friendCount - 1)
-                                  : p.friendCount,
-                          }
-                        : p
-                    )
+                  state={followState}
+                  isPrivate={profile.isPrivate}
+                  onChange={(next, previous) => {
+                    setFollowState(next)
+                    // Only an accepted follow moves their follower count; a
+                    // pending request doesn't count until it's approved.
+                    const delta =
+                      (next === 'following' ? 1 : 0) - (previous === 'following' ? 1 : 0)
+                    if (delta !== 0) {
+                      setProfile((p) =>
+                        p ? { ...p, followerCount: Math.max(0, p.followerCount + delta) } : p
+                      )
+                    }
                   }}
                 />
               )}
@@ -301,8 +291,18 @@ export default function Profile() {
           </div>
         </div>
 
-        {/* Each stat opens its full list, the way tapping Followers does. */}
-        <dl className="grid grid-cols-2 gap-3 sm:max-w-md md:grid-cols-3">
+        {/* Each stat opens its full list. */}
+        <dl className="grid grid-cols-2 gap-3 sm:max-w-xl md:grid-cols-3">
+          <StatLink
+            to={`/profile/${profile.id}/followers`}
+            label="Followers"
+            value={profile.followerCount}
+          />
+          <StatLink
+            to={`/profile/${profile.id}/following`}
+            label="Following"
+            value={profile.followingCount}
+          />
           <StatLink
             to={`/profile/${profile.id}/reviews`}
             label="Reviews written"
@@ -311,12 +311,7 @@ export default function Profile() {
           <StatLink
             to={`/profile/${profile.id}/artists`}
             label="Artists followed"
-            value={profile.followingCount}
-          />
-          <StatLink
-            to={`/profile/${profile.id}/friends`}
-            label="Friends"
-            value={profile.friendCount}
+            value={profile.artistCount}
           />
           {/* Locked profiles still show the number, but there's nothing to
               open, so it isn't a link. */}
@@ -339,8 +334,8 @@ export default function Profile() {
         <div className="rounded-card bg-surface px-6 py-12 text-center">
           <p className="text-card-title">This account is private</p>
           <p className="mx-auto mt-2 max-w-sm text-body text-muted-foreground">
-            This account is private. Add them as a friend to see their reviews
-            and playlists.
+            This account is private. Follow them to request access to their
+            reviews and playlists.
           </p>
         </div>
       ) : (
@@ -349,7 +344,7 @@ export default function Profile() {
         className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
         role="tablist"
       >
-        {tabs.map((t) => (
+        {TABS.map((t) => (
           <Chip key={t.id} active={tab === t.id} onClick={() => setTab(t.id)}>
             {t.label}
           </Chip>
@@ -433,14 +428,14 @@ export default function Profile() {
                 onUnfollowed={(artistId) => {
                   setArtists((prev) => (prev ?? []).filter((x) => x.id !== artistId))
                   setProfile((p) =>
-                    p ? { ...p, followingCount: Math.max(0, p.followingCount - 1) } : p
+                    p ? { ...p, artistCount: Math.max(0, p.artistCount - 1) } : p
                   )
                 }}
               />
-              {profile.followingCount > ARTIST_PREVIEW && (
+              {profile.artistCount > ARTIST_PREVIEW && (
                 <SeeAllLink
                   to={`/profile/${profile.id}/artists`}
-                  count={profile.followingCount}
+                  count={profile.artistCount}
                 />
               )}
             </>
@@ -448,14 +443,6 @@ export default function Profile() {
         </section>
       )}
 
-      {tab === 'friends' && isOwn && user && (
-        <FriendsPanel
-          viewerId={user.id}
-          onCountChange={(n) =>
-            setProfile((p) => (p && p.friendCount !== n ? { ...p, friendCount: n } : p))
-          }
-        />
-      )}
         </>
       )}
 

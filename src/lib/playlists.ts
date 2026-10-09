@@ -199,9 +199,9 @@ export async function getUserPlaylistsPage(
 /**
  * How many playlists someone has, including when RLS hides the rows.
  *
- * A private profile still shows its counts to a non-friend, so this goes
- * through the security definer playlist_count() for the same reason the
- * review and friend counts do.
+ * A private profile still shows its counts to someone who doesn't follow it,
+ * so this goes through the security definer playlist_count() for the same
+ * reason the review and follower counts do.
  */
 export async function getPlaylistCount(userId: string): Promise<number> {
   const { data, error } = await requireClient().rpc('playlist_count', {

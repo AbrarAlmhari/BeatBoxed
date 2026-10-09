@@ -143,8 +143,11 @@ export type ProfileDetail = {
   avatarUrl: string | null
   favoriteGenres: string[]
   reviewCount: number
+  /** Artists this person follows (the artist `follows` table). */
+  artistCount: number
+  /** Accepted followers and accepted follows, from user_follows. */
+  followerCount: number
   followingCount: number
-  friendCount: number
   /** Private accounts show counts but hide the rows behind them. */
   isPrivate: boolean
 }
@@ -173,14 +176,16 @@ export type PersonCardModel = {
 }
 
 /**
- * How the signed-in viewer relates to another person.
- * `incoming` means they asked you; `outgoing` means you asked them.
+ * Whether the signed-in viewer follows another person. One-way: whether they
+ * follow you back is a separate row and doesn't change this.
+ * `requested` is a pending request to a private account.
  */
-export type FriendState = 'none' | 'outgoing' | 'incoming' | 'friends'
+export type FollowState = 'none' | 'requested' | 'following'
 
-export type FriendEdge = {
+/** Someone waiting for the viewer to accept their follow request. */
+export type FollowRequest = {
   person: PersonCardModel
-  state: FriendState
+  createdAt: string
 }
 
 export type UnifiedResults = {
@@ -218,7 +223,8 @@ export type UpdateItem =
   | { kind: 'announcement'; at: string; announcement: Announcement }
 
 export type NotificationCenter = {
-  requests: FriendEdge[]
+  /** Pending requests to follow the viewer's private account. */
+  requests: FollowRequest[]
   updates: UpdateItem[]
   /** Pending requests + unread notifications + unread announcements. */
   badge: number

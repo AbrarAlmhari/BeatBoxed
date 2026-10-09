@@ -24,7 +24,7 @@ Build in this order; do not start a stretch feature before the MVP list is fully
 
 **MVP:** auth, home feed, search (song/artist/lyrics), song page (about/lyrics/reviews tabs), rating & review system, user profile, library/playlists, settings, Beatie chatbot (contextual sheet on Now Playing, not a separate tab).
 
-**Stretch (cut first if time is short):** friends/social graph, notification center, Spotify/Apple Music playlist import, genre-taste graph, mood-based recommendations, full multi-language UI translation, live Spotify account linking beyond the 5-user dev cap.
+**Stretch (cut first if time is short):** social graph (one-way follows, built — see `user_follows` in `docs/data-model.md`), notification center, Spotify/Apple Music playlist import, genre-taste graph, mood-based recommendations, full multi-language UI translation, live Spotify account linking beyond the 5-user dev cap.
 
 **Playback note:** build the Now Playing UI against real track metadata, but treat actual in-browser audio streaming as a limited-demo feature (requires listener-side Spotify Premium + counts against the 5-user cap) — don't block the MVP on it.
 

@@ -1,4 +1,4 @@
-import { Disc3, Heart, Megaphone, MessageCircle, UserCheck } from 'lucide-react'
+import { Disc3, Heart, Megaphone, MessageCircle, UserCheck, UserPlus } from 'lucide-react'
 import type { Announcement, NotificationRow, PersonCardModel } from '@/lib/types'
 
 /** Looked up at render time, so names and titles are never stale. */
@@ -27,7 +27,9 @@ export type NotificationCategory = 'social' | 'artists' | 'beatboxed'
 
 /** type -> which chip it belongs under. */
 export const NOTIFICATION_CATEGORIES: Record<string, NotificationCategory> = {
-  friend_accepted: 'social',
+  new_follower: 'social',
+  follow_requested: 'social',
+  follow_accepted: 'social',
   review_liked: 'social',
   review_commented: 'social',
   thread_reply: 'social',
@@ -78,6 +80,7 @@ function Avatar({
 const heart = <Heart className="size-3.5 fill-primary text-primary" strokeWidth={2} />
 const bubble = <MessageCircle className="size-3.5 text-primary" strokeWidth={2.25} />
 const check = <UserCheck className="size-3.5 text-primary" strokeWidth={2.25} />
+const plus = <UserPlus className="size-3.5 text-primary" strokeWidth={2.25} />
 
 /** Deep link to the exact review, and the thread when there is a comment. */
 function reviewHref(payload: Record<string, unknown>) {
@@ -101,22 +104,40 @@ export type NotificationRenderer = (
   alsoActorIds?: string[]
 ) => RenderedNotification | null
 
-const friendAccepted: NotificationRenderer = (n, ctx) => {
-  // Older rows used friend_id; notify() writes actor_id.
-  const id = str(n.payload.actor_id) ?? str(n.payload.friend_id)
-  if (!id) return null
-  return {
-    avatar: <Avatar person={ctx.people.get(id)} badge={check} />,
-    body: (
-      <>
-        <span className="text-foreground">{nameOf(id, ctx)}</span>
-        <span className="text-muted-foreground"> accepted your friend request.</span>
-      </>
-    ),
-    href: `/profile/${id}`,
-    actorId: id,
+/** The three follow types share a shape: one person, one sentence, their profile. */
+function followRenderer(
+  sentence: string,
+  badge: React.ReactNode,
+  href?: string
+): NotificationRenderer {
+  return (n, ctx) => {
+    const id = str(n.payload.actor_id)
+    if (!id) return null
+    return {
+      avatar: <Avatar person={ctx.people.get(id)} badge={badge} />,
+      body: (
+        <>
+          <span className="text-foreground">{nameOf(id, ctx)}</span>
+          <span className="text-muted-foreground"> {sentence}</span>
+        </>
+      ),
+      href: href ?? `/profile/${id}`,
+      actorId: id,
+    }
   }
 }
+
+// Someone followed your public account.
+const newFollower = followRenderer('started following you.', plus)
+// Normally shown by the Follow requests row instead (getNotificationCenter
+// leaves these out of the list); rendered here so one is never blank.
+const followRequested = followRenderer(
+  'requested to follow you.',
+  plus,
+  '/notifications/requests'
+)
+// Your request to a private account was approved.
+const followAccepted = followRenderer('accepted your follow request.', check)
 
 const reviewLiked: NotificationRenderer = (n, ctx, alsoActorIds = []) => {
   const actor = str(n.payload.actor_id)
@@ -256,7 +277,9 @@ const artistRelease: NotificationRenderer = (n, ctx) => {
 }
 
 export const NOTIFICATION_RENDERERS: Record<string, NotificationRenderer> = {
-  friend_accepted: friendAccepted,
+  new_follower: newFollower,
+  follow_requested: followRequested,
+  follow_accepted: followAccepted,
   review_liked: reviewLiked,
   review_commented: reviewCommented,
   thread_reply: threadReply,

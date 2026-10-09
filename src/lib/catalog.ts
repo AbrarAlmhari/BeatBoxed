@@ -13,8 +13,8 @@ import type {
   ProfileDetail,
   ReviewWithSong,
   PersonCardModel,
-  FriendState,
-  FriendEdge,
+  FollowState,
+  FollowRequest,
   UnifiedResults,
   NotificationRow,
   Announcement,
@@ -77,7 +77,7 @@ function requireClient() {
  * only the average and the count. It used to fetch raw review rows and
  * average them here, which stopped being correct once account privacy landed
  * in 0022: a private user's reviews are hidden from everyone but their
- * friends, so a client-side average would silently drop them from every
+ * accepted followers, so a client-side average would silently drop them from every
  * song's score. Their ratings still count — anonymously — and no caller ever
  * receives the rows behind the number.
  *
@@ -1143,17 +1143,22 @@ export async function getProfileDetail(
   }
   if (!data) return null
 
-  // All three counts go through security definer functions. A private
-  // profile still shows its numbers to a non-friend — only the rows behind
-  // them are hidden — and after 0022 a direct count over reviews or follows
-  // would read 0 for exactly those viewers.
-  const [reviews, follows, friends] = await Promise.all([
+  // Every count goes through a security definer function. A private profile
+  // still shows its numbers to someone who doesn't follow it — only the rows
+  // behind them are hidden — and a direct count over reviews or follows
+  // would read 0 for exactly those viewers. following_count() is followed
+  // artists; follow_counts() is people.
+  const [reviews, artists, people] = await Promise.all([
     client.rpc('review_count', { target: userId }),
     client.rpc('following_count', { target: userId }),
-    client.rpc('friend_count', { target: userId }),
+    client.rpc('follow_counts', { target: userId }),
   ])
   if (reviews.error && reviews.error.code !== 'PGRST202') throw reviews.error
-  if (follows.error && follows.error.code !== 'PGRST202') throw follows.error
+  if (artists.error && artists.error.code !== 'PGRST202') throw artists.error
+  if (people.error && people.error.code !== 'PGRST202') throw people.error
+  const counts = people.error
+    ? null
+    : ((people.data as { followers: number; following: number }[] | null)?.[0] ?? null)
 
   return {
     id: data.id,
@@ -1163,8 +1168,9 @@ export async function getProfileDetail(
     avatarUrl: data.avatar_url,
     favoriteGenres: data.favorite_genres ?? [],
     reviewCount: reviews.error ? 0 : Number(reviews.data ?? 0),
-    followingCount: follows.error ? 0 : Number(follows.data ?? 0),
-    friendCount: friends.error ? 0 : ((friends.data as number | null) ?? 0),
+    artistCount: artists.error ? 0 : Number(artists.data ?? 0),
+    followerCount: Number(counts?.followers ?? 0),
+    followingCount: Number(counts?.following ?? 0),
     isPrivate: Boolean((data as { is_private?: boolean }).is_private),
   }
 }
@@ -1324,7 +1330,7 @@ export async function getLikedSongs(userId: string): Promise<SongCardModel[]> {
   return decorate(rows)
 }
 
-/* ------------------------------------------------------- people & friendships */
+/* ----------------------------------------------------------- people & follows */
 
 const PERSON_SELECT = 'id, username, display_name, avatar_url'
 
@@ -1361,128 +1367,137 @@ export async function searchPeople(
   return (data ?? []).filter((r) => r.id !== viewerId).map(toPerson)
 }
 
-type FriendshipRow = { user_id: string; friend_id: string; status: string }
+type FollowRow = { following_id: string; status: string }
 
 /**
- * Friend state for a set of people, from the viewer's point of view.
- * friendships is private, so this only ever returns rows the viewer is in.
+ * Follow state for a set of people, from the viewer's side only. Whether
+ * they follow the viewer back doesn't change the button.
  */
-export async function getFriendStates(
+export async function getFollowStates(
   viewerId: string,
   personIds: string[]
-): Promise<Map<string, FriendState>> {
-  const states = new Map<string, FriendState>()
+): Promise<Map<string, FollowState>> {
+  const states = new Map<string, FollowState>()
   if (personIds.length === 0) return states
 
   const { data, error } = await requireClient()
-    .from('friendships')
-    .select('user_id, friend_id, status')
-    .or(`user_id.eq.${viewerId},friend_id.eq.${viewerId}`)
+    .from('user_follows')
+    .select('following_id, status')
+    .eq('follower_id', viewerId)
+    .in('following_id', personIds)
   if (error) throw error
 
-  const wanted = new Set(personIds)
-  for (const row of (data ?? []) as FriendshipRow[]) {
-    const other = row.user_id === viewerId ? row.friend_id : row.user_id
-    if (!wanted.has(other)) continue
-    if (row.status === 'accepted') states.set(other, 'friends')
-    else states.set(other, row.user_id === viewerId ? 'outgoing' : 'incoming')
+  for (const row of (data ?? []) as FollowRow[]) {
+    states.set(row.following_id, row.status === 'accepted' ? 'following' : 'requested')
   }
   return states
 }
 
 /**
- * Sends a request, or accepts theirs if they already asked you. Done in one
- * server-side statement so two people tapping at once can't create a pair of
- * crossed pending rows.
+ * Follow someone. The database decides the outcome, not the client: a
+ * trigger sets `accepted` for a public account and `pending` for a private
+ * one, whatever the insert says.
  */
-export async function requestFriendship(targetId: string): Promise<FriendState> {
-  const { data, error } = await requireClient().rpc('request_friendship', {
-    target: targetId,
-  })
-  if (error) throw error
-  return data === 'accepted' ? 'friends' : 'outgoing'
-}
+export async function followUser(viewerId: string, targetId: string): Promise<FollowState> {
+  const client = requireClient()
+  const { data, error } = await client
+    .from('user_follows')
+    .insert({ follower_id: viewerId, following_id: targetId })
+    .select('status')
+    .single()
 
-/** Only the recipient may accept, enforced by RLS. */
-export async function acceptFriendship(requesterId: string, viewerId: string) {
-  const { error } = await requireClient()
-    .from('friendships')
-    .update({ status: 'accepted' })
-    .eq('user_id', requesterId)
-    .eq('friend_id', viewerId)
-  if (error) throw error
-}
-
-/** Cancel, decline, or unfriend — the row goes either way round. */
-export async function removeFriendship(viewerId: string, otherId: string) {
-  const { error } = await requireClient()
-    .from('friendships')
-    .delete()
-    .or(
-      `and(user_id.eq.${viewerId},friend_id.eq.${otherId}),` +
-        `and(user_id.eq.${otherId},friend_id.eq.${viewerId})`
-    )
-  if (error) throw error
-}
-
-type FriendshipWithPeople = {
-  user_id: string
-  friend_id: string
-  status: string
-  requester: Rel<{
-    id: string
-    username: string | null
-    display_name: string | null
-    avatar_url: string | null
-  }>
-  recipient: Rel<{
-    id: string
-    username: string | null
-    display_name: string | null
-    avatar_url: string | null
-  }>
-}
-
-/** Everything the Friends view needs, in one query. */
-export async function getFriendships(viewerId: string): Promise<{
-  incoming: FriendEdge[]
-  outgoing: FriendEdge[]
-  friends: FriendEdge[]
-}> {
-  const { data, error } = await requireClient()
-    .from('friendships')
-    .select(
-      'user_id, friend_id, status, ' +
-        `requester:profiles!friendships_user_id_fkey(${PERSON_SELECT}), ` +
-        `recipient:profiles!friendships_friend_id_fkey(${PERSON_SELECT})`
-    )
-    .or(`user_id.eq.${viewerId},friend_id.eq.${viewerId}`)
-  if (error) throw error
-
-  const incoming: FriendEdge[] = []
-  const outgoing: FriendEdge[] = []
-  const friends: FriendEdge[] = []
-
-  for (const row of (data ?? []) as unknown as FriendshipWithPeople[]) {
-    const mine = row.user_id === viewerId
-    const other = one(mine ? row.recipient : row.requester)
-    if (!other) continue
-    const edge = { person: toPerson(other), state: 'none' as FriendState }
-
-    if (row.status === 'accepted') friends.push({ ...edge, state: 'friends' })
-    else if (mine) outgoing.push({ ...edge, state: 'outgoing' })
-    else incoming.push({ ...edge, state: 'incoming' })
+  if (error) {
+    // Already following or already requested (a double tap, or another tab):
+    // report what's actually there rather than failing.
+    if (error.code === '23505') {
+      return (await getFollowStates(viewerId, [targetId])).get(targetId) ?? 'none'
+    }
+    throw error
   }
-
-  return { incoming, outgoing, friends }
+  return data.status === 'accepted' ? 'following' : 'requested'
 }
 
-export async function getFriendCount(userId: string) {
-  const { data, error } = await requireClient().rpc('friend_count', {
-    target: userId,
-  })
+/** Unfollow, or cancel a request that hasn't been answered yet. */
+export async function unfollowUser(viewerId: string, targetId: string) {
+  const { error } = await requireClient()
+    .from('user_follows')
+    .delete()
+    .eq('follower_id', viewerId)
+    .eq('following_id', targetId)
   if (error) throw error
-  return (data as number | null) ?? 0
+}
+
+/** Only the followed person may accept, enforced by RLS. */
+export async function acceptFollowRequest(followerId: string, viewerId: string) {
+  const { error } = await requireClient()
+    .from('user_follows')
+    .update({ status: 'accepted' })
+    .eq('follower_id', followerId)
+    .eq('following_id', viewerId)
+  if (error) throw error
+}
+
+/** Decline a request, or remove someone who already follows you. */
+export async function removeFollower(viewerId: string, followerId: string) {
+  const { error } = await requireClient()
+    .from('user_follows')
+    .delete()
+    .eq('follower_id', followerId)
+    .eq('following_id', viewerId)
+  if (error) throw error
+}
+
+type FollowRequestRow = {
+  created_at: string
+  follower: Rel<{
+    id: string
+    username: string | null
+    display_name: string | null
+    avatar_url: string | null
+  }>
+}
+
+/** People waiting for the viewer to accept, newest first. */
+export async function getFollowRequests(viewerId: string): Promise<FollowRequest[]> {
+  const { data, error } = await requireClient()
+    .from('user_follows')
+    .select(`created_at, follower:profiles!user_follows_follower_id_fkey(${PERSON_SELECT})`)
+    .eq('following_id', viewerId)
+    .eq('status', 'pending')
+    .order('created_at', { ascending: false })
+  if (error) throw error
+
+  return ((data ?? []) as unknown as FollowRequestRow[]).flatMap((row) => {
+    const person = one(row.follower)
+    return person ? [{ person: toPerson(person), createdAt: row.created_at }] : []
+  })
+}
+
+/**
+ * How many requests are waiting, plus the first few people, for the "Make
+ * your account public?" warning. Always a fresh read, never page state, so a
+ * request that arrived after Settings opened is counted.
+ */
+export async function getPendingRequestSummary(
+  viewerId: string,
+  previewCount = 3
+): Promise<{ count: number; people: PersonCardModel[] }> {
+  const { data, error, count } = await requireClient()
+    .from('user_follows')
+    .select(`follower:profiles!user_follows_follower_id_fkey(${PERSON_SELECT})`, {
+      count: 'exact',
+    })
+    .eq('following_id', viewerId)
+    .eq('status', 'pending')
+    .order('created_at', { ascending: false })
+    .limit(previewCount)
+  if (error) throw error
+
+  const people = ((data ?? []) as unknown as Pick<FollowRequestRow, 'follower'>[])
+    .map((row) => one(row.follower))
+    .filter((p): p is NonNullable<typeof p> => Boolean(p))
+    .map(toPerson)
+  return { count: count ?? people.length, people }
 }
 
 /** Case-insensitive availability check for the signup form. */
@@ -1552,21 +1567,25 @@ export async function searchEverything(
 /**
  * Everything the bell needs, in one call.
  *
- * Pending friend requests come straight from friendships rather than from a
- * stored notification, so cancelling or declining elsewhere removes them here
- * with nothing to reconcile.
+ * Pending follow requests come straight from user_follows rather than from
+ * the stored follow_requested notification, so a request cancelled or
+ * declined anywhere else disappears here with nothing to reconcile. Those
+ * notifications are left out of the updates list for the same reason: the
+ * request row at the top already shows them, and listing both would show
+ * every request twice.
  */
 export async function getNotificationCenter(
   viewerId: string
 ): Promise<NotificationCenter> {
   const client = requireClient()
 
-  const [friendships, notifs, announcements, reads, prefs] = await Promise.all([
-    getFriendships(viewerId),
+  const [requests, notifs, announcements, reads, prefs] = await Promise.all([
+    getFollowRequests(viewerId),
     client
       .from('notifications')
       .select('id, type, payload, read, created_at')
       .eq('user_id', viewerId)
+      .neq('type', 'follow_requested')
       .order('created_at', { ascending: false })
       .limit(50),
     client
@@ -1575,9 +1594,9 @@ export async function getNotificationCenter(
       .order('created_at', { ascending: false })
       .limit(20),
     client.from('announcement_reads').select('announcement_id').eq('user_id', viewerId),
-    // Two of the six switches can't be enforced in notify(): pending friend
-    // requests are read live from friendships, and announcements are a
-    // shared table with no per-user rows. They're applied here instead.
+    // Two switches also apply here, not only in notify(): pending follow
+    // requests are read live from user_follows, and announcements are a
+    // shared table with no per-user rows.
     getNotificationPrefs(viewerId),
   ])
   if (notifs.error) throw notifs.error
@@ -1615,13 +1634,13 @@ export async function getNotificationCenter(
 
   const badge =
     // Turning requests off stops them counting, but they stay listed on the
-    // Friend requests page: losing sight of a request someone sent you is
+    // Follow requests page: losing sight of a request someone sent you is
     // worse than a quiet badge.
-    (prefs.friend_requests ? friendships.incoming.length : 0) +
+    (prefs.follow_requests ? requests.length : 0) +
     notifications.filter((n) => !n.read).length +
     anns.filter((a) => !a.read).length
 
-  return { requests: friendships.incoming, updates, badge }
+  return { requests, updates, badge }
 }
 
 export async function markNotificationRead(id: string) {
@@ -1713,7 +1732,7 @@ export async function getNotificationContext(
       continue
     }
 
-    for (const key of ['actor_id', 'friend_id', 'review_author_id']) {
+    for (const key of ['actor_id', 'review_author_id']) {
       const v = str(n.payload[key])
       if (v) personIds.add(v)
     }
@@ -1770,27 +1789,34 @@ export async function getNotificationContext(
 
 /* ------------------------------------------------------------ full lists */
 
+type PersonRow = {
+  id: string
+  username: string | null
+  display_name: string | null
+  avatar_url: string | null
+}
+
+export type FollowListKind = 'followers' | 'following'
+
 /**
- * Someone's accepted friends, via the security definer function — the
- * friendships table itself is readable only by the two people in a row.
- * Returns an empty list when the owner has hidden their list; callers read
- * profiles.friends_list_visible to tell "hidden" from "none".
+ * Someone's accepted followers, or the people they follow, via security
+ * definer functions — user_follows itself is readable only by the two people
+ * in a row. Returns an empty list when the owner has hidden their lists or
+ * the account is private and the viewer isn't an accepted follower; callers
+ * read profiles.friends_list_visible to tell "hidden" from "none".
  */
-export async function getFriendsPublic(
+export async function getFollowList(
   targetId: string,
+  kind: FollowListKind,
   opts: { limit?: number; offset?: number } = {}
 ): Promise<PersonCardModel[]> {
-  const { data, error } = await requireClient().rpc('get_friends', {
-    target: targetId,
-  })
+  const { data, error } = await requireClient().rpc(
+    kind === 'followers' ? 'get_followers' : 'get_following',
+    { target: targetId }
+  )
   if (error) throw error
 
-  const rows = (data ?? []) as {
-    id: string
-    username: string | null
-    display_name: string | null
-    avatar_url: string | null
-  }[]
+  const rows = (data ?? []) as PersonRow[]
 
   // The function returns the whole list; page it here rather than adding
   // limit/offset arguments the UI would have to keep in step.
@@ -1882,8 +1908,11 @@ export async function getReviewsByUserPage(
   })
 }
 
-/** Whether this person's friend list is public. profiles is world-readable. */
-export async function getFriendsListVisible(targetId: string) {
+/**
+ * Whether this person's followers and following lists are public. The column
+ * kept its original name, friends_list_visible. profiles is world-readable.
+ */
+export async function getFollowListsVisible(targetId: string) {
   const { data, error } = await requireClient()
     .from('profiles')
     .select('friends_list_visible')

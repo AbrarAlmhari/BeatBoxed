@@ -27,7 +27,7 @@ Keep this updated as the source of truth on progress — don't rely on chat hist
 - [ ] User profile (customization, stats, reviews/playlists tabs)
 - [ ] Library (liked songs, playlists, followed artists)
 - [ ] Playlist creation + detail view
-- [ ] Settings (theme, translation language, log out, notification preferences — per-type on/off for likes, comments, friend activity, and Beatboxed updates, enforced inside the shared `notify()` helper; friends list visibility toggle — flips `profiles.friends_list_visible`)
+- [ ] Settings (theme, translation language, log out, notification preferences — per-type on/off for likes, comments, follower activity, and Beatboxed updates, enforced inside the shared `notify()` helper; followers & following visibility toggle — flips `profiles.friends_list_visible`)
 - [ ] Beatie chatbot wired to Gemini + lrclib
 
 ## Week 7 — Polish pass + integration checkpoint (Nov 7 – Nov 13)
@@ -38,7 +38,7 @@ Keep this updated as the source of truth on progress — don't rely on chat hist
 
 ## Week 8 — Stretch features, if time allows (Nov 14 – Nov 20)
 
-- [ ] Review `docs/feature-map.md` stretch list and decide what's worth pulling in now that there's runway: Friends page, Notification center, genre-taste graph, mood-based recommendations, etc.
+- [ ] Review `docs/feature-map.md` stretch list and decide what's worth pulling in now that there's runway: Followers page, Notification center, genre-taste graph, mood-based recommendations, etc.
 - [ ] Formally keep or cut each one — update `docs/feature-map.md` with the decision
 
 ## Week 9 — Full integration & bug bash (Nov 21 – Nov 27)

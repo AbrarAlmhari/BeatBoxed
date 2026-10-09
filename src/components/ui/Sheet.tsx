@@ -5,7 +5,7 @@ import { cn } from '@/lib/cn'
  * A small surface anchored to the control that opened it: a bottom sheet on
  * phones, a popover on wider screens.
  *
- * The app's existing confirmations (unfriend, delete comment) swap the button
+ * The app's existing confirmations (unfollow, delete comment) swap the button
  * for a two-step inline choice, and that stays the pattern for destructive
  * yes/no questions. It can't hold a scrollable list of playlists, which is
  * why this exists. Everything here is built from the same tokens — surface,

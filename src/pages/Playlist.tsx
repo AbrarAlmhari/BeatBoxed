@@ -335,7 +335,7 @@ export default function Playlist() {
                       Edit
                     </button>
 
-                    {/* Two-step inline confirm, the same shape as unfriend
+                    {/* Two-step inline confirm, the same shape as unfollow
                         and delete-comment elsewhere in the app. */}
                     {confirmingDelete ? (
                       <span className="flex items-center gap-2">

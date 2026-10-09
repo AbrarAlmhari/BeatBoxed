@@ -1,4 +1,4 @@
-import { BrowserRouter, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Navigate, Route, Routes, useParams } from 'react-router-dom'
 import { AuthProvider } from '@/lib/auth'
 import { RequireAuth } from '@/components/auth/RequireAuth'
 import { AppShell } from '@/components/layout/AppShell'
@@ -14,8 +14,8 @@ import Artist from '@/pages/Artist'
 import Album from '@/pages/Album'
 import SettingsPage from '@/pages/Settings'
 import Notifications from '@/pages/Notifications'
-import FriendRequests from '@/pages/FriendRequests'
-import ProfileFriends from '@/pages/ProfileFriends'
+import FollowRequests from '@/pages/FollowRequests'
+import ProfileFollows from '@/pages/ProfileFollows'
 import ProfileArtists from '@/pages/ProfileArtists'
 import ProfilePlaylists from '@/pages/ProfilePlaylists'
 import ProfileReviews from '@/pages/ProfileReviews'
@@ -38,7 +38,16 @@ export default function App() {
               <Route path="library" element={<LibraryPage />} />
               <Route path="profile" element={<Profile />} />
               <Route path="profile/:userId" element={<Profile />} />
-              <Route path="profile/:userId/friends" element={<ProfileFriends />} />
+              <Route
+                path="profile/:userId/followers"
+                element={<ProfileFollows key="followers" kind="followers" />}
+              />
+              <Route
+                path="profile/:userId/following"
+                element={<ProfileFollows key="following" kind="following" />}
+              />
+              {/* Old links (bookmarks, notifications) still land somewhere. */}
+              <Route path="profile/:userId/friends" element={<FriendsRedirect />} />
               <Route path="profile/:userId/artists" element={<ProfileArtists />} />
               <Route path="profile/:userId/playlists" element={<ProfilePlaylists />} />
               <Route path="profile/:userId/reviews" element={<ProfileReviews />} />
@@ -48,7 +57,7 @@ export default function App() {
               <Route path="album/:id" element={<Album />} />
               <Route path="settings" element={<SettingsPage />} />
               <Route path="notifications" element={<Notifications />} />
-              <Route path="notifications/requests" element={<FriendRequests />} />
+              <Route path="notifications/requests" element={<FollowRequests />} />
               <Route path="now-playing" element={<NowPlaying />} />
               <Route path="*" element={<NotFound />} />
             </Route>
@@ -57,4 +66,10 @@ export default function App() {
       </AuthProvider>
     </BrowserRouter>
   )
+}
+
+/** The friends list became the followers list. */
+function FriendsRedirect() {
+  const { userId } = useParams()
+  return <Navigate to={`/profile/${userId}/followers`} replace />
 }

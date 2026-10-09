@@ -11,14 +11,14 @@ import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import { useAuth } from '@/lib/auth'
 import { usePlayer } from '@/lib/player'
 import {
-  getFriendStates,
+  getFollowStates,
   getGenres,
   popularSearches,
   searchCatalog,
   searchEverything,
 } from '@/lib/catalog'
 import type {
-  FriendState,
+  FollowState,
   LyricMatch,
   UnifiedResults,
 } from '@/lib/types'
@@ -79,7 +79,7 @@ export default function Explore() {
 
   const debouncedQuery = useDebouncedValue(query, 250)
   const [genres, setGenres] = useState<string[]>([])
-  const [friendStates, setFriendStates] = useState<Map<string, FriendState>>(
+  const [followStates, setFollowStates] = useState<Map<string, FollowState>>(
     new Map()
   )
 
@@ -112,11 +112,11 @@ export default function Explore() {
         setResults(r)
         if (user && r.people.length > 0) {
           try {
-            setFriendStates(
-              await getFriendStates(user.id, r.people.map((p) => p.id))
+            setFollowStates(
+              await getFollowStates(user.id, r.people.map((p) => p.id))
             )
           } catch (err) {
-            console.warn('[beatboxed] friend states failed:', err)
+            console.warn('[beatboxed] follow states failed:', err)
           }
         }
       })
@@ -372,9 +372,9 @@ export default function Explore() {
                     <PersonCard
                       key={person.id}
                       person={person}
-                      state={friendStates.get(person.id) ?? 'none'}
+                      state={followStates.get(person.id) ?? 'none'}
                       onStateChange={(next) =>
-                        setFriendStates((prev) =>
+                        setFollowStates((prev) =>
                           new Map(prev).set(person.id, next)
                         )
                       }

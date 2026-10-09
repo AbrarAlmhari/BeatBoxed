@@ -6,7 +6,7 @@ import { PlaylistGrid } from '@/components/playlist/PlaylistGrid'
 import { PlaylistForm } from '@/components/playlist/PlaylistForm'
 import { ListPageShell, FilterBox } from '@/components/profile/ListPageShell'
 import { useAuth } from '@/lib/auth'
-import { getFriendStates, getProfileDetail } from '@/lib/catalog'
+import { getFollowStates, getProfileDetail } from '@/lib/catalog'
 import {
   createPlaylist,
   getUserPlaylistsPage,
@@ -47,17 +47,17 @@ export default function ProfilePlaylists() {
     Promise.all([
       getProfileDetail(targetId),
       getUserPlaylistsPage(targetId, { limit: PAGE, sort }),
-      // Same rule as the profile page: private plus not-a-friend means the
-      // list is empty by RLS, and the page should say why.
+      // Same rule as the profile page: private plus not an accepted follower
+      // means the list is empty by RLS, and the page should say why.
       user && !isOwn
-        ? getFriendStates(user.id, [targetId])
+        ? getFollowStates(user.id, [targetId])
         : Promise.resolve(new Map<string, string>()),
     ])
       .then(([profile, page, states]) => {
         if (cancelled) return
         setName(profile?.displayName || profile?.username || 'Listener')
         setLocked(
-          Boolean(profile?.isPrivate) && !isOwn && states.get(targetId) !== 'friends'
+          Boolean(profile?.isPrivate) && !isOwn && states.get(targetId) !== 'following'
         )
         setPlaylists(page)
         setExhausted(page.length < PAGE)
@@ -108,7 +108,7 @@ export default function ProfilePlaylists() {
         <div className="rounded-card bg-surface px-6 py-14 text-center">
           <p className="text-card-title">This account is private.</p>
           <p className="mx-auto mt-2 max-w-sm text-body text-muted-foreground">
-            Add them as a friend to see their reviews and playlists.
+            Follow them to request access to their reviews and playlists.
           </p>
         </div>
       </div>

@@ -164,10 +164,10 @@ export default function Notifications() {
 
   const requestLine =
     requests.length === 1
-      ? `${requestNames[0]} wants to be friends`
+      ? `${requestNames[0]} wants to follow you`
       : requests.length === 2
-        ? `${requestNames[0]} and ${requestNames[1]} want to be friends`
-        : `${requestNames[0]} and ${requests.length - 1} others want to be friends`
+        ? `${requestNames[0]} and ${requestNames[1]} want to follow you`
+        : `${requestNames[0]} and ${requests.length - 1} others want to follow you`
 
   // Group after filtering, so an empty bucket never prints a heading.
   const groups: [Bucket, Display[]][] = (
@@ -224,7 +224,7 @@ export default function Notifications() {
           <span className="flex min-w-0 flex-1 flex-col">
             <span className="flex items-center gap-2">
               <Users className="size-4 shrink-0 text-primary" strokeWidth={2} />
-              <span className="text-card-title">Friend requests</span>
+              <span className="text-card-title">Follow requests</span>
             </span>
             <span dir="auto" className="truncate text-secondary text-muted-foreground">
               {requestLine}

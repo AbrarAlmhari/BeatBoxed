@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { LogOut } from 'lucide-react'
 import { Toggle } from '@/components/ui/Toggle'
+import { MakePublicDialog } from '@/components/settings/MakePublicDialog'
 import { useAuth } from '@/lib/auth'
 import { useToast } from '@/lib/toast'
 import { cn } from '@/lib/cn'
@@ -21,16 +22,17 @@ const NOTIFICATION_ROWS: { key: NotificationPrefKey; label: string; hint?: strin
   { key: 'review_liked', label: 'Likes on your reviews' },
   { key: 'review_commented', label: 'Comments on your reviews' },
   { key: 'thread_reply', label: 'Replies in threads you’ve commented in' },
-  { key: 'friend_accepted', label: 'Friend request accepted' },
+  { key: 'new_follower', label: 'New followers' },
+  {
+    key: 'follow_requests',
+    label: 'Follow requests',
+    // Worth saying plainly: this hides the badge, not the requests.
+    hint: 'Requests still appear on the Follow requests page.',
+  },
+  { key: 'follow_accepted', label: 'Accepted follow requests' },
   {
     key: 'artist_release',
     label: 'New releases from artists you follow',
-  },
-  {
-    key: 'friend_requests',
-    label: 'New friend requests',
-    // Worth saying plainly: this hides the badge, not the requests.
-    hint: 'Requests still appear on the Friend requests page.',
   },
   { key: 'announcements', label: 'Beatboxed updates' },
 ]
@@ -43,6 +45,7 @@ export default function Settings() {
   const [account, setAccount] = useState<AccountSettings | null>(null)
   const [prefs, setPrefs] = useState<NotificationPrefs>(DEFAULT_NOTIFICATION_PREFS)
   const [loading, setLoading] = useState(true)
+  const [confirmingPublic, setConfirmingPublic] = useState(false)
 
   useEffect(() => {
     if (!user) return
@@ -81,8 +84,8 @@ export default function Settings() {
           translation_language: patch.translationLanguage,
         }),
         ...(patch.isPrivate !== undefined && { is_private: patch.isPrivate }),
-        ...(patch.friendsListVisible !== undefined && {
-          friends_list_visible: patch.friendsListVisible,
+        ...(patch.followListsVisible !== undefined && {
+          friends_list_visible: patch.followListsVisible,
         }),
       })
       toast.show({ message: 'Saved' })
@@ -167,18 +170,42 @@ export default function Settings() {
         <div className="flex flex-col divide-y divide-white/5">
           <Toggle
             label="Private account"
-            hint="Only friends can see your reviews, playlists, followed artists and friends. Everyone else sees your name, bio and counts."
+            hint="Only followers you approve can see your reviews and playlists."
             checked={account.isPrivate}
-            onChange={(next) => void saveAccount({ isPrivate: next })}
+            onChange={(next) => {
+              // Going private saves straight away. Going public waits for the
+              // confirmation, and until then the switch stays on.
+              if (next) void saveAccount({ isPrivate: true })
+              else setConfirmingPublic(true)
+            }}
           />
           <Toggle
-            label="Show my friends list"
-            hint="When off, nobody but you can see who you're friends with — not even your friends."
-            checked={account.friendsListVisible}
-            onChange={(next) => void saveAccount({ friendsListVisible: next })}
+            label="Show my followers and following"
+            hint="When off, nobody but you can see who follows you or who you follow — not even your followers."
+            checked={account.followListsVisible}
+            onChange={(next) => void saveAccount({ followListsVisible: next })}
           />
         </div>
       </Section>
+
+      {user && (
+        <MakePublicDialog
+          open={confirmingPublic}
+          userId={user.id}
+          onConfirm={() => {
+            setConfirmingPublic(false)
+            // Only the setting changes. The database accepts the pending
+            // requests when is_private flips; accepting them here as well
+            // would race it.
+            void saveAccount({ isPrivate: false })
+          }}
+          onCancel={() => setConfirmingPublic(false)}
+          onReviewRequests={() => {
+            setConfirmingPublic(false)
+            navigate('/notifications/requests')
+          }}
+        />
+      )}
 
       <Section title="Account">
         <div className="flex flex-col gap-4">

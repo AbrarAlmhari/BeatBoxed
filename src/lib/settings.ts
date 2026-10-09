@@ -38,9 +38,10 @@ export type NotificationPrefs = {
   review_liked: boolean
   review_commented: boolean
   thread_reply: boolean
-  friend_accepted: boolean
+  new_follower: boolean
+  follow_accepted: boolean
   artist_release: boolean
-  friend_requests: boolean
+  follow_requests: boolean
   announcements: boolean
 }
 
@@ -51,9 +52,10 @@ export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
   review_liked: true,
   review_commented: true,
   thread_reply: true,
-  friend_accepted: true,
+  new_follower: true,
+  follow_accepted: true,
   artist_release: true,
-  friend_requests: true,
+  follow_requests: true,
   announcements: true,
 }
 
@@ -95,7 +97,8 @@ export async function setNotificationPref(
 export type AccountSettings = {
   translationLanguage: LanguageCode
   isPrivate: boolean
-  friendsListVisible: boolean
+  /** Stored as profiles.friends_list_visible; governs both follow lists. */
+  followListsVisible: boolean
 }
 
 export async function getAccountSettings(
@@ -120,7 +123,7 @@ export async function getAccountSettings(
       if (partialErr) throw partialErr
       return {
         translationLanguage: (partial?.translation_language ?? 'en') as LanguageCode,
-        friendsListVisible: partial?.friends_list_visible ?? true,
+        followListsVisible: partial?.friends_list_visible ?? true,
         isPrivate: false,
       }
     }
@@ -129,7 +132,7 @@ export async function getAccountSettings(
 
   return {
     translationLanguage: (data?.translation_language ?? 'en') as LanguageCode,
-    friendsListVisible: data?.friends_list_visible ?? true,
+    followListsVisible: data?.friends_list_visible ?? true,
     isPrivate: data?.is_private ?? false,
   }
 }
