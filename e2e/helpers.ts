@@ -463,7 +463,7 @@ export async function waitForPlaying(page: Page) {
   )
 }
 
-/** Pauses playback, which is what makes the player save its resume point. */
+/** Pauses playback. */
 export async function pauseAudio(page: Page) {
   await page.evaluate(() => {
     const list =
@@ -484,6 +484,19 @@ export async function goHome(page: Page) {
     .first()
     .click()
   await page.waitForURL((url) => url.pathname === '/')
+}
+
+/**
+ * Opens Explore through the app's own nav, like goHome, so the player
+ * survives and the rails update without a reload.
+ */
+export async function goExplore(page: Page) {
+  await page
+    .getByRole('link', { name: 'Explore', exact: true })
+    .filter({ visible: true })
+    .first()
+    .click()
+  await page.waitForURL((url) => url.pathname === '/explore')
 }
 
 /** The player's current position, in seconds. */

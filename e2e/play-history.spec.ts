@@ -1,159 +1,146 @@
-import { test, expect } from '@playwright/test'
+import { test, expect, type Page } from '@playwright/test'
 import {
+  adminFetch,
   audioTime,
   createTestUser,
   deleteTestUsers,
-  goHome,
+  distinctSongs,
+  goExplore,
   login,
   pauseAudio,
   playHistoryRows,
   rail,
   railSongIds,
-  seekAudio,
   stubPreviewAudio,
-  twoDistinctSongs,
   waitForPlaying,
   type PlayableSong,
 } from './helpers'
 
 /**
- * Continue Listening is driven by what was actually played, so these tests
- * drive the real player rather than writing play_history directly. The audio
- * is a stubbed silent clip (see stubPreviewAudio) so the only variable is our
- * own play accounting.
+ * Explore's Recently viewed rail (it was Home's Continue Listening). It
+ * merges songs the user opened (song_views) and songs they played
+ * (play_history), newest first, each once. Plays are recorded only past the
+ * 5-second bar, and every play starts from the beginning — there is no
+ * resume point any more.
+ *
+ * The audio is a stubbed silent clip (see stubPreviewAudio), so the only
+ * variable is our own play accounting.
  */
-test.describe('continue listening', () => {
-  let songs: [PlayableSong, PlayableSong]
+test.describe('recently viewed and play history', () => {
+  let songs: PlayableSong[]
 
   test.beforeAll(async () => {
-    songs = await twoDistinctSongs()
+    songs = await distinctSongs(3)
   })
 
   test.afterAll(async () => {
     await deleteTestUsers()
   })
 
-  /**
-   * Asserts the rail's exact contents, in order. Polls, because reading the
-   * card list is a one-shot DOM query and a fresh page load may not have
-   * rendered the feed yet.
-   */
-  async function expectRailIds(
-    page: import('@playwright/test').Page,
-    ids: string[]
-  ) {
-    await expect(rail(page, 'Continue Listening')).toBeVisible()
-    await expect
-      .poll(() => railSongIds(page, 'Continue Listening'))
-      .toEqual(ids)
+  async function expectRailIds(page: Page, ids: string[]) {
+    await expect(rail(page, 'Recently viewed')).toBeVisible()
+    await expect.poll(() => railSongIds(page, 'Recently viewed')).toEqual(ids)
   }
 
   /** Plays the song page's preview for roughly this long, then pauses. */
-  async function playFor(
-    page: import('@playwright/test').Page,
-    song: PlayableSong,
-    ms: number
-  ) {
+  async function playFor(page: Page, song: PlayableSong, ms: number) {
     await page.goto(`/song/${song.id}`)
-    const play = page.getByRole('button', { name: /^Play preview$/ })
-    await play.click()
-
+    await page.getByRole('button', { name: /^Play preview$/ }).click()
     // Wait for audio to actually start; a click alone proves nothing.
     await waitForPlaying(page)
     await page.waitForTimeout(ms)
     await pauseAudio(page)
   }
 
-  test('hides the rail for a user who has played nothing', async ({ page }) => {
-    const fresh = await createTestUser('play-empty')
-    await login(page, fresh.email)
-    await page.goto('/')
+  async function seed(table: 'song_views' | 'play_history', userId: string, songId: string, minutesAgo: number) {
+    const at = new Date(Date.now() - minutesAgo * 60_000).toISOString()
+    const res = await adminFetch(`/rest/v1/${table}`, {
+      method: 'POST',
+      headers: { Prefer: 'resolution=merge-duplicates' },
+      body: JSON.stringify({
+        user_id: userId,
+        song_id: songId,
+        [table === 'song_views' ? 'viewed_at' : 'played_at']: at,
+      }),
+    })
+    expect(res.status).toBeLessThan(300)
+  }
 
-    // Trending proves the feed rendered, so an absent rail is a real absence
+  test('hides the rail for a user who has opened and played nothing', async ({ page }) => {
+    const fresh = await createTestUser('rv-empty')
+    await login(page, fresh.email)
+    await page.goto('/explore')
+
+    // Trending proves the rails rendered, so an absent rail is a real absence
     // rather than a page that simply hasn't loaded yet.
     await expect(rail(page, 'Trending')).toBeVisible()
-    await expect(rail(page, 'Continue Listening')).toHaveCount(0)
-    expect(await playHistoryRows(fresh.id)).toHaveLength(0)
+    await expect(rail(page, 'Recently viewed')).toHaveCount(0)
   })
 
-  test('lists a song played past the threshold and ignores a quick skip', async ({
+  test('combines opened and played songs, newest first, without duplicates', async ({
     page,
   }) => {
-    const user = await createTestUser('play-history')
+    const user = await createTestUser('rv-merge')
+    const [opened, played, both] = songs
+
+    // Only opened, 30 min ago. Only played, 20 min ago. And one song that was
+    // opened 40 min ago and played 10 min ago — it must appear once, at its
+    // newer time.
+    await seed('song_views', user.id, opened.id, 30)
+    await seed('play_history', user.id, played.id, 20)
+    await seed('song_views', user.id, both.id, 40)
+    await seed('play_history', user.id, both.id, 10)
+
+    await login(page, user.email)
+    await page.goto('/explore')
+    await expectRailIds(page, [both.id, played.id, opened.id])
+
+    // Opening a song's page moves it to the front, with no reload of Explore.
+    await page.goto(`/song/${opened.id}`)
+    await expect(page.getByRole('heading', { name: opened.title })).toBeVisible()
+    await goExplore(page)
+    await expectRailIds(page, [opened.id, both.id, played.id])
+  })
+
+  test('counts a play past the threshold and ignores a quick skip', async ({ page }) => {
+    const user = await createTestUser('rv-plays')
     await stubPreviewAudio(page, songs)
     await login(page, user.email)
 
-    // 1. A real listen: comfortably past the 5-second bar.
+    // A real listen: comfortably past the 5-second bar.
     await playFor(page, songs[0], 7000)
+    await expect.poll(async () => (await playHistoryRows(user.id)).map((r) => r.song_id)).toEqual([
+      songs[0].id,
+    ])
 
-    await goHome(page)
-    await expectRailIds(page, [songs[0].id])
-
-    // The resume point was saved on pause, so a tap can pick it back up.
-    const afterFirst = await playHistoryRows(user.id)
-    expect(afterFirst).toHaveLength(1)
-    expect(afterFirst[0].song_id).toBe(songs[0].id)
-    expect(afterFirst[0].position_seconds).toBeGreaterThan(4)
-
-    // 2. A skip: 2 seconds is not listening, and must leave no trace.
+    // A skip: 2 seconds isn't listening, and leaves no play row.
     await playFor(page, songs[1], 2000)
+    await page.waitForTimeout(1000)
+    expect((await playHistoryRows(user.id)).map((r) => r.song_id)).toEqual([songs[0].id])
 
-    await goHome(page)
-    await expectRailIds(page, [songs[0].id])
-    expect(await playHistoryRows(user.id)).toHaveLength(1)
-
-    // 3. Playing the skipped song properly puts it in front of the first.
-    await playFor(page, songs[1], 7000)
-
-    await goHome(page)
+    // The rail still lists it, because it was opened — just not as a play.
+    await goExplore(page)
     await expectRailIds(page, [songs[1].id, songs[0].id])
   })
 
-  test('resumes where the user left off, and restarts a finished song', async ({
-    page,
-  }) => {
-    const user = await createTestUser('play-resume')
+  test('playing again starts from the beginning', async ({ page }) => {
+    const user = await createTestUser('rv-restart')
     await stubPreviewAudio(page, songs)
     await login(page, user.email)
     const [song] = songs
-    const playCard = () =>
-      rail(page, 'Continue Listening').getByRole('button', {
-        name: `Play ${song.title}`,
-      })
 
-    // Listen to 0:07 and stop there.
-    await playFor(page, song, 7000)
+    // Listen to about 0:08 and stop.
+    await playFor(page, song, 8000)
+    expect(await audioTime(page)).toBeGreaterThan(5)
 
-    // Come back in a fresh page, so the player has nothing in memory and the
-    // only place 0:07 can come from is the saved row. (Within the same page
-    // the card would just un-pause the song that's still loaded.)
-    await page.goto('/')
+    // A fresh page, so nothing is held in memory, then play it from the
+    // Recently viewed rail: it starts at 0:00, not where it stopped.
+    await page.goto('/explore')
     await expectRailIds(page, [song.id])
-
-    // Tapping the card picks up at 0:07, not 0:00.
-    await playCard().click()
-    await waitForPlaying(page)
-    const resumedAt = await audioTime(page)
-    expect(resumedAt).toBeGreaterThan(5)
-    expect(resumedAt).toBeLessThan(15)
-
-    // Stop two seconds from the end: close enough to count as finished.
-    await seekAudio(page, 28)
-    await pauseAudio(page)
-    await expect
-      .poll(async () => (await playHistoryRows(user.id))[0]?.position_seconds)
-      .toBeGreaterThan(27)
-
-    // So the next tap starts over instead of at 0:28.
-    await page.goto('/')
-    await playCard().click()
+    await rail(page, 'Recently viewed')
+      .getByRole('button', { name: `Play ${song.title}` })
+      .click()
     await waitForPlaying(page)
     expect(await audioTime(page)).toBeLessThan(3)
-
-    // Playing to the very end stores 0 outright.
-    await seekAudio(page, 29)
-    await expect
-      .poll(async () => (await playHistoryRows(user.id))[0]?.position_seconds)
-      .toBe(0)
   })
 })
