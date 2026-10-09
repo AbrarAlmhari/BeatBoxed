@@ -9,7 +9,7 @@ import {
   likeReviewAs,
   login,
   logout,
-  makeFriends,
+  makeFollow,
   notificationsOf,
   settingsOf,
   songRatingFacts,
@@ -26,16 +26,18 @@ import {
  */
 test.describe('settings', () => {
   let owner: { id: string; email: string }
-  let friend: { id: string; email: string }
+  let follower: { id: string; email: string }
   let stranger: { id: string; email: string }
   let songs: PlayableSong[]
 
   test.beforeAll(async () => {
     owner = await createTestUser('set-owner')
-    friend = await createTestUser('set-friend')
+    follower = await createTestUser('set-follower')
     stranger = await createTestUser('set-stranger')
     songs = await distinctSongs(2)
-    await makeFriends(owner.id, friend.id)
+    // An accepted follower from before the account goes private keeps
+    // access afterwards, the same as on Instagram.
+    await makeFollow(follower.id, owner.id)
   })
 
   test.afterAll(async () => {
@@ -54,7 +56,7 @@ test.describe('settings', () => {
 
     await toggle(page, 'Likes on your reviews').click()
     await toggle(page, 'Beatboxed updates').click()
-    await toggle(page, 'Show my friends list').click()
+    await toggle(page, 'Show my followers and following').click()
 
     // Settled in the database, not just on screen.
     await expect
@@ -80,13 +82,13 @@ test.describe('settings', () => {
       'aria-checked',
       'false'
     )
-    await expect(toggle(page, 'Show my friends list')).toHaveAttribute(
+    await expect(toggle(page, 'Show my followers and following')).toHaveAttribute(
       'aria-checked',
       'false'
     )
 
-    // Put the friends list back for the later tests.
-    await toggle(page, 'Show my friends list').click()
+    // Put the lists back for the later tests.
+    await toggle(page, 'Show my followers and following').click()
     await expect
       .poll(async () => (await settingsOf(owner.id)).profile.friends_list_visible)
       .toBe(true)
@@ -116,8 +118,9 @@ test.describe('settings', () => {
     // On: the like notifies.
     const first = await likeReviewAs(strangerToken, reviewId, stranger.id)
     expect(first.status).toBeLessThan(400)
+    // Counted by type: the follower fixture left a new_follower row too.
     await expect
-      .poll(async () => (await notificationsOf(owner.id)).length)
+      .poll(async () => (await likeNotifications(owner.id)).length)
       .toBe(1)
 
     // Switch it off, unlike, like again: no new row.
@@ -133,10 +136,10 @@ test.describe('settings', () => {
     expect(second.status).toBeLessThan(400)
     // Give the trigger a moment, then confirm nothing arrived.
     await page.waitForTimeout(1500)
-    expect(await notificationsOf(owner.id)).toHaveLength(0)
+    expect(await likeNotifications(owner.id)).toHaveLength(0)
   })
 
-  test('a private account hides its content from a non-friend but keeps its counts', async ({
+  test('a private account hides its content from a non-follower but keeps its counts', async ({
     page,
   }) => {
     await createReview(owner.id, songs[1].id, 4, 'Private thoughts')
@@ -156,7 +159,7 @@ test.describe('settings', () => {
     // The explanation, not an empty page.
     await expect(
       page.getByText(
-        'This account is private. Add them as a friend to see their reviews and playlists.'
+        'This account is private. Follow them to request access to their reviews and playlists.'
       )
     ).toBeVisible()
     await expect(page.getByRole('link', { name: /Private List/ })).toHaveCount(0)
@@ -178,8 +181,8 @@ test.describe('settings', () => {
       .toBe(true)
   })
 
-  test('a friend sees everything on a private account', async ({ page }) => {
-    await login(page, friend.email)
+  test('an accepted follower sees everything on a private account', async ({ page }) => {
+    await login(page, follower.email)
     await page.goto(`/profile/${owner.id}`)
 
     await expect(page.getByText('This account is private.')).toHaveCount(0)
@@ -191,6 +194,8 @@ test.describe('settings', () => {
     await login(page, owner.email)
     await page.goto('/settings')
     await toggle(page, 'Private account').click()
+    // Going public asks first; nobody is waiting, so it's the short version.
+    await page.getByRole('dialog').getByRole('button', { name: 'Make public' }).click()
     await expect
       .poll(async () => (await settingsOf(owner.id)).profile.is_private)
       .toBe(false)
@@ -203,29 +208,32 @@ test.describe('settings', () => {
     await expect(page.getByRole('link', { name: /Private List/ })).toBeVisible()
   })
 
-  test('a hidden friends list is hidden from friends too', async ({ page }) => {
+  test('hidden follow lists are hidden from followers too', async ({ page }) => {
     await login(page, owner.email)
     await page.goto('/settings')
-    await toggle(page, 'Show my friends list').click()
+    await toggle(page, 'Show my followers and following').click()
     await expect
       .poll(async () => (await settingsOf(owner.id)).profile.friends_list_visible)
       .toBe(false)
 
-    // Even an accepted friend gets nothing.
+    // Even an accepted follower gets nothing, on either list.
     await logout(page)
-    await login(page, friend.email)
-    await page.goto(`/profile/${owner.id}/friends`)
-    await expect(page.getByText(/friends list is private/i)).toBeVisible()
+    await login(page, follower.email)
+    for (const list of ['followers', 'following']) {
+      await page.goto(`/profile/${owner.id}/${list}`)
+      await expect(page.getByText(/followers and following are private/i)).toBeVisible()
+    }
 
-    // The owner still sees their own list.
+    // The owner still sees their own list, with the follower on it.
     await logout(page)
     await login(page, owner.email)
-    await page.goto(`/profile/${owner.id}/friends`)
-    await expect(page.getByText(/friends list is private/i)).toHaveCount(0)
+    await page.goto(`/profile/${owner.id}/followers`)
+    await expect(page.getByText(/followers and following are private/i)).toHaveCount(0)
+    await expect(page.locator(`a[href="/profile/${follower.id}"]`)).toBeVisible()
 
     // Leave it visible for any later run against the same accounts.
     await page.goto('/settings')
-    await toggle(page, 'Show my friends list').click()
+    await toggle(page, 'Show my followers and following').click()
   })
 
   test('log out works from Settings', async ({ page }) => {
@@ -250,4 +258,8 @@ async function deleteLikeAndNotifications(
   await adminFetch(`/rest/v1/notifications?user_id=eq.${ownerId}`, {
     method: 'DELETE',
   })
+}
+
+async function likeNotifications(userId: string) {
+  return (await notificationsOf(userId)).filter((n) => n.type === 'review_liked')
 }

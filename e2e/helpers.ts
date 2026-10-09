@@ -64,6 +64,8 @@ export async function deleteTestUsers(onlyEmail?: string) {
     await admin(`/rest/v1/notifications?user_id=eq.${u.id}`, { method: 'DELETE' })
     await admin(`/rest/v1/friendships?user_id=eq.${u.id}`, { method: 'DELETE' })
     await admin(`/rest/v1/friendships?friend_id=eq.${u.id}`, { method: 'DELETE' })
+    await admin(`/rest/v1/user_follows?follower_id=eq.${u.id}`, { method: 'DELETE' })
+    await admin(`/rest/v1/user_follows?following_id=eq.${u.id}`, { method: 'DELETE' })
     await admin(`/rest/v1/playlists?user_id=eq.${u.id}`, { method: 'DELETE' })
     await removeCoverFolder(u.id)
     await admin(`/rest/v1/song_views?user_id=eq.${u.id}`, { method: 'DELETE' })
@@ -621,11 +623,42 @@ export async function createReview(
   return row.id
 }
 
-/** An accepted friendship both ways round, however the pair is ordered. */
-export async function makeFriends(a: string, b: string) {
-  await admin('/rest/v1/friendships', {
+/**
+ * `follower` follows `following`, as a fixture. The insert trigger picks the
+ * status from the target's privacy, so an accepted follow onto a private
+ * account needs the second write.
+ */
+export async function makeFollow(
+  follower: string,
+  following: string,
+  status: 'accepted' | 'pending' = 'accepted'
+) {
+  const res = await admin('/rest/v1/user_follows', {
     method: 'POST',
-    body: JSON.stringify({ user_id: a, friend_id: b, status: 'accepted' }),
+    body: JSON.stringify({ follower_id: follower, following_id: following }),
+  })
+  if (!res.ok) throw new Error(`makeFollow failed: ${res.status} ${await res.text()}`)
+  await admin(
+    `/rest/v1/user_follows?follower_id=eq.${follower}&following_id=eq.${following}`,
+    { method: 'PATCH', body: JSON.stringify({ status }) }
+  )
+}
+
+/** The stored follow row, or null. Reads past RLS. */
+export async function followRow(follower: string, following: string) {
+  const rows = (await (
+    await admin(
+      `/rest/v1/user_follows?follower_id=eq.${follower}&following_id=eq.${following}&select=status`
+    )
+  ).json()) as { status: string }[]
+  return rows[0]?.status ?? null
+}
+
+/** Flip an account's privacy as the service role. Fires the same triggers. */
+export async function setPrivate(userId: string, isPrivate: boolean) {
+  await admin(`/rest/v1/profiles?id=eq.${userId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ is_private: isPrivate }),
   })
 }
 

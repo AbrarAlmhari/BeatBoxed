@@ -7,26 +7,26 @@ import {
   distinctSongs,
   login,
   logout,
-  makeFriends,
+  makeFollow,
   type PlayableSong,
 } from './helpers'
 
 /**
  * The full playlists list, reached from the profile. Mirrors how the
- * friends, artists and reviews lists already behave.
+ * followers, artists and reviews lists already behave.
  */
 test.describe('profile playlists list', () => {
   let owner: { id: string; email: string }
-  let friend: { id: string; email: string }
+  let follower: { id: string; email: string }
   let stranger: { id: string; email: string }
   let songs: PlayableSong[]
 
   test.beforeAll(async () => {
     owner = await createTestUser('pp-owner')
-    friend = await createTestUser('pp-friend')
+    follower = await createTestUser('pp-follower')
     stranger = await createTestUser('pp-stranger')
     songs = await distinctSongs(3)
-    await makeFriends(owner.id, friend.id)
+    await makeFollow(follower.id, owner.id)
 
     // Enough to trip the preview cap, with titles and sizes that make each
     // sort order distinguishable.
@@ -113,7 +113,7 @@ test.describe('profile playlists list', () => {
     await expect(page.getByRole('button', { name: /new playlist/i })).toHaveCount(0)
   })
 
-  test('a private account shows the message to a non-friend and the list to a friend', async ({
+  test('a private account shows the message to a non-follower and the list to a follower', async ({
     page,
   }) => {
     await adminFetch(`/rest/v1/profiles?id=eq.${owner.id}`, {
@@ -132,9 +132,9 @@ test.describe('profile playlists list', () => {
     await expect(page.locator('dl').getByText('Playlists', { exact: true })).toBeVisible()
     await expect(page.getByRole('link', { name: /Playlists \d+/ })).toHaveCount(0)
 
-    // A friend sees the real list.
+    // An accepted follower sees the real list.
     await logout(page)
-    await login(page, friend.email)
+    await login(page, follower.email)
     await page.goto(`/profile/${owner.id}/playlists`)
     await expect(page.getByText('This account is private.')).toHaveCount(0)
     await expect.poll(async () => (await cardTitles(page)).length).toBe(7)
