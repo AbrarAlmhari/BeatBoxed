@@ -24,16 +24,6 @@ export function ReviewCard({
   highlight?: boolean
   openComments?: boolean
 }) {
-  const { user } = useAuth()
-  const navigate = useNavigate()
-  const location = useLocation()
-
-  // Like and comment counts are owned locally after first interaction so the
-  // card stays responsive without re-fetching the whole review page.
-  const [liked, setLiked] = useState(review.likedByMe)
-  const [likeCount, setLikeCount] = useState(review.likeCount)
-  const [commentCount, setCommentCount] = useState(review.commentCount)
-  const [commentsOpen, setCommentsOpen] = useState(openComments)
   const ref = useRef<HTMLElement>(null)
   const [flash, setFlash] = useState(false)
 
@@ -48,26 +38,6 @@ export function ReviewCard({
 
   const name = review.author?.displayName || review.author?.username || 'Someone'
   const initial = name.trim().charAt(0).toUpperCase() || '?'
-
-  function requireLogin() {
-    navigate('/login', { state: { from: location.pathname } })
-  }
-
-  async function toggleLike() {
-    if (!user) return requireLogin()
-
-    const nextLiked = !liked
-    setLiked(nextLiked)
-    setLikeCount((c) => c + (nextLiked ? 1 : -1))
-
-    try {
-      await setReviewLike(review.id, user.id, nextLiked)
-    } catch (err) {
-      console.error('[beatboxed] like failed:', err)
-      setLiked(!nextLiked)
-      setLikeCount((c) => c + (nextLiked ? -1 : 1))
-    }
-  }
 
   return (
     <article
@@ -122,8 +92,60 @@ export function ReviewCard({
         </div>
       </div>
 
+      <ReviewActions review={review} openComments={openComments} className="pl-13" />
+    </article>
+  )
+}
+
+/**
+ * Like and comment, shared by the song page's ReviewCard and the feed's
+ * FeedCard so both behave identically.
+ *
+ * Like and comment counts are owned locally after first interaction so the
+ * card stays responsive without re-fetching the list it sits in.
+ */
+export function ReviewActions({
+  review,
+  openComments = false,
+  className,
+}: {
+  review: ReviewWithAuthor
+  openComments?: boolean
+  className?: string
+}) {
+  const { user } = useAuth()
+  const navigate = useNavigate()
+  const location = useLocation()
+
+  const [liked, setLiked] = useState(review.likedByMe)
+  const [likeCount, setLikeCount] = useState(review.likeCount)
+  const [commentCount, setCommentCount] = useState(review.commentCount)
+  const [commentsOpen, setCommentsOpen] = useState(openComments)
+
+  function requireLogin() {
+    navigate('/login', { state: { from: location.pathname } })
+  }
+
+  async function toggleLike() {
+    if (!user) return requireLogin()
+
+    const nextLiked = !liked
+    setLiked(nextLiked)
+    setLikeCount((c) => c + (nextLiked ? 1 : -1))
+
+    try {
+      await setReviewLike(review.id, user.id, nextLiked)
+    } catch (err) {
+      console.error('[beatboxed] like failed:', err)
+      setLiked(!nextLiked)
+      setLikeCount((c) => c + (nextLiked ? -1 : 1))
+    }
+  }
+
+  return (
+    <>
       {/* Secondary actions: quieter than the rating and body above them. */}
-      <div className="flex items-center gap-1 pl-13">
+      <div className={cn('flex items-center gap-1', className)}>
         <button
           type="button"
           onClick={toggleLike}
@@ -162,6 +184,6 @@ export function ReviewCard({
           onCountChange={(delta) => setCommentCount((c) => Math.max(0, c + delta))}
         />
       )}
-    </article>
+    </>
   )
 }

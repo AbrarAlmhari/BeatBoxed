@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react'
+import { useEffect, useRef, type ReactNode, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import { cn } from '@/lib/cn'
 
@@ -22,6 +22,7 @@ export function Modal({
   open,
   onClose,
   labelledBy,
+  initialFocus,
   children,
   className,
 }: {
@@ -29,6 +30,8 @@ export function Modal({
   onClose: () => void
   /** id of the visible heading inside, which names the dialog. */
   labelledBy: string
+  /** What gets focus on open; defaults to the first control inside. */
+  initialFocus?: RefObject<HTMLElement | null>
   children: ReactNode
   className?: string
 }) {
@@ -42,10 +45,10 @@ export function Modal({
     if (!open) return
     const opener = document.activeElement as HTMLElement | null
 
-    // Focus the first control rather than the panel, so a keyboard user can
-    // act straight away.
+    // Focus the given control, else the first one, rather than the panel, so
+    // a keyboard user can act straight away.
     const first = panel.current?.querySelector<HTMLElement>(FOCUSABLE)
-    ;(first ?? panel.current)?.focus()
+    ;(initialFocus?.current ?? first ?? panel.current)?.focus()
 
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -79,6 +82,8 @@ export function Modal({
       document.body.style.overflow = overflow
       opener?.focus?.()
     }
+    // initialFocus is a ref: reading .current at open time is the point.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
   if (!open) return null

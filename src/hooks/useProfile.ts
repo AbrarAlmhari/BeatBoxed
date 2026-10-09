@@ -2,7 +2,11 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
 
-type ProfileSummary = { display_name: string | null; username: string | null }
+type ProfileSummary = {
+  display_name: string | null
+  username: string | null
+  avatar_url: string | null
+}
 
 /**
  * Reads the signed-in user's profiles row. Returns null while loading, and also
@@ -24,7 +28,7 @@ export function useProfile() {
 
     supabase
       .from('profiles')
-      .select('display_name, username')
+      .select('display_name, username, avatar_url')
       .eq('id', user.id)
       .maybeSingle()
       .then(({ data, error }) => {

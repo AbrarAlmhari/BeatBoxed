@@ -31,10 +31,6 @@ export function Rail({
   emptyMessage,
 }: {
   title: string
-  /**
-   * PlayerTrack rather than SongCardModel so a Continue Listening card keeps
-   * its resumeAt on the way into the queue.
-   */
   songs: PlayerTrack[]
   emptyMessage: string
 }) {

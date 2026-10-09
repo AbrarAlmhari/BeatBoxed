@@ -43,11 +43,11 @@ type SongRow = {
   album_id?: string | null
   artist_id: string
   artists: Rel<{ name: string }>
-  albums: Rel<{ cover_url: string | null }>
+  albums: Rel<{ cover_url: string | null; title?: string | null }>
 }
 
 const SONG_SELECT =
-  'id, title, genre, artist_id, album_id, artists(name), albums(cover_url)'
+  'id, title, genre, artist_id, album_id, artists(name), albums(cover_url, title)'
 
 function toCardModel(
   row: SongRow,
@@ -58,6 +58,7 @@ function toCardModel(
     title: row.title,
     artistName: one(row.artists)?.name ?? 'Unknown artist',
     coverUrl: one(row.albums)?.cover_url ?? null,
+    albumTitle: one(row.albums)?.title ?? null,
     ratingAvg: stats?.avg ?? null,
     reviewCount: stats?.count ?? 0,
     artistId: row.artist_id ?? null,
@@ -141,14 +142,9 @@ async function decorate(rows: SongRow[]): Promise<SongCardModel[]> {
   return rows.map((r) => toCardModel(r, stats.get(r.id)))
 }
 
-/**
- * A card plus where to pick it back up. The resume point rides along with the
- * card so tapping play needs no second lookup.
- */
-export type ContinueSong = SongCardModel & { resumeAt: number }
-
-export type HomeFeed = {
-  continueListening: ContinueSong[]
+/** The song rails on Explore's browse view (they used to be Home). */
+export type ExploreRails = {
+  recentlyViewed: SongCardModel[]
   trending: SongCardModel[]
   forYou: SongCardModel[]
 }
@@ -192,19 +188,16 @@ export async function recordSongView(songId: string, userId: string) {
  * after the play passes the "this wasn't a skip" bar the player enforces.
  *
  * Upsert, so replaying moves the timestamp rather than adding a row.
+ * position_seconds is no longer written: every play starts from the
+ * beginning, so there is no resume point to keep (the column stays, unused).
  * Best-effort: a failure here must never interrupt playback.
  */
-export async function recordPlay(
-  userId: string,
-  songId: string,
-  positionSeconds: number
-) {
+export async function recordPlay(userId: string, songId: string) {
   const { error } = await requireClient().from('play_history').upsert(
     {
       user_id: userId,
       song_id: songId,
       played_at: new Date().toISOString(),
-      position_seconds: Math.max(0, positionSeconds),
     },
     { onConflict: 'user_id,song_id' }
   )
@@ -212,69 +205,65 @@ export async function recordPlay(
 }
 
 /**
- * Moves the resume point without touching played_at — pausing isn't a new
- * play, and bumping the timestamp would reshuffle the rail every time the
- * user hit pause. Update rather than upsert: a row exists only once the play
- * cleared the minimum, so a 2-second skip can't create one through this path.
- */
-export async function savePlayPosition(
-  userId: string,
-  songId: string,
-  positionSeconds: number
-) {
-  const { error } = await requireClient()
-    .from('play_history')
-    .update({ position_seconds: Math.max(0, positionSeconds) })
-    .eq('user_id', userId)
-    .eq('song_id', songId)
-  if (error) console.warn('[beatboxed] could not save position:', error.message)
-}
-
-/**
- * Continue Listening: the songs this user actually played, newest first.
+ * Recently Viewed: songs this user opened (song_views) or played
+ * (play_history), newest first, each song once.
  *
- * The primary key already makes a song unique per user, but the catalog has
- * genuine duplicate rows for the same recording (19 of them at last count),
- * so the same title by the same artist is collapsed to its most recent row.
- * That means over-fetching and trimming afterwards.
+ * The two tables stay separate on purpose — opening a page and listening
+ * are different signals, and For You reads only the first — so they're
+ * merged here, taking each song's latest timestamp from either source.
+ *
+ * The catalog also holds genuine duplicate rows for the same recording
+ * (single vs album release), so the same title by the same artist is
+ * collapsed to its most recent row. That means over-fetching and trimming.
  */
-export async function getContinueListening(
+export async function getRecentlyViewed(
   userId: string,
-  limit = 10
-): Promise<ContinueSong[]> {
-  const { data, error } = await requireClient()
-    .from('play_history')
-    .select(`played_at, position_seconds, songs(${SONG_SELECT})`)
-    .eq('user_id', userId)
-    .order('played_at', { ascending: false })
-    .limit(limit * 4)
-  if (error) throw error
+  limit = 12
+): Promise<SongCardModel[]> {
+  const client = requireClient()
+  const [views, plays] = await Promise.all([
+    client
+      .from('song_views')
+      .select(`viewed_at, songs(${SONG_SELECT})`)
+      .eq('user_id', userId)
+      .order('viewed_at', { ascending: false })
+      .limit(limit * 4),
+    client
+      .from('play_history')
+      .select(`played_at, songs(${SONG_SELECT})`)
+      .eq('user_id', userId)
+      .order('played_at', { ascending: false })
+      .limit(limit * 4),
+  ])
+  if (views.error) throw views.error
+  if (plays.error) throw plays.error
 
-  const rows = (data ?? []) as unknown as {
-    played_at: string
-    position_seconds: number | null
-    songs: Rel<SongRow>
-  }[]
+  type Seen = { at: string; songs: Rel<SongRow> }
+  const all: Seen[] = [
+    ...((views.data ?? []) as unknown as { viewed_at: string; songs: Rel<SongRow> }[]).map(
+      (r) => ({ at: r.viewed_at, songs: r.songs })
+    ),
+    ...((plays.data ?? []) as unknown as { played_at: string; songs: Rel<SongRow> }[]).map(
+      (r) => ({ at: r.played_at, songs: r.songs })
+    ),
+  ].sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0))
 
   const seen = new Set<string>()
-  const picked: { song: SongRow; resumeAt: number }[] = []
-  for (const row of rows) {
+  const picked: SongRow[] = []
+  for (const row of all) {
     const song = one(row.songs)
     if (!song) continue
-    const key = `${song.title.trim().toLowerCase()}|${
+    const signature = `${song.title.trim().toLowerCase()}|${
       one(song.artists)?.name.trim().toLowerCase() ?? ''
     }`
-    if (seen.has(key)) continue
-    seen.add(key)
-    picked.push({ song, resumeAt: row.position_seconds ?? 0 })
+    if (seen.has(song.id) || seen.has(signature)) continue
+    seen.add(song.id)
+    seen.add(signature)
+    picked.push(song)
     if (picked.length >= limit) break
   }
 
-  const stats = await ratingsFor(picked.map((p) => p.song.id))
-  return picked.map((p) => ({
-    ...toCardModel(p.song, stats.get(p.song.id)),
-    resumeAt: p.resumeAt,
-  }))
+  return decorate(picked)
 }
 
 /**
@@ -409,19 +398,17 @@ async function fetchForYou(
   return decorate(picked)
 }
 
-export async function getHomeFeedData(userId?: string): Promise<HomeFeed> {
+export async function getExploreRails(userId?: string): Promise<ExploreRails> {
   const trending = await fetchTrending()
 
-  // The rail is a convenience, so it fails quietly: a problem reading play
+  // The rail is a convenience, so it fails quietly: a problem reading
   // history hides one row rather than replacing the whole page with an error.
-  // That also keeps Home working on a checkout where 0018_play_history.sql
-  // hasn't been applied yet.
-  let continueListening: ContinueSong[] = []
+  let recentlyViewed: SongCardModel[] = []
   if (userId) {
     try {
-      continueListening = await getContinueListening(userId)
+      recentlyViewed = await getRecentlyViewed(userId)
     } catch (err) {
-      console.warn('[beatboxed] could not load continue listening:', err)
+      console.warn('[beatboxed] could not load recently viewed:', err)
     }
   }
 
@@ -431,10 +418,15 @@ export async function getHomeFeedData(userId?: string): Promise<HomeFeed> {
   // Nothing to personalise from yet — Trending is the honest fallback.
   if (forYou.length === 0) forYou = trending
 
-  return { continueListening, trending, forYou }
+  return { recentlyViewed, trending, forYou }
 }
 
-/** Distinct genres actually present in the cached catalog. */
+/**
+ * Distinct genres actually present in the cached catalog. Only the profile
+ * editor's favourite-genre picker uses this now: Explore's genre tiles and
+ * chips were removed because only seeded songs carry a genre, so they showed
+ * a partial picture. The genre column stays for a later charts feature.
+ */
 export async function getGenres(): Promise<string[]> {
   const { data, error } = await requireClient()
     .from('songs')
@@ -459,7 +451,7 @@ const REMOTE_TOPUP_THRESHOLD = 5
 
 /** Same columns, but inner-joined so we can filter on the artist's name. */
 const SONG_SELECT_BY_ARTIST =
-  'id, title, genre, artist_id, album_id, artists!inner(name), albums(cover_url)'
+  'id, title, genre, artist_id, album_id, artists!inner(name), albums(cover_url, title)'
 
 /**
  * Mirrors normalize_search_text() in 0024. Both sides have to agree or a
@@ -638,7 +630,15 @@ async function topUpFromSpotify(
 export async function searchCatalog(
   query: string,
   mode: SearchMode,
-  genre: string | null
+  genre: string | null,
+  opts: {
+    /**
+     * Songs mode only. Called with the cached matches before the Spotify
+     * top-up starts — only when one is about to run — so a caller can show
+     * them and say it's still looking, rather than waiting on Spotify.
+     */
+    onLocalResults?: (songs: SongCardModel[]) => void
+  } = {}
 ): Promise<SearchResults> {
   const trimmed = query.trim()
 
@@ -663,6 +663,7 @@ export async function searchCatalog(
 
   let rows = await localSongs(trimmed, genre)
   if (canTopUp && rows.length < REMOTE_TOPUP_THRESHOLD) {
+    if (mode === 'songs' && opts.onLocalResults) opts.onLocalResults(await decorate(rows))
     const top = await topUpFromSpotify(trimmed, 'track')
     if (top.ok) rows = await localSongs(trimmed, genre)
     else warning = top.message
@@ -776,7 +777,7 @@ export async function getSongDetail(id: string): Promise<SongDetail | null> {
   }
 }
 
-type ReviewRow = {
+export type ReviewRow = {
   id: string
   user_id: string
   rating: number
@@ -797,7 +798,7 @@ type ReviewRow = {
 // review_likes and review_comments both reference profiles, which gives
 // reviews a second path to that table — PostgREST then rejects a bare
 // `profiles(...)` embed as ambiguous (PGRST201). Name the FK to pin it.
-const REVIEW_SELECT =
+export const REVIEW_SELECT =
   'id, user_id, rating, title, body, created_at, edited, ' +
   'profiles!reviews_user_id_fkey(username, display_name, avatar_url), ' +
   'review_likes(count), review_comments(count)'
@@ -844,7 +845,7 @@ export async function getSongReviews(
   return { reviews, total: count ?? reviews.length }
 }
 
-function toReviewModel(r: ReviewRow, likedByMe: boolean): ReviewWithAuthor {
+export function toReviewModel(r: ReviewRow, likedByMe: boolean): ReviewWithAuthor {
   const p = one(r.profiles)
   return {
     id: r.id,

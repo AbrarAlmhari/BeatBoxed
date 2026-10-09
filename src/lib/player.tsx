@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from 'react'
 import { getPreview, type PreviewResult } from './preview'
-import { recordPlay, savePlayPosition } from './catalog'
+import { recordPlay } from './catalog'
 import { useAuth } from './auth'
 import type { SongCardModel } from './types'
 
@@ -17,22 +17,14 @@ export type PlayerTrack = SongCardModel & {
   itunesTrackId?: number | null
   itunesCheckedAt?: string | null
   spotifyId?: string | null
-  /** Seconds to pick up from, when this came out of Continue Listening. */
-  resumeAt?: number
 }
 
 /**
  * A play only counts once it has run this long. Tapping a card and skipping
- * straight on isn't listening, and letting it count would fill Continue
- * Listening with songs the user rejected.
+ * straight on isn't listening, and letting it count would fill Recently
+ * Viewed with songs the user rejected.
  */
 const MIN_PLAY_SECONDS = 5
-
-/**
- * Treat a stored position this close to the end as finished and start over.
- * Resuming someone at 0:29 of a 30-second preview is useless.
- */
-const NEARLY_DONE_SECONDS = 3
 
 /**
  * How long "no preview, skipping" stays up before moving on. Long enough to
@@ -60,8 +52,8 @@ type PlayerState = {
 
 type PlayerApi = PlayerState & {
   /**
-   * Bumped whenever a play is recorded. Home watches it so Continue
-   * Listening refreshes without a reload.
+   * Bumped whenever a play is recorded. Explore watches it so Recently
+   * Viewed refreshes without a reload.
    */
   historyVersion: number
   /** Queues the whole list from the tapped song, so next/previous work. */
@@ -104,27 +96,13 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const listened = useRef(0)
   /** Previous currentTime, to turn timeupdate into a delta. */
   const lastTime = useRef(0)
-  /** Song id already written to play_history, and so safe to update. */
+  /** Song id already written to play_history for this load. */
   const recorded = useRef<string | null>(null)
-  /**
-   * A Continue Listening card already has its row, so moving its resume point
-   * isn't counting a play and needs no 5-second wait: pausing a resumed song
-   * after 2 seconds should still remember where it stopped. Armed only once
-   * the new source's metadata loads, so a late pause from the outgoing track
-   * can't write its position onto this song.
-   */
-  const resumeCandidate = useRef<string | null>(null)
-  const resuming = useRef<string | null>(null)
-  /** Positions saved this session, newer than any card already on screen. */
-  const savedPositions = useRef(new Map<string, number>())
-  /** Resume point to apply once metadata gives us a duration. */
-  const pendingSeek = useRef<number | null>(null)
   /** Handlers fire outside render; they need these without a redraw. */
   const currentTrack = useRef<PlayerTrack | null>(null)
   /**
-   * play_history writes, chained so they land in the order they were made.
-   * Otherwise a pause right after the 5-second mark can update a row whose
-   * insert hasn't arrived yet, and the resume point is silently lost.
+   * play_history writes, chained so they land in the order they were made:
+   * two quick plays in a row must leave the later one newest.
    */
   const writes = useRef<Promise<unknown>>(Promise.resolve())
   const enqueueWrite = useCallback((write: () => Promise<unknown>) => {
@@ -184,22 +162,6 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     currentTrack.current = state.current
   }, [state.current])
 
-  /**
-   * Writes the resume point for whatever is loaded. Only ever touches a song
-   * that already has a row, so a skip leaves no trace.
-   */
-  const flushPosition = useCallback((position?: number) => {
-    const audio = audioRef.current
-    const songId = recorded.current ?? resuming.current
-    const uid = userId.current
-    if (!audio || !songId || !uid) return
-    // Heard to the end means next time starts over, not at 0:30. Read now:
-    // currentTime is gone by the time a queued write runs.
-    const at = position ?? (audio.ended ? 0 : audio.currentTime)
-    savedPositions.current.set(songId, at)
-    enqueueWrite(() => savePlayPosition(uid, songId, at))
-  }, [enqueueWrite])
-
   const load = useCallback(async (
     track: PlayerTrack,
     autoplay: boolean,
@@ -210,20 +172,10 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     if (!audio) return
     cancelSkip()
 
-    // Save where the outgoing track got to before its currentTime is lost.
-    flushPosition()
+    // Every play starts from the beginning; there is no resume point.
     listened.current = 0
     lastTime.current = 0
     recorded.current = null
-    resuming.current = null
-    resumeCandidate.current = track.resumeAt === undefined ? null : track.id
-    // Only Continue Listening cards carry resumeAt; anywhere else starts at 0.
-    // A position saved since the rail loaded is newer than the card's copy.
-    const resumeAt =
-      track.resumeAt === undefined
-        ? undefined
-        : savedPositions.current.get(track.id) ?? track.resumeAt
-    pendingSeek.current = resumeAt && resumeAt > 0 ? resumeAt : null
 
     const token = ++loadToken.current
 
@@ -297,7 +249,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         setState((s) => ({ ...s, isPlaying: false }))
       }
     }
-  }, [cancelSkip, flushPosition, resolvePreview])
+  }, [cancelSkip, resolvePreview])
 
   /** Moves to a queue position and starts it, remembering which way we're going. */
   const playAt = useCallback(
@@ -380,7 +332,6 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const stop = useCallback(() => {
     const audio = audioRef.current
     cancelSkip()
-    flushPosition()
     if (audio) {
       audio.pause()
       audio.removeAttribute('src')
@@ -401,9 +352,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     queueRef.current = []
     indexRef.current = -1
     recorded.current = null
-    resuming.current = null
-    resumeCandidate.current = null
-  }, [cancelSkip, flushPosition])
+  }, [cancelSkip])
 
   /**
    * Look one song ahead while the current one plays, so a skip is instant and
@@ -449,18 +398,15 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
     const onPlay = () => setState((s) => ({ ...s, isPlaying: true }))
 
-    const onPause = () => {
-      setState((s) => ({ ...s, isPlaying: false }))
-      flushPosition()
-    }
+    const onPause = () => setState((s) => ({ ...s, isPlaying: false }))
 
     const onTime = () => {
       const now = audio.currentTime
       const delta = now - lastTime.current
       lastTime.current = now
       // Only forward movement at roughly real-time counts; this filters out
-      // seeks, the resume jump, and the reset to zero on a new source, so
-      // dragging the scrubber can't fake a play.
+      // seeks and the reset to zero on a new source, so dragging the
+      // scrubber can't fake a play.
       if (delta > 0 && delta < 1.5) listened.current += delta
 
       setState((s) => ({ ...s, position: now }))
@@ -474,10 +420,10 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         listened.current >= MIN_PLAY_SECONDS
       ) {
         recorded.current = track.id
-        // Tells Home its rail is stale, but only once the row exists, or the
-        // refetch could beat the write and miss it.
+        // Tells Explore its rail is stale, but only once the row exists, or
+        // the refetch could beat the write and miss it.
         enqueueWrite(async () => {
-          await recordPlay(uid, track.id, now)
+          await recordPlay(uid, track.id)
           setHistoryVersion((v) => v + 1)
         })
       }
@@ -485,22 +431,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
     const onMeta = () => {
       const duration = Number.isFinite(audio.duration) ? audio.duration : 0
-      const resumeAt = pendingSeek.current
-      pendingSeek.current = null
-      resuming.current = resumeCandidate.current
-      resumeCandidate.current = null
-      if (
-        resumeAt != null &&
-        duration > 0 &&
-        resumeAt < duration - NEARLY_DONE_SECONDS
-      ) {
-        audio.currentTime = resumeAt
-        lastTime.current = resumeAt
-      }
       setState((s) => ({ ...s, duration }))
     }
 
-    // The pause that precedes 'ended' already saved position 0.
     const onEnded = () => setState((s) => ({ ...s, isPlaying: false, position: 0 }))
 
     audio.addEventListener('play', onPlay)
@@ -515,7 +448,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       audio.removeEventListener('loadedmetadata', onMeta)
       audio.removeEventListener('ended', onEnded)
     }
-  }, [flushPosition, enqueueWrite])
+  }, [enqueueWrite])
 
   // A finished preview rolls on to the next queued track.
   useEffect(() => {
@@ -542,31 +475,10 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     navigator.mediaSession.setActionHandler('previoustrack', () => previous())
   }, [state.current, toggle, next, previous])
 
-  /**
-   * Closing the tab, backgrounding the app, or navigating away still owes us
-   * a resume point. Best-effort by nature: the request is fired on the way
-   * out and the browser may not wait for it, which costs at most the few
-   * seconds since the last pause.
-   */
-  useEffect(() => {
-    const onLeave = () => flushPosition()
-    const onHide = () => {
-      if (document.visibilityState === 'hidden') flushPosition()
-    }
-    window.addEventListener('pagehide', onLeave)
-    document.addEventListener('visibilitychange', onHide)
-    return () => {
-      window.removeEventListener('pagehide', onLeave)
-      document.removeEventListener('visibilitychange', onHide)
-    }
-  }, [flushPosition])
-
   // Logging out must not leave someone else's music playing.
   useEffect(() => {
     if (user) return
     stop()
-    // Nor their resume points for whoever signs in next.
-    savedPositions.current.clear()
   }, [user, stop])
 
   const value = useMemo<PlayerApi>(

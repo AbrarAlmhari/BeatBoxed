@@ -3,7 +3,7 @@ import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { AlertTriangle, Loader2, MicVocal, Search, SearchX, X } from 'lucide-react'
 import { Chip } from '@/components/ui/Chip'
 import { MediaCard } from '@/components/ui/MediaCard'
-import { GenreTile } from '@/components/explore/GenreTile'
+import { Rail, RailSkeleton } from '@/components/home/Rail'
 import { ArtistResultCard } from '@/components/explore/ArtistResultCard'
 import { LyricResultCard } from '@/components/explore/LyricResultCard'
 import { PersonCard } from '@/components/people/PersonCard'
@@ -11,11 +11,13 @@ import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import { useAuth } from '@/lib/auth'
 import { usePlayer } from '@/lib/player'
 import {
+  getExploreRails,
   getFollowStates,
-  getGenres,
+  getRecentlyViewed,
   popularSearches,
   searchCatalog,
   searchEverything,
+  type ExploreRails,
 } from '@/lib/catalog'
 import type {
   FollowState,
@@ -55,7 +57,6 @@ export default function Explore() {
   const [searchParams, setSearchParams] = useSearchParams()
   const query = searchParams.get('q') ?? ''
   const filter = (searchParams.get('filter') as Filter | null) ?? 'all'
-  const genre = searchParams.get('genre')
 
   function patchParams(patch: Record<string, string | null>) {
     setSearchParams(
@@ -75,10 +76,11 @@ export default function Explore() {
 
   const setQuery = (v: string) => patchParams({ q: v })
   const setFilter = (v: Filter) => patchParams({ filter: v === 'all' ? null : v })
-  const setGenre = (v: string | null) => patchParams({ genre: v })
 
   const debouncedQuery = useDebouncedValue(query, 250)
-  const [genres, setGenres] = useState<string[]>([])
+  const [rails, setRails] = useState<ExploreRails | null>(null)
+  const [railsError, setRailsError] = useState(false)
+  const [railsAttempt, setRailsAttempt] = useState(0)
   const [followStates, setFollowStates] = useState<Map<string, FollowState>>(
     new Map()
   )
@@ -93,11 +95,49 @@ export default function Explore() {
   const [lyrics, setLyrics] = useState<LyricMatch[] | null>(null)
   const [lyricsLoading, setLyricsLoading] = useState(false)
 
+  /**
+   * The browse view's song rails, moved here from Home when Home became the
+   * review feed. Loaded once per visit; Recently Viewed refreshes on its own
+   * below when a play is recorded.
+   */
   useEffect(() => {
-    getGenres()
-      .then(setGenres)
-      .catch((err) => console.warn('[beatboxed] genre list failed:', err))
-  }, [])
+    let cancelled = false
+    setRails(null)
+    setRailsError(false)
+    getExploreRails(user?.id)
+      .then((r) => {
+        if (!cancelled) setRails(r)
+      })
+      .catch((err: unknown) => {
+        console.error('[beatboxed] explore rails failed:', err)
+        if (!cancelled) setRailsError(true)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [user?.id, railsAttempt])
+
+  /**
+   * Playing something from a rail should show up in Recently Viewed without
+   * a reload. Only that rail is refetched — the others haven't changed.
+   */
+  const seenHistory = useRef(player.historyVersion)
+  useEffect(() => {
+    // Plays from before this mount are already in the initial load.
+    if (!user || player.historyVersion === seenHistory.current) return
+    seenHistory.current = player.historyVersion
+    let cancelled = false
+    getRecentlyViewed(user.id)
+      .then((songs) => {
+        if (!cancelled) setRails((r) => (r ? { ...r, recentlyViewed: songs } : r))
+      })
+      .catch((err: unknown) => {
+        console.error('[beatboxed] could not refresh recently viewed:', err)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [player.historyVersion, user])
 
   useEffect(() => {
     let current = true
@@ -106,7 +146,7 @@ export default function Explore() {
     setExpanded(new Set())
     setLyrics(null)
 
-    searchEverything(debouncedQuery, genre, user?.id)
+    searchEverything(debouncedQuery, null, user?.id)
       .then(async (r) => {
         if (!current) return
         setResults(r)
@@ -132,14 +172,14 @@ export default function Explore() {
     return () => {
       current = false
     }
-  }, [debouncedQuery, genre, user])
+  }, [debouncedQuery, user])
 
   // Lyrics run only when asked for — chip selected, or the explicit row tapped.
   useEffect(() => {
     if (filter !== 'lyrics' || !debouncedQuery.trim() || lyrics) return
     let current = true
     setLyricsLoading(true)
-    searchCatalog(debouncedQuery, 'lyrics', genre)
+    searchCatalog(debouncedQuery, 'lyrics', null)
       .then((r) => {
         if (current && r.mode === 'lyrics') setLyrics(r.lyrics)
       })
@@ -153,7 +193,7 @@ export default function Explore() {
     return () => {
       current = false
     }
-  }, [filter, debouncedQuery, genre, lyrics])
+  }, [filter, debouncedQuery, lyrics])
 
   useEffect(() => {
     const state = location.state as ExploreNavState
@@ -164,7 +204,7 @@ export default function Explore() {
     navigate(location.pathname + location.search, { replace: true, state: null })
   }, [location, navigate])
 
-  const isBrowsing = debouncedQuery.trim() === '' && genre === null
+  const isBrowsing = debouncedQuery.trim() === ''
   const show = (section: Filter) => filter === 'all' || filter === section
   const sliceFor = (key: string, items: unknown[]) =>
     expanded.has(key) ? items.length : PREVIEW
@@ -225,38 +265,51 @@ export default function Explore() {
           ))}
         </div>
 
-        {filter !== 'people' && (
-          <div
-            className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
-            role="group"
-            aria-label="Filter by genre"
-          >
-            <Chip active={genre === null} onClick={() => setGenre(null)}>
-              All genres
-            </Chip>
-            {genres.map((g) => (
-              <Chip
-                key={g}
-                active={genre === g}
-                onClick={() => setGenre(genre === g ? null : g)}
-              >
-                <span className="capitalize">{g}</span>
-              </Chip>
-            ))}
-          </div>
-        )}
       </div>
 
       {isBrowsing ? (
         <>
-          <section className="flex flex-col gap-4">
-            <h2 className="text-section-title">Browse by genre</h2>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
-              {genres.map((g) => (
-                <GenreTile key={g} genre={g} onClick={() => setGenre(g)} />
-              ))}
+          {railsError ? (
+            <div className="flex flex-col items-center gap-3 rounded-card bg-surface px-5 py-10 text-center">
+              <p className="text-body text-danger">Couldn't load songs to browse.</p>
+              <button
+                type="button"
+                onClick={() => setRailsAttempt((n) => n + 1)}
+                className="rounded-button bg-surface-2 px-4 py-2 text-button text-foreground hover:bg-white/10"
+              >
+                Retry
+              </button>
             </div>
-          </section>
+          ) : rails === null ? (
+            <>
+              {/* No Recently Viewed skeleton: we don't know yet whether this
+                  user has any history, and a rail that appears then vanishes
+                  is worse than one that arrives a moment late. */}
+              <RailSkeleton title="Trending" />
+              <RailSkeleton title="For You" />
+            </>
+          ) : (
+            <>
+              <Rail
+                title="Trending"
+                songs={rails.trending}
+                emptyMessage="No reviews yet. Be the first to rate a song."
+              />
+              <Rail
+                title="For You"
+                songs={rails.forYou}
+                emptyMessage="Follow a few artists and we'll pick songs for you."
+              />
+              {/* Hidden entirely with no history, rather than an empty row. */}
+              {rails.recentlyViewed.length > 0 && (
+                <Rail
+                  title="Recently viewed"
+                  songs={rails.recentlyViewed}
+                  emptyMessage=""
+                />
+              )}
+            </>
+          )}
 
           <section className="flex flex-col gap-4">
             <h2 className="text-section-title">Popular searches</h2>

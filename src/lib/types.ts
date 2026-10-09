@@ -47,6 +47,8 @@ export type SongCardModel = {
   title: string
   artistName: string
   coverUrl: string | null
+  /** Album name, where the row was read with it (search, rails). */
+  albumTitle?: string | null
   ratingAvg: number | null
   reviewCount: number
   /** For linking the artist name through to their page, where known. */
