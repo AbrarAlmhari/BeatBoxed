@@ -7,13 +7,35 @@
  * provider means rewriting this file and setting a different secret.
  */
 
-/** A Flash model available on the Gemini API free tier. */
-export const MODEL = 'gemini-2.5-flash'
+/**
+ * The model comes from the GEMINI_MODEL secret, so it can be changed with
+ * `supabase secrets set GEMINI_MODEL=...` and no redeploy. This is the
+ * fallback when the secret isn't set: a Flash model on the free tier,
+ * confirmed with this key's list-models endpoint on 2026-10-11 (it supports
+ * generateContent). gemini-2.5-flash, the first choice, now answers 404 for
+ * new users.
+ */
+const FALLBACK_MODEL = 'gemini-3.8-flash'
+const MODEL_SECRET = 'GEMINI_MODEL'
 
 /** Supabase secret holding the key. Never sent to the browser. */
 const KEY_SECRET = 'GEMINI_API_KEY'
 
+/** Read per request, so a changed secret takes effect without a redeploy. */
+export function currentModel() {
+  return Deno.env.get(MODEL_SECRET)?.trim() || FALLBACK_MODEL
+}
+
 const TIMEOUT_MS = 25_000
+
+/**
+ * Flash models "think" before answering, and those tokens come out of the
+ * same maxOutputTokens as the answer. The thinking settings differ between
+ * model generations, and the model list doesn't say which ones a model
+ * accepts, so none are sent; instead every request gets this much extra
+ * room, so thinking can't use up the answer's share and leave it empty.
+ */
+const THINKING_HEADROOM = 2048
 
 export type ChatMessage = { role: 'user' | 'assistant'; text: string }
 
@@ -51,11 +73,7 @@ export async function generate(
     })),
     generationConfig: {
       temperature: options.temperature,
-      maxOutputTokens: options.maxTokens,
-      // Flash "thinks" by default, and thinking tokens come out of the same
-      // budget and the same free-tier quota. Beatie's answers are short and
-      // don't need it.
-      thinkingConfig: { thinkingBudget: 0 },
+      maxOutputTokens: options.maxTokens + THINKING_HEADROOM,
       ...(options.json ? { responseMimeType: 'application/json' } : {}),
     },
   }
@@ -63,7 +81,7 @@ export async function generate(
   let res: Response
   try {
     res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${currentModel()}:generateContent`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },

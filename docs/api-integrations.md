@@ -34,7 +34,7 @@ Every Beatie request goes through `supabase/functions/beatie/`. The browser send
 For each request the function checks the user is signed in, loads the song, artist and album from the database, reads the user's language (`profiles.translation_language`, English if unset), and fetches the lyrics itself through `lyrics-lookup`, asked the same way the Song page asks so both get the same lines.
 
 **Files:**
-- `provider.ts`: the only Gemini-specific code (model, endpoint, request and response format, secret name), behind `generate(systemPrompt, messages, options)`. Switching AI provider means rewriting this file and setting a different secret. The model is the `MODEL` constant there (`gemini-2.5-flash`, on the free tier). Thinking is turned off: Beatie's answers are short, and thinking tokens use the same free-tier quota.
+- `provider.ts`: the only Gemini-specific code (model, endpoint, request and response format, secret names), behind `generate(systemPrompt, messages, options)`. Switching AI provider means rewriting this file and setting a different secret.
 - `personality.md`: Beatie's voice and rules, editable without touching code. Used as the system prompt for explanations and chat, followed by the song context. It must stay listed under `static_files` in `supabase/config.toml` to be deployed.
 - `prompts.ts`: the song context, the task wording, the separate short translation instruction (translations don't use the personality), and the lyric-quote check.
 - `index.ts`: the request flow, cache, limits and error codes.
@@ -47,7 +47,20 @@ For each request the function checks the user is signed in, loads the song, arti
 
 **Errors** come back as codes, and the app turns each into a friendly message, never a raw error: `limit` (this user's 30 are used), `global` ("Beatie is taking a break, try again later"), `busy` (Gemini down or rate-limited: "Beatie is taking a break, try again in a minute"), `error` (anything else).
 
-**Deploying:** `supabase functions deploy beatie`. The migration `0029_beatie.sql` must be applied first.
+### The model
+
+Beatie uses **`gemini-3.8-flash`**, a Flash model on the free tier. It's read from the Supabase secret **`GEMINI_MODEL`** on every request, falling back to the `FALLBACK_MODEL` constant in `provider.ts` if the secret isn't set.
+
+To change it:
+1. List the models the key can use (this uses no generation quota): `GET https://generativelanguage.googleapis.com/v1beta/models` with the header `x-goog-api-key: <GEMINI_API_KEY>`. Pick one whose `supportedGenerationMethods` includes `generateContent`. Run it from somewhere the key already lives (the key is only a Supabase secret), and never commit the key.
+2. `supabase secrets set GEMINI_MODEL=<model name>`. No redeploy needed.
+3. If the new model should also be the default, update `FALLBACK_MODEL` in `provider.ts` and redeploy.
+
+Google retires model names: `gemini-2.5-flash` started answering 404 ("no longer available to new users") in October 2026, which is why the model is a secret rather than a constant. When that happens, Beatie shows its general error message and the function log shows `[beatie] provider error HTTP 404`.
+
+No thinking settings are sent: Flash models think by default, the accepted settings differ between model generations, and the model list doesn't say which a model takes. Instead every request allows 2,048 extra output tokens (`THINKING_HEADROOM` in `provider.ts`), so thinking can't use up the answer's share.
+
+**Deploying:** `supabase functions deploy beatie --use-api` (`--use-api` bundles on Supabase's side, so Docker isn't needed). The migration `0029_beatie.sql` must be applied first.
 
 **Lyrics language** (for showing the Translate button) is detected in the browser without AI: by alphabet for Arabic and Hindi, and by how many very common English words a Latin-script text has.
 
