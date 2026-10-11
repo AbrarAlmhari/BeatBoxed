@@ -18,7 +18,18 @@ export type BeatieRequest =
   | { action: 'translate'; songId: string }
   | { action: 'chat'; songId: string; messages: BeatieMessage[] }
 
-export type BeatieErrorCode = 'limit' | 'global' | 'busy' | 'error' | 'bad_request' | 'auth'
+/**
+ * pending: the answer is still being written on the server and will be in
+ * the cache shortly. Asking again then loads it, at no cost.
+ */
+export type BeatieErrorCode =
+  | 'limit'
+  | 'global'
+  | 'busy'
+  | 'pending'
+  | 'error'
+  | 'bad_request'
+  | 'auth'
 
 export type BeatieResponse =
   | {
@@ -62,6 +73,8 @@ export function beatieErrorMessage(code: BeatieErrorCode) {
       return 'Beatie is taking a break, try again later.'
     case 'busy':
       return 'Beatie is taking a break, try again in a minute.'
+    case 'pending':
+      return "Beatie's still writing this one, check back in a moment."
     default:
       return "Beatie couldn't answer that right now. Try again in a moment."
   }

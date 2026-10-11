@@ -158,6 +158,27 @@ test.describe('Beatie', () => {
     await expect(card.getByText('This one is about leaving a small town')).toBeVisible()
   })
 
+  test('"check back in a moment", then the next tap loads it from the cache', async ({ page }) => {
+    await mockLyrics(page, ENGLISH)
+    let asked = 0
+    const calls = await mockBeatie(page, () => {
+      asked += 1
+      return asked === 1 ? { ok: false, code: 'pending' } : ok({ text: EXPLANATION, cached: true })
+    })
+    await login(page, user.email)
+    await page.goto(`/song/${songs[0].id}`)
+
+    const card = beatieCard(page)
+    const button = card.getByRole('button', { name: "What's this song about?" })
+    await button.click()
+    await expect(card.getByRole('alert')).toHaveText(
+      "Beatie's still writing this one, check back in a moment."
+    )
+    await button.click()
+    await expect(card.getByText('This one is about leaving a small town')).toBeVisible()
+    expect(calls.map((c) => c.action)).toEqual(['explain', 'explain'])
+  })
+
   test('a follow-up question carries the explanation and the conversation', async ({ page }) => {
     await mockLyrics(page, ENGLISH)
     const calls = await mockBeatie(page, (b) =>

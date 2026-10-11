@@ -26,12 +26,8 @@ export function currentModel() {
   return Deno.env.get(MODEL_SECRET)?.trim() || FALLBACK_MODEL
 }
 
-/**
- * A safety net, not the expected wait: with thinking at its lowest, answers
- * normally arrive well within it. Under Supabase's limit for a function even
- * with the one lyric-quote retry.
- */
-const TIMEOUT_MS = 40_000
+/** How long to wait for the provider unless the caller says otherwise. */
+const DEFAULT_TIMEOUT_MS = 40_000
 
 /**
  * How hard the model thinks before answering. Gemini 3 models take
@@ -61,6 +57,8 @@ export type GenerateOptions = {
   temperature: number
   /** Ask for a JSON response (used for translations). */
   json?: boolean
+  /** How long to wait for the provider before giving up as 'busy'. */
+  timeoutMs?: number
 }
 
 /**
@@ -102,7 +100,7 @@ export async function generate(
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
         body: JSON.stringify(body),
-        signal: AbortSignal.timeout(TIMEOUT_MS),
+        signal: AbortSignal.timeout(options.timeoutMs ?? DEFAULT_TIMEOUT_MS),
       }
     )
   } catch (err) {

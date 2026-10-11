@@ -30,10 +30,11 @@ import {
  *
  * Replies are always 200 with { ok: true, ... } or { ok: false, code }, so
  * the app can show a friendly message for each code and never a raw error:
- *   limit   this user's 30 requests for today are used up
- *   global  the whole app's 150 Gemini calls for today are used up
- *   busy    Gemini is down, overloaded or rate limiting
- *   error   anything else
+ *   limit    this user's 30 requests for today are used up
+ *   global   the whole app's 150 Gemini calls for today are used up
+ *   busy     Gemini is down, overloaded, rate limiting or too slow
+ *   pending  still being written in the background; ask again shortly
+ *   error    anything else
  * Only a missing or invalid login is a 401.
  */
 
@@ -41,6 +42,26 @@ import {
 const USER_DAILY_LIMIT = 30
 /** Gemini calls per day for the whole app, retries included. */
 const GLOBAL_DAILY_LIMIT = 150
+
+/**
+ * How long to wait for Gemini. Explanations, line explanations and
+ * translations are cached, so a slow one is paid for once per song and
+ * language; chat isn't, so it gets less.
+ */
+const CACHED_TIMEOUT_MS = 60_000
+const CHAT_TIMEOUT_MS = 40_000
+
+/**
+ * A cacheable answer not ready by now is left to finish in the background:
+ * the app hears 'pending', and the answer lands in the cache for the next tap.
+ */
+const RESPOND_WITHIN_MS = 25_000
+
+/**
+ * An empty (in-progress) cache row older than this means its background work
+ * died (the function was stopped); it's cleared and the work starts again.
+ */
+const PENDING_STALE_MS = 3 * 60_000
 
 const MAX_HISTORY = 10
 const MAX_QUESTION_CHARS = 500
@@ -55,7 +76,10 @@ const admin = createClient(SUPABASE_URL, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY
 // code. Shipped alongside the function via supabase/config.toml.
 const PERSONALITY = await Deno.readTextFile(new URL('./personality.md', import.meta.url))
 
-type Code = 'limit' | 'global' | 'busy' | 'error' | 'bad_request'
+type Code = 'limit' | 'global' | 'busy' | 'pending' | 'error' | 'bad_request'
+
+// Supabase's runtime global for finishing work after the reply is sent.
+declare const EdgeRuntime: { waitUntil(promise: Promise<unknown>): void } | undefined
 const fail = (code: Code, status = 200) => json({ ok: false, code }, status)
 
 type Ctx = {
@@ -163,35 +187,123 @@ async function loadContext(songId: string, userId: string, auth: string): Promis
 
 type CacheKind = 'explain' | 'line' | 'translate'
 
-async function readCache(ctx: Ctx, kind: CacheKind, key = '') {
-  const { data } = await admin
-    .from('beatie_cache')
-    .select('content, has_lyrics')
-    .eq('song_id', ctx.songId)
-    .eq('kind', kind)
-    .eq('line_key', key)
-    .eq('language', ctx.language)
-    .maybeSingle()
-  return data as { content: string; has_lyrics: boolean } | null
+/**
+ * A row with empty content is a claim: someone's answer is being written
+ * right now. The table's unique key means only one request can make the
+ * claim, so a song's answer is asked of Gemini once, however many people
+ * (or taps) arrive while it's being written. The claim is filled in with the
+ * answer, or removed if writing it fails.
+ */
+type CacheRow = { content: string; has_lyrics: boolean; created_at: string }
+
+function cacheKey(ctx: Ctx, kind: CacheKind, key: string) {
+  return { song_id: ctx.songId, kind, line_key: key, language: ctx.language }
 }
 
-async function writeCache(ctx: Ctx, kind: CacheKind, content: string, key = '') {
-  // An answer written while the lyrics lookup was failing would claim the
-  // song has no lyrics, for everyone, for good. Serve it, don't keep it.
-  if (ctx.lyricsStatus === 'failed') return
-  const { error } = await admin.from('beatie_cache').upsert(
-    {
-      song_id: ctx.songId,
-      kind,
-      line_key: key,
-      language: ctx.language,
-      content,
-      has_lyrics: ctx.lyricsStatus === 'found',
-    },
-    // Someone else may have filled it a moment ago; theirs is just as good.
-    { onConflict: 'song_id,kind,line_key,language', ignoreDuplicates: true }
-  )
+async function readCache(ctx: Ctx, kind: CacheKind, key = ''): Promise<CacheRow | null> {
+  const { data } = await admin
+    .from('beatie_cache')
+    .select('content, has_lyrics, created_at')
+    .match(cacheKey(ctx, kind, key))
+    .maybeSingle()
+  return data as CacheRow | null
+}
+
+/** True if this request made the claim; false if someone else holds it. */
+async function claimCache(ctx: Ctx, kind: CacheKind, key: string) {
+  const { data, error } = await admin
+    .from('beatie_cache')
+    .upsert(
+      { ...cacheKey(ctx, kind, key), content: '', has_lyrics: ctx.lyricsStatus === 'found' },
+      { onConflict: 'song_id,kind,line_key,language', ignoreDuplicates: true }
+    )
+    .select('id')
+  if (error) {
+    console.error('[beatie] cache claim failed', error)
+    return false
+  }
+  return (data ?? []).length > 0
+}
+
+async function fillCache(ctx: Ctx, kind: CacheKind, key: string, content: string) {
+  const { error } = await admin
+    .from('beatie_cache')
+    .update({ content, created_at: new Date().toISOString() })
+    .match(cacheKey(ctx, kind, key))
+    .eq('content', '')
   if (error) console.error('[beatie] cache write failed', error)
+}
+
+/** Removes a claim or a stale answer, so the next request starts fresh. */
+async function clearCache(ctx: Ctx, kind: CacheKind, key: string, onlyClaim: boolean) {
+  let q = admin.from('beatie_cache').delete().match(cacheKey(ctx, kind, key))
+  if (onlyClaim) q = q.eq('content', '')
+  const { error } = await q
+  if (error) console.error('[beatie] cache clear failed', error)
+}
+
+type Work = { content: string } | { code: Code }
+
+/**
+ * The cache-first flow shared by explain, line and translate:
+ *
+ *   1. A ready answer is served from the cache, free.
+ *   2. Someone else's answer still being written: 'pending', free.
+ *   3. Otherwise claim it, and run `work` (which takes the quota and calls
+ *      Gemini). If it's done within RESPOND_WITHIN_MS, reply with it. If
+ *      not, reply 'pending' and let it finish in the background: the answer
+ *      lands in the cache and the next tap gets it. Either way the work, and
+ *      its quota, happens once.
+ *
+ * With the lyrics lookup failing, nothing is cached (an answer would claim
+ * the song has no lyrics, for everyone, for good), so the work just runs.
+ */
+async function cachedAnswer(
+  ctx: Ctx,
+  kind: CacheKind,
+  key: string,
+  work: () => Promise<Work>,
+  reply: (content: string, hasLyrics: boolean, cached: boolean) => Response,
+  usable: (content: string) => boolean = () => true
+): Promise<Response> {
+  const hasLyrics = ctx.lyricsStatus === 'found'
+  if (ctx.lyricsStatus === 'failed') {
+    const r = await work()
+    return 'code' in r ? fail(r.code) : reply(r.content, hasLyrics, false)
+  }
+
+  const row = await readCache(ctx, kind, key)
+  if (row) {
+    if (row.content !== '' && usable(row.content)) return reply(row.content, row.has_lyrics, true)
+    const age = Date.now() - new Date(row.created_at).getTime()
+    if (row.content === '' && age < PENDING_STALE_MS) return fail('pending')
+    // A dead claim, or an answer that no longer fits (e.g. a translation
+    // whose line count no longer matches the lyrics): start over.
+    await clearCache(ctx, kind, key, false)
+  }
+
+  if (!(await claimCache(ctx, kind, key))) return fail('pending')
+
+  const job: Promise<Work> = work()
+    .then(async (r) => {
+      if ('code' in r) await clearCache(ctx, kind, key, true)
+      else await fillCache(ctx, kind, key, r.content)
+      return r
+    })
+    .catch(async (err) => {
+      console.error('[beatie] background work failed', err)
+      await clearCache(ctx, kind, key, true)
+      return { code: 'error' as Code }
+    })
+
+  const timer = new Promise<null>((resolve) => setTimeout(() => resolve(null), RESPOND_WITHIN_MS))
+  const done = await Promise.race([job, timer])
+  if (done === null) {
+    console.log(`[beatie] ${kind} not ready after ${RESPOND_WITHIN_MS / 1000}s; finishing in the background`)
+    if (typeof EdgeRuntime !== 'undefined') EdgeRuntime.waitUntil(job)
+    return fail('pending')
+  }
+  return 'code' in done ? fail(done.code) : reply(done.content, hasLyrics, false)
 }
 
 /* --------------------------------------------------------------- quota */
@@ -220,7 +332,7 @@ async function proseAnswer(
   ctx: Ctx,
   userId: string,
   messages: ChatMessage[],
-  opts: { maxTokens: number; allowedLine?: string; maxQuoted: number }
+  opts: { maxTokens: number; timeoutMs: number; allowedLine?: string; maxQuoted: number }
 ): Promise<{ text: string } | { code: Code }> {
   const blocked = await takeQuota(userId)
   if (blocked) return { code: blocked }
@@ -228,7 +340,11 @@ async function proseAnswer(
   const system = songSystemPrompt(PERSONALITY, ctx.song, ctx.language, ctx.lyrics)
   let attempt = messages
   for (let tries = 0; tries < 2; tries++) {
-    const res = await generate(system, attempt, { maxTokens: opts.maxTokens, temperature: 0.7 })
+    const res = await generate(system, attempt, {
+      maxTokens: opts.maxTokens,
+      temperature: 0.7,
+      timeoutMs: opts.timeoutMs,
+    })
     if (!res.ok) {
       console.error('[beatie] provider', res.reason, res.detail)
       return { code: res.reason }
@@ -257,16 +373,20 @@ async function proseAnswer(
 /* ------------------------------------------------------------- actions */
 
 async function explain(ctx: Ctx, userId: string) {
-  const cached = await readCache(ctx, 'explain')
-  if (cached) return ok(ctx, { text: cached.content, hasLyrics: cached.has_lyrics, cached: true })
-
-  const answer = await proseAnswer(ctx, userId, [{ role: 'user', text: EXPLAIN_REQUEST }], {
-    maxTokens: 700,
-    maxQuoted: 1,
-  })
-  if ('code' in answer) return fail(answer.code)
-  await writeCache(ctx, 'explain', answer.text)
-  return ok(ctx, { text: answer.text, hasLyrics: ctx.lyricsStatus === 'found', cached: false })
+  return cachedAnswer(
+    ctx,
+    'explain',
+    '',
+    async () => {
+      const a = await proseAnswer(ctx, userId, [{ role: 'user', text: EXPLAIN_REQUEST }], {
+        maxTokens: 700,
+        timeoutMs: CACHED_TIMEOUT_MS,
+        maxQuoted: 1,
+      })
+      return 'code' in a ? a : { content: a.text }
+    },
+    (content, hasLyrics, cached) => ok(ctx, { text: content, hasLyrics, cached })
+  )
 }
 
 async function explainLine(ctx: Ctx, userId: string, line: unknown) {
@@ -274,18 +394,21 @@ async function explainLine(ctx: Ctx, userId: string, line: unknown) {
   // any text anyone sends.
   if (typeof line !== 'string' || !isLyricLine(line, ctx.lyrics)) return fail('bad_request')
   const key = await lineKey(line)
-
-  const cached = await readCache(ctx, 'line', key)
-  if (cached) return ok(ctx, { text: cached.content, hasLyrics: true, cached: true })
-
-  const answer = await proseAnswer(ctx, userId, [{ role: 'user', text: explainLineRequest(line) }], {
-    maxTokens: 350,
-    allowedLine: line,
-    maxQuoted: 0,
-  })
-  if ('code' in answer) return fail(answer.code)
-  await writeCache(ctx, 'line', answer.text, key)
-  return ok(ctx, { text: answer.text, hasLyrics: true, cached: false })
+  return cachedAnswer(
+    ctx,
+    'line',
+    key,
+    async () => {
+      const a = await proseAnswer(ctx, userId, [{ role: 'user', text: explainLineRequest(line) }], {
+        maxTokens: 350,
+        timeoutMs: CACHED_TIMEOUT_MS,
+        allowedLine: line,
+        maxQuoted: 0,
+      })
+      return 'code' in a ? a : { content: a.text }
+    },
+    (content, _hasLyrics, cached) => ok(ctx, { text: content, hasLyrics: true, cached })
+  )
 }
 
 async function chat(ctx: Ctx, userId: string, raw: unknown) {
@@ -302,7 +425,11 @@ async function chat(ctx: Ctx, userId: string, raw: unknown) {
   const last = messages[messages.length - 1]
   if (!last || last.role !== 'user' || last.text.length > MAX_QUESTION_CHARS) return fail('bad_request')
 
-  const answer = await proseAnswer(ctx, userId, messages, { maxTokens: 400, maxQuoted: 1 })
+  const answer = await proseAnswer(ctx, userId, messages, {
+    maxTokens: 400,
+    timeoutMs: CHAT_TIMEOUT_MS,
+    maxQuoted: 1,
+  })
   if ('code' in answer) return fail(answer.code)
   return ok(ctx, { text: answer.text, hasLyrics: ctx.lyricsStatus === 'found', cached: false })
 }
@@ -315,50 +442,47 @@ async function chat(ctx: Ctx, userId: string, raw: unknown) {
  */
 async function translate(ctx: Ctx, userId: string) {
   if (ctx.lyricsStatus !== 'found') return fail(ctx.lyricsStatus === 'failed' ? 'busy' : 'bad_request')
+  const count = ctx.lyrics.length
 
-  const cached = await readCache(ctx, 'translate')
-  if (cached) {
-    const lines = parseLines(cached.content, ctx.lyrics.length)
-    // A cached translation that no longer lines up (lrclib's lyrics changed)
-    // is stale: fall through and make a new one.
-    if (lines) return ok(ctx, { lines, hasLyrics: true, cached: true })
-  }
+  return cachedAnswer(
+    ctx,
+    'translate',
+    '',
+    async () => {
+      const blocked = await takeQuota(userId)
+      if (blocked) return { code: blocked }
 
-  const blocked = await takeQuota(userId)
-  if (blocked) return fail(blocked)
+      const system = translationSystemPrompt(ctx.language, count)
+      const input: ChatMessage[] = [{ role: 'user', text: JSON.stringify(ctx.lyrics) }]
+      const maxTokens = Math.min(8192, 200 + ctx.lyrics.join(' ').length * 2)
 
-  const system = translationSystemPrompt(ctx.language, ctx.lyrics.length)
-  const input: ChatMessage[] = [{ role: 'user', text: JSON.stringify(ctx.lyrics) }]
-  const maxTokens = Math.min(8192, 200 + ctx.lyrics.join(' ').length * 2)
-
-  for (let tries = 0; tries < 2; tries++) {
-    if (tries === 1) {
-      const capped = await takeQuota(null)
-      if (capped) return fail(capped)
-    }
-    const res = await generate(system, input, { maxTokens, temperature: 0.2, json: true })
-    if (!res.ok) {
-      console.error('[beatie] provider', res.reason, res.detail)
-      return fail(res.reason)
-    }
-    const lines = parseLines(res.text, ctx.lyrics.length)
-    if (lines) {
-      if (cached) {
-        // Replace the stale row rather than leave two disagreeing.
-        await admin
-          .from('beatie_cache')
-          .delete()
-          .eq('song_id', ctx.songId)
-          .eq('kind', 'translate')
-          .eq('line_key', '')
-          .eq('language', ctx.language)
+      for (let tries = 0; tries < 2; tries++) {
+        if (tries === 1) {
+          const capped = await takeQuota(null)
+          if (capped) return { code: capped }
+        }
+        const res = await generate(system, input, {
+          maxTokens,
+          temperature: 0.2,
+          json: true,
+          timeoutMs: CACHED_TIMEOUT_MS,
+        })
+        if (!res.ok) {
+          console.error('[beatie] provider', res.reason, res.detail)
+          return { code: res.reason }
+        }
+        const lines = parseLines(res.text, count)
+        if (lines) return { content: JSON.stringify(lines) }
+        console.error(`[beatie] translation line count off (try ${tries + 1})`)
       }
-      await writeCache(ctx, 'translate', JSON.stringify(lines))
-      return ok(ctx, { lines, hasLyrics: true, cached: false })
-    }
-    console.error(`[beatie] translation line count off (try ${tries + 1})`)
-  }
-  return fail('error')
+      return { code: 'error' }
+    },
+    (content, _hasLyrics, cached) =>
+      ok(ctx, { lines: parseLines(content, count) ?? [], hasLyrics: true, cached }),
+    // A cached translation that no longer lines up with the lyrics (lrclib
+    // changed them) is stale and gets made again.
+    (content) => parseLines(content, count) !== null
+  )
 }
 
 /** A JSON array of exactly `count` strings, or null. */

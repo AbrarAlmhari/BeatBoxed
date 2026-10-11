@@ -45,7 +45,7 @@ For each request the function checks the user is signed in, loads the song, arti
 
 **Lyric safety:** explanations and chat may quote at most one lyric line (a line explanation, only the line being explained). An answer that quotes more is retried once with a stricter instruction, then not shown. Translations are exempt: they translate every line, and appear only on the Song page.
 
-**Errors** come back as codes, and the app turns each into a friendly message, never a raw error: `limit` (this user's 30 are used), `global` ("Beatie is taking a break, try again later"), `busy` (Gemini down or rate-limited: "Beatie is taking a break, try again in a minute"), `error` (anything else).
+**Errors** come back as codes, and the app turns each into a friendly message, never a raw error: `limit` (this user's 30 are used), `global` ("Beatie is taking a break, try again later"), `busy` (Gemini down, rate-limited or too slow: "Beatie is taking a break, try again in a minute"), `pending` ("Beatie's still writing this one, check back in a moment"), `error` (anything else).
 
 ### The model
 
@@ -60,7 +60,9 @@ Google retires model names: `gemini-2.5-flash` started answering 404 ("no longer
 
 **Thinking:** `gemini-3.8-flash` always thinks before answering. Beatie sets it to the lowest level the model accepts, `generationConfig.thinkingConfig.thinkingLevel: "low"` (`THINKING_LEVEL` in `provider.ts`). The model takes `low`, `medium` (its default) or `high`; `minimal` is rejected ([Google's thinking docs](https://ai.google.dev/gemini-api/docs/generate-content/thinking)). At the default, a long song ran past Beatie's old 25-second wait. Thinking tokens count toward the output limit, so every request also allows 2,048 extra output tokens (`THINKING_HEADROOM`). A different `GEMINI_MODEL` may need a different setting: Gemini 2.5 models use `thinkingBudget` instead.
 
-**Waiting:** Beatie waits up to 40 seconds for Gemini (`TIMEOUT_MS`) as a safety net, then shows "Beatie is taking a break". In the app, "Beatie is thinking…" becomes "Still thinking… long songs take a moment" after 8 seconds.
+**Waiting:** Beatie waits up to 60 seconds for Gemini on explanations, line explanations and translations (`CACHED_TIMEOUT_MS` in `index.ts`), which are cached, so a slow one is paid for once per song and language, and 40 seconds on chat (`CHAT_TIMEOUT_MS`). In the app, "Beatie is thinking…" becomes "Still thinking… long songs take a moment" after 8 seconds.
+
+**Finishing in the background:** a cacheable answer that isn't ready after 25 seconds (`RESPOND_WITHIN_MS`) is left to finish on the server (`EdgeRuntime.waitUntil`). The app shows "Beatie's still writing this one, check back in a moment" (code `pending`); the answer lands in the cache, and the next tap loads it free. While an answer is being written, its `beatie_cache` row exists with empty `content`: a claim, which the table's unique key lets only one request make, so the answer is asked of Gemini, and counted, once however many taps or people arrive meanwhile. A claim older than 3 minutes (`PENDING_STALE_MS`) means the background work died; it's cleared and the next tap starts again.
 
 **Deploying:** `supabase functions deploy beatie --use-api` (`--use-api` bundles on Supabase's side, so Docker isn't needed). The migration `0029_beatie.sql` must be applied first.
 
