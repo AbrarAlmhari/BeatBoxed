@@ -28,7 +28,8 @@ Keep this updated as the source of truth on progress — don't rely on chat hist
 - [ ] Library (liked songs, playlists, followed artists)
 - [ ] Playlist creation + detail view
 - [ ] Settings (theme, translation language, log out, notification preferences — per-type on/off for likes, comments, follower activity, and Beatboxed updates, enforced inside the shared `notify()` helper; followers & following visibility toggle — flips `profiles.friends_list_visible`)
-- [ ] Beatie chatbot wired to Gemini + lrclib
+- [x] Beatie wired to Gemini + lrclib, through the `beatie` Edge Function: Song page card (explain the song, explain a line, chat, translate the lyrics) and an Ask Beatie sheet on Home; cached answers, 30 requests per user and 150 Gemini calls per day for the app
+  - [ ] Apply `0029_beatie.sql` and deploy the `beatie` function to the live project, then check one real answer
 
 ## Week 7 — Polish pass + integration checkpoint (Nov 7 – Nov 13)
 

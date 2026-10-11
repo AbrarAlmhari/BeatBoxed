@@ -22,7 +22,7 @@ Design (theme, color system, full mockups for every screen) is already finished 
 
 Build in this order; do not start a stretch feature before the MVP list is fully working. Full detail in `docs/feature-map.md`.
 
-**MVP:** auth, home feed, search (song/artist/lyrics), song page (about/lyrics/reviews tabs), rating & review system, user profile, library/playlists, settings, Beatie chatbot (contextual sheet on Now Playing, not a separate tab).
+**MVP:** auth, home feed, search (song/artist/lyrics), song page (about/lyrics/reviews tabs), rating & review system, user profile, library/playlists, settings, Beatie (a card on the Song page, plus an Ask Beatie sheet on Home; Now Playing's Ask Beatie button jumps to the Song page card — see `docs/feature-map.md`).
 
 **Stretch (cut first if time is short):** social graph (one-way follows, built — see `user_follows` in `docs/data-model.md`), notification center, Spotify/Apple Music playlist import, genre-taste graph, mood-based recommendations, full multi-language UI translation, live Spotify account linking beyond the 5-user dev cap.
 

@@ -1,0 +1,11 @@
+# Supabase CLI settings for this repo. The remote project itself is chosen
+# with `supabase link`; this file only adds what the defaults don't cover.
+
+# Local identifier for the CLI; not the remote project ref.
+project_id = "beatboxed"
+
+[functions.beatie]
+# Beatie's personality lives in a Markdown file so the team can edit it
+# without touching code. It has to be listed here to be deployed with the
+# function; index.ts reads it at startup.
+static_files = ["./functions/beatie/personality.md"]

@@ -1,26 +1,21 @@
-import { Fragment, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react'
-import { ArrowLeft, AudioLines, Check, ChevronRight, Loader2, Search, X } from 'lucide-react'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { ArrowLeft, Check, Loader2, X } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { StarInput } from '@/components/ui/StarInput'
 import { Artwork } from './Artwork'
+import { SongPicker } from './SongPicker'
 import { useAuth } from '@/lib/auth'
-import { usePlayer } from '@/lib/player'
-import { useDebouncedValue } from '@/hooks/useDebouncedValue'
-import { normalizeSearch, searchCatalog, upsertReview } from '@/lib/catalog'
+import { upsertReview } from '@/lib/catalog'
 import { FEED_MIN_CHARS, feedLength, getMyReviews, type FeedReview } from '@/lib/feed'
-import { cn } from '@/lib/cn'
 import type { ReviewWithAuthor, SongCardModel } from '@/lib/types'
 
 const HEADLINE_MAX = 80
 
-type Option = { song: SongCardModel; group: 'now-playing' | 'results' }
-
 /**
  * "New review": pick a song, then write about it.
  *
- * Step 1 is a combobox — the search input and its listbox share one border
- * so they read as one control — over the same searchCatalog() that Explore
- * uses, including its Spotify top-up. Step 2 is the review itself; Post stays
+ * Step 1 is the shared SongPicker, with a "Reviewed" badge on songs the user
+ * has already written about. Step 2 is the review itself; Post stays
  * off until there's a rating and FEED_MIN_CHARS of written text, because
  * anything shorter wouldn't appear in the feed it was written from.
  *
@@ -38,7 +33,6 @@ export function ReviewComposer({
   onPosted: (review: FeedReview, wasEdit: boolean) => void
 }) {
   const { user } = useAuth()
-  const player = usePlayer()
   const titleId = useId()
   const listId = useId()
   const searchRef = useRef<HTMLInputElement>(null)
@@ -46,13 +40,7 @@ export function ReviewComposer({
 
   const [step, setStep] = useState<1 | 2>(1)
   const [query, setQuery] = useState('')
-  const debounced = useDebouncedValue(query, 250)
-  const [results, setResults] = useState<SongCardModel[] | null>(null)
-  const [searching, setSearching] = useState(false)
-  const [toppingUp, setToppingUp] = useState(false)
-  const [searchError, setSearchError] = useState(false)
   const [mine, setMine] = useState<Map<string, ReviewWithAuthor>>(new Map())
-  const [active, setActive] = useState(-1)
 
   const [chosen, setChosen] = useState<SongCardModel | null>(null)
   const [existing, setExisting] = useState<ReviewWithAuthor | null>(null)
@@ -68,8 +56,6 @@ export function ReviewComposer({
     if (!open) return
     setStep(1)
     setQuery('')
-    setResults(null)
-    setActive(-1)
     setChosen(null)
     setExisting(null)
     setRating(0)
@@ -79,75 +65,17 @@ export function ReviewComposer({
     setConfirmingDiscard(false)
   }, [open])
 
-  // Search: cached matches first, then whatever the Spotify top-up adds.
-  useEffect(() => {
-    const q = debounced.trim()
-    if (!open || !q) {
-      setResults(null)
-      setSearching(false)
-      setToppingUp(false)
-      setSearchError(false)
-      return
-    }
-    let current = true
-    setSearching(true)
-    setSearchError(false)
-    searchCatalog(q, 'songs', null, {
-      onLocalResults: (songs) => {
-        if (!current) return
-        setResults(songs)
-        setToppingUp(true)
-      },
-    })
-      .then((r) => {
-        if (current && r.mode === 'songs') setResults(r.songs)
-      })
-      .catch((err: unknown) => {
-        console.error('[beatboxed] composer search failed:', err)
-        if (current) setSearchError(true)
-      })
-      .finally(() => {
-        if (!current) return
-        setSearching(false)
-        setToppingUp(false)
-      })
-    return () => {
-      current = false
-    }
-  }, [debounced, open])
-
-  const nowPlaying = player.current
-  const options: Option[] = useMemo(() => {
-    const list: Option[] = []
-    if (nowPlaying) list.push({ song: nowPlaying, group: 'now-playing' })
-    for (const song of results ?? []) {
-      // Already offered under Now playing; once is enough.
-      if (song.id !== nowPlaying?.id) list.push({ song, group: 'results' })
-    }
-    return list
-  }, [nowPlaying, results])
-
-  // Which of these the user has already reviewed — the "Reviewed" badge, and
-  // what opens for editing instead of a blank form.
-  const optionIds = options.map((o) => o.song.id).join(',')
-  useEffect(() => {
-    if (!user || !optionIds) return
-    let current = true
-    getMyReviews(user.id, optionIds.split(','))
-      .then((m) => {
-        if (current) setMine((prev) => new Map([...prev, ...m]))
-      })
-      .catch((err: unknown) => console.warn('[beatboxed] own reviews lookup failed:', err))
-    return () => {
-      current = false
-    }
-  }, [user, optionIds])
-
-  // A new result list starts with nothing highlighted.
-  useEffect(() => setActive(-1), [results])
-
-  const typed = query.trim().length > 0
-  const listOpen = options.length > 0 || (typed && (results !== null || searching || searchError))
+  // Which offered songs the user has already reviewed — the "Reviewed"
+  // badge, and what opens for editing instead of a blank form.
+  const lookUpMine = useCallback(
+    (ids: string[]) => {
+      if (!user || ids.length === 0) return
+      getMyReviews(user.id, ids)
+        .then((m) => setMine((prev) => new Map([...prev, ...m])))
+        .catch((err: unknown) => console.warn('[beatboxed] own reviews lookup failed:', err))
+    },
+    [user]
+  )
 
   function pick(song: SongCardModel) {
     const theirs = mine.get(song.id) ?? null
@@ -166,26 +94,6 @@ export function ReviewComposer({
     setChosen(song)
     setPostError(null)
     setStep(2)
-  }
-
-  function onSearchKey(e: KeyboardEvent<HTMLInputElement>) {
-    if (e.key === 'ArrowDown') {
-      e.preventDefault()
-      if (options.length) setActive((i) => (i + 1) % options.length)
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault()
-      if (options.length) setActive((i) => (i <= 0 ? options.length - 1 : i - 1))
-    } else if (e.key === 'Enter') {
-      e.preventDefault()
-      const option = options[active] ?? (options.length === 1 ? options[0] : undefined)
-      if (option) pick(option.song)
-    } else if (e.key === 'Escape' && (query || active >= 0)) {
-      // First Escape clears the search; a second one closes the sheet.
-      e.preventDefault()
-      e.stopPropagation()
-      setQuery('')
-      setActive(-1)
-    }
   }
 
   // Back to step 1: the search is still there, and the cursor is in it.
@@ -235,9 +143,6 @@ export function ReviewComposer({
     }
   }
 
-  const activeId = active >= 0 ? `${listId}-opt-${active}` : undefined
-  const words = useMemo(() => normalizeSearch(query).split(' ').filter(Boolean), [query])
-
   return (
     <Modal
       open={open}
@@ -277,97 +182,20 @@ export function ReviewComposer({
       {/* Body */}
       <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-5">
         {step === 1 ? (
-          <div className="flex flex-col gap-3">
-            <label htmlFor={`${listId}-search`} className="text-secondary text-muted-foreground">
-              Which song is this about?
-            </label>
-            {/* One bordered control: the input, and the list hanging off it. */}
-            <div
-              className={cn(
-                'overflow-hidden rounded-card border bg-surface-2 transition-colors duration-200 ease-soft',
-                'border-white/10 focus-within:border-primary/70'
-              )}
-            >
-              <div className="relative">
-                <Search
-                  className="pointer-events-none absolute left-3.5 top-1/2 size-[18px] -translate-y-1/2 text-muted-foreground"
-                  strokeWidth={1.75}
-                  aria-hidden
-                />
-                <input
-                  ref={searchRef}
-                  id={`${listId}-search`}
-                  type="text"
-                  role="combobox"
-                  aria-expanded={Boolean(listOpen)}
-                  aria-controls={listId}
-                  aria-autocomplete="list"
-                  aria-activedescendant={activeId}
-                  autoComplete="off"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  onKeyDown={onSearchKey}
-                  placeholder="Search for a song or artist"
-                  className="w-full bg-transparent py-3.5 pl-11 pr-4 text-body text-foreground placeholder:text-muted-foreground/70 focus:outline-none"
-                />
-              </div>
-
-              {listOpen && (
-                <div className="border-t border-white/5">
-                  <ul id={listId} role="listbox" aria-label="Songs" className="flex flex-col py-1">
-                    {options.map((o, i) => (
-                      <Fragment key={`${o.group}-${o.song.id}`}>
-                        {(i === 0 || options[i - 1].group !== o.group) && (
-                          <li
-                            role="presentation"
-                            className={cn(
-                              'px-4 pb-1.5 pt-2.5 text-meta uppercase tracking-wide text-muted-foreground',
-                              i > 0 && 'mt-1 border-t border-white/5'
-                            )}
-                          >
-                            {o.group === 'now-playing' ? 'Now playing' : 'Songs'}
-                          </li>
-                        )}
-                        <SongOption
-                          id={`${listId}-opt-${i}`}
-                          song={o.song}
-                          words={o.group === 'results' ? words : []}
-                          active={i === active}
-                          reviewed={mine.has(o.song.id)}
-                          nowPlaying={o.group === 'now-playing'}
-                          onHover={() => setActive(i)}
-                          onPick={() => pick(o.song)}
-                        />
-                      </Fragment>
-                    ))}
-                  </ul>
-
-                  {typed && searchError && (
-                    <p className="px-4 py-3 text-secondary text-danger">
-                      Search failed. Check your connection and try again.
-                    </p>
-                  )}
-                  {typed && !searching && !searchError && results?.length === 0 && (
-                    <p className="px-4 py-3 text-secondary text-muted-foreground">
-                      No songs found. Try adding the artist's name.
-                    </p>
-                  )}
-                  {typed && (toppingUp || (searching && results === null)) && (
-                    <p
-                      role="status"
-                      className="flex items-center gap-2 border-t border-white/5 px-4 py-3 text-secondary text-muted-foreground"
-                    >
-                      <Loader2 className="size-4 animate-spin" strokeWidth={2} aria-hidden />
-                      {toppingUp ? 'Looking on Spotify for more matches…' : 'Searching…'}
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
-            <p className="text-secondary text-muted-foreground">
-              Tip: add the artist to narrow it down, like “karma radiohead”.
-            </p>
-          </div>
+          <SongPicker
+            query={query}
+            onQueryChange={setQuery}
+            onPick={pick}
+            inputRef={searchRef}
+            onOptionIdsChange={lookUpMine}
+            renderBadge={(song) =>
+              mine.has(song.id) ? (
+                <span className="shrink-0 rounded-full bg-star/15 px-2.5 py-1 text-meta text-star">
+                  Reviewed
+                </span>
+              ) : null
+            }
+          />
         ) : chosen ? (
           <div className="flex flex-col gap-5">
             <div className="flex items-center gap-3 rounded-card bg-surface-2 p-3">
@@ -522,90 +350,6 @@ function StepIndicator({ step }: { step: 1 | 2 }) {
         2 Write
       </li>
     </ol>
-  )
-}
-
-function SongOption({
-  id,
-  song,
-  words,
-  active,
-  reviewed,
-  nowPlaying,
-  onHover,
-  onPick,
-}: {
-  id: string
-  song: SongCardModel
-  words: string[]
-  active: boolean
-  reviewed: boolean
-  nowPlaying: boolean
-  onHover: () => void
-  onPick: () => void
-}) {
-  // Scroll the keyboard's current option into view inside the sheet.
-  const ref = useRef<HTMLLIElement>(null)
-  useEffect(() => {
-    if (active) ref.current?.scrollIntoView({ block: 'nearest' })
-  }, [active])
-
-  return (
-    <li
-      ref={ref}
-      id={id}
-      role="option"
-      aria-selected={active}
-      onMouseEnter={onHover}
-      // mousedown, not click: keeps focus in the input, as a combobox should.
-      onMouseDown={(e) => {
-        e.preventDefault()
-        onPick()
-      }}
-      className={cn(
-        'flex cursor-pointer items-center gap-3 px-4 py-2.5 transition-colors duration-150 ease-soft',
-        active ? 'bg-white/[0.06]' : 'hover:bg-white/[0.04]'
-      )}
-    >
-      <Artwork src={song.coverUrl} seed={song.id} className="size-11" />
-      <span className="flex min-w-0 flex-1 flex-col">
-        <span dir="auto" className="truncate text-card-title">
-          <Highlighted text={song.title} words={words} />
-        </span>
-        <span className="truncate text-secondary text-muted-foreground">
-          {[song.artistName, song.albumTitle].filter(Boolean).join(' · ')}
-        </span>
-      </span>
-      {reviewed ? (
-        <span className="shrink-0 rounded-full bg-star/15 px-2.5 py-1 text-meta text-star">
-          Reviewed
-        </span>
-      ) : nowPlaying ? (
-        <AudioLines className="size-4 shrink-0 text-primary" strokeWidth={2} aria-label="Playing" />
-      ) : (
-        <ChevronRight className="size-4 shrink-0 text-muted-foreground" strokeWidth={2} aria-hidden />
-      )}
-    </li>
-  )
-}
-
-/** The title with the typed words picked out in the accent colour. */
-function Highlighted({ text, words }: { text: string; words: string[] }) {
-  if (words.length === 0) return <>{text}</>
-  const escaped = words.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
-  const parts = text.split(new RegExp(`(${escaped.join('|')})`, 'gi'))
-  return (
-    <>
-      {parts.map((part, i) =>
-        i % 2 === 1 ? (
-          <mark key={i} className="bg-transparent text-accent">
-            {part}
-          </mark>
-        ) : (
-          <Fragment key={i}>{part}</Fragment>
-        )
-      )}
-    </>
   )
 }
 

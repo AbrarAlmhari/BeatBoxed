@@ -18,9 +18,38 @@ Genius (`api.genius.com`) can still be used for artist bios, song metadata, and 
 
 ## Gemini API (Beatie)
 
-Generate a key from **Google AI Studio** (https://aistudio.google.com), not from the consumer Gemini app — a Gemini Pro/Advanced subscription does not include API credits, they're billed/rate-limited separately. The free tier has generous-enough rate limits for a class project's usage pattern (a handful of users asking occasional questions). Store as `GEMINI_API_KEY`, called from a Supabase Edge Function so the key never reaches the browser.
+Generate a key from **Google AI Studio** (https://aistudio.google.com), not from the consumer Gemini app — a Gemini Pro/Advanced subscription does not include API credits, they're billed/rate-limited separately. The key is stored only as the Supabase secret `GEMINI_API_KEY` (`supabase secrets set GEMINI_API_KEY=...`). It is never in the repo and never reaches the browser; the frontend needs no Gemini setting at all.
 
-Keep prompts scoped ("explain this specific lyric line," "translate this specific line") rather than open-ended chat — narrower prompts are both cheaper and more reliable.
+### The `beatie` Edge Function
+
+Every Beatie request goes through `supabase/functions/beatie/`. The browser sends only a song id (plus the conversation, for chat):
+
+| action | What it does | Cached? |
+|---|---|---|
+| `explain` | "What's this song about?" | Yes, per song + language |
+| `line` | Explain one lyric line (must be a real line of the song) | Yes, per song + line + language |
+| `translate` | The whole song, one request, returned as a JSON array with one line per original; one retry if the count is off | Yes, per song + language |
+| `chat` | A follow-up question; at most the 10 most recent messages, a question of at most 500 characters | Never |
+
+For each request the function checks the user is signed in, loads the song, artist and album from the database, reads the user's language (`profiles.translation_language`, English if unset), and fetches the lyrics itself through `lyrics-lookup`, asked the same way the Song page asks so both get the same lines.
+
+**Files:**
+- `provider.ts`: the only Gemini-specific code (model, endpoint, request and response format, secret name), behind `generate(systemPrompt, messages, options)`. Switching AI provider means rewriting this file and setting a different secret. The model is the `MODEL` constant there (`gemini-2.5-flash`, on the free tier). Thinking is turned off: Beatie's answers are short, and thinking tokens use the same free-tier quota.
+- `personality.md`: Beatie's voice and rules, editable without touching code. Used as the system prompt for explanations and chat, followed by the song context. It must stay listed under `static_files` in `supabase/config.toml` to be deployed.
+- `prompts.ts`: the song context, the task wording, the separate short translation instruction (translations don't use the personality), and the lyric-quote check.
+- `index.ts`: the request flow, cache, limits and error codes.
+
+**Cache:** `beatie_cache` (see `docs/data-model.md`). A cache hit is answered without calling Gemini and doesn't count toward any limit. An answer made while the lyrics lookup was failing is shown but not cached, so a temporary lrclib outage can't record "no lyrics" for a song permanently.
+
+**Limits** (constants at the top of `index.ts`): 30 requests per user per day, and 150 Gemini calls per day for the whole app, retries included. Both are taken by `beatie_take_quota()` in single statements, so rapid requests can't get past them. Days reset at midnight UTC. There is never more than one automatic retry per request: once if an explanation or chat answer quotes too much of the lyrics, once if a translation's line count is off.
+
+**Lyric safety:** explanations and chat may quote at most one lyric line (a line explanation, only the line being explained). An answer that quotes more is retried once with a stricter instruction, then not shown. Translations are exempt: they translate every line, and appear only on the Song page.
+
+**Errors** come back as codes, and the app turns each into a friendly message, never a raw error: `limit` (this user's 30 are used), `global` ("Beatie is taking a break, try again later"), `busy` (Gemini down or rate-limited: "Beatie is taking a break, try again in a minute"), `error` (anything else).
+
+**Deploying:** `supabase functions deploy beatie`. The migration `0029_beatie.sql` must be applied first.
+
+**Lyrics language** (for showing the Translate button) is detected in the browser without AI: by alphabet for Arabic and Hindi, and by how many very common English words a Latin-script text has.
 
 ## Environment variables
 

@@ -18,6 +18,8 @@ import { FollowButton } from '@/components/ui/FollowButton'
 import { AddToPlaylistButton } from '@/components/playlist/AddToPlaylistButton'
 import { StarRating } from '@/components/ui/StarRating'
 import { ReviewsTab } from '@/components/song/ReviewsTab'
+import { BeatieCard } from '@/components/beatie/BeatieCard'
+import { LyricsView } from '@/components/beatie/LyricsView'
 import { tintFor } from '@/components/explore/tint'
 import {
   getLyrics,
@@ -30,10 +32,11 @@ import {
 import { useAuth } from '@/lib/auth'
 import type { LyricsResult, SongDetail } from '@/lib/types'
 
-type Section = 'about' | 'lyrics' | 'reviews'
+type Section = 'about' | 'beatie' | 'lyrics' | 'reviews'
 
 const SECTIONS: { id: Section; label: string }[] = [
   { id: 'about', label: 'About' },
+  { id: 'beatie', label: 'Beatie' },
   { id: 'lyrics', label: 'Lyrics' },
   { id: 'reviews', label: 'Reviews' },
 ]
@@ -84,10 +87,12 @@ export default function Song() {
   const [liked, setLiked] = useState(false)
   const [active, setActive] = useState<Section>('about')
   const aboutRef = useRef<HTMLElement>(null)
+  const beatieRef = useRef<HTMLElement>(null)
   const lyricsRef = useRef<HTMLElement>(null)
   const reviewsRef = useRef<HTMLElement>(null)
   const sectionRefs: Record<Section, React.RefObject<HTMLElement | null>> = {
     about: aboutRef,
+    beatie: beatieRef,
     lyrics: lyricsRef,
     reviews: reviewsRef,
   }
@@ -169,7 +174,7 @@ export default function Song() {
   // section lights up as it arrives rather than when it fills the screen.
   useEffect(() => {
     if (!song) return
-    const els = [aboutRef.current, lyricsRef.current, reviewsRef.current].filter(
+    const els = [aboutRef.current, beatieRef.current, lyricsRef.current, reviewsRef.current].filter(
       (el): el is HTMLElement => Boolean(el)
     )
     if (els.length === 0) return
@@ -186,6 +191,17 @@ export default function Song() {
     els.forEach((el) => observer.observe(el))
     return () => observer.disconnect()
   }, [song])
+
+  // Now Playing's "Ask Beatie" lands on /song/:id#beatie: go straight to
+  // the card once the page has rendered it.
+  useEffect(() => {
+    if (!song || location.hash !== '#beatie') return
+    const t = setTimeout(() => {
+      setActive('beatie')
+      beatieRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 50)
+    return () => clearTimeout(t)
+  }, [song, location.hash])
 
   const refreshStats = useCallback(() => {
     if (!song) return
@@ -440,6 +456,10 @@ export default function Song() {
         </dl>
       </section>
 
+      <section id="beatie" ref={beatieRef} aria-label="Beatie" className="scroll-mt-36">
+        <BeatieCard songId={song.id} />
+      </section>
+
       <section id="lyrics" ref={lyricsRef} aria-label="Lyrics" className="scroll-mt-36">
         <button
           type="button"
@@ -473,13 +493,7 @@ export default function Song() {
                     player, which isn't built yet.
                   </p>
                 )}
-                <div className="flex flex-col gap-1.5 rounded-card bg-surface p-5 shadow-card">
-                  {lyrics.lines.map((line, i) => (
-                    <p key={i} dir="auto" className="text-body">
-                      {line}
-                    </p>
-                  ))}
-                </div>
+                <LyricsView songId={song.id} lines={lyrics.lines} />
               </div>
             ) : (
               <div className="flex flex-col items-center gap-3 rounded-card bg-surface px-6 py-14 text-center">

@@ -300,16 +300,14 @@ export default function NowPlaying() {
           </a>
         )}
 
-        {/* Beatie opens from here later; the slot is reserved, not wired. */}
-        <button
-          type="button"
-          disabled
-          title="Beatie is coming soon"
-          className="flex items-center gap-2 rounded-button bg-surface-2 px-3.5 py-2.5 text-button text-muted-foreground opacity-50"
+        {/* Beatie lives on the Song page; this jumps straight to its card. */}
+        <Link
+          to={`/song/${current.id}#beatie`}
+          className="flex items-center gap-2 rounded-button bg-surface-2 px-3.5 py-2.5 text-button text-muted-foreground transition-all duration-200 ease-soft hover:text-foreground active:scale-[0.98]"
         >
-          <Sparkles className="size-4" strokeWidth={1.75} />
+          <Sparkles className="size-4 text-accent" strokeWidth={1.75} />
           Ask Beatie
-        </button>
+        </Link>
       </div>
     </div>
   )
