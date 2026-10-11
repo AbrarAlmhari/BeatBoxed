@@ -29,7 +29,7 @@ Keep this updated as the source of truth on progress — don't rely on chat hist
 - [ ] Playlist creation + detail view
 - [ ] Settings (theme, translation language, log out, notification preferences — per-type on/off for likes, comments, follower activity, and Beatboxed updates, enforced inside the shared `notify()` helper; followers & following visibility toggle — flips `profiles.friends_list_visible`)
 - [x] Beatie wired to Gemini + lrclib, through the `beatie` Edge Function: Song page card (explain the song, explain a line, chat, translate the lyrics) and an Ask Beatie sheet on Home; cached answers, 30 requests per user and 150 Gemini calls per day for the app
-  - [x] `0029_beatie.sql` applied and the `beatie` function deployed to the live project (model `gemini-3.8-flash`, set by the `GEMINI_MODEL` secret); one real answer checked
+  - [x] `0029_beatie.sql` applied and the `beatie` function deployed to the live project (model set by the `GEMINI_MODEL` secret, currently `gemini-3.6-flash`); one real answer checked
 
 ## Week 7 — Polish pass + integration checkpoint (Nov 7 – Nov 13)
 

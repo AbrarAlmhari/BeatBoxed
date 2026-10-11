@@ -49,7 +49,9 @@ For each request the function checks the user is signed in, loads the song, arti
 
 ### The model
 
-Beatie uses **`gemini-3.8-flash`**, a Flash model on the free tier. It's read from the Supabase secret **`GEMINI_MODEL`** on every request, falling back to the `FALLBACK_MODEL` constant in `provider.ts` if the secret isn't set.
+The live model is set by the Supabase secret **`GEMINI_MODEL`**, read on every request: currently **`gemini-3.6-flash`**. If the secret isn't set, `FALLBACK_MODEL` in `provider.ts` applies (`gemini-3.8-flash`).
+
+Why 3.6 rather than the newer 3.8 (October 2026): `gemini-3.8-flash` answered HTTP 503 (overloaded) and was too slow for an Arabic explanation, while `gemini-3.6-flash` answered the same request in about 15 seconds. 3.6 Flash also accepts thinking level `low` (and `minimal`) per Google's thinking docs. `gemini-3.5-flash` still appears in the key's model list but isn't in Google's current docs, so it wasn't used.
 
 To change it:
 1. List the models the key can use (this uses no generation quota): `GET https://generativelanguage.googleapis.com/v1beta/models` with the header `x-goog-api-key: <GEMINI_API_KEY>`. Pick one whose `supportedGenerationMethods` includes `generateContent`. Run it from somewhere the key already lives (the key is only a Supabase secret), and never commit the key.
@@ -58,7 +60,7 @@ To change it:
 
 Google retires model names: `gemini-2.5-flash` started answering 404 ("no longer available to new users") in October 2026, which is why the model is a secret rather than a constant. When that happens, Beatie shows its general error message and the function log shows `[beatie] provider error HTTP 404`.
 
-**Thinking:** `gemini-3.8-flash` always thinks before answering. Beatie sets it to the lowest level the model accepts, `generationConfig.thinkingConfig.thinkingLevel: "low"` (`THINKING_LEVEL` in `provider.ts`). The model takes `low`, `medium` (its default) or `high`; `minimal` is rejected ([Google's thinking docs](https://ai.google.dev/gemini-api/docs/generate-content/thinking)). At the default, a long song ran past Beatie's old 25-second wait. Thinking tokens count toward the output limit, so every request also allows 2,048 extra output tokens (`THINKING_HEADROOM`). A different `GEMINI_MODEL` may need a different setting: Gemini 2.5 models use `thinkingBudget` instead.
+**Thinking:** Gemini 3 Flash models always think before answering. Beatie sets `generationConfig.thinkingConfig.thinkingLevel: "low"` (`THINKING_LEVEL` in `provider.ts`), accepted by both `gemini-3.6-flash` (which takes minimal, low, medium, high) and `gemini-3.8-flash` (low, medium, high; `minimal` is rejected) ([Google's thinking docs](https://ai.google.dev/gemini-api/docs/generate-content/thinking)). At the default, a long song ran past Beatie's old 25-second wait. Thinking tokens count toward the output limit, so every request also allows 2,048 extra output tokens (`THINKING_HEADROOM`). A different `GEMINI_MODEL` may need a different setting: Gemini 2.5 models use `thinkingBudget` instead.
 
 **Waiting:** each job has a budget for all its Gemini calls together. Explanations, line explanations and translations get 140 seconds (`CACHED_BUDGET_MS` in `index.ts`), just under Supabase's 150-second limit for a function: they're cached, and past 25 seconds they finish in the background while the user sees "check back", so nobody waits that long. Chat gets 40 seconds (`CHAT_BUDGET_MS`): it isn't cached and the user is waiting on it. A retry only starts if at least 20 seconds of budget remain. In the app, "Beatie is thinking…" becomes "Still thinking… long songs take a moment" after 8 seconds.
 
