@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { ChevronRight, Loader2, PenLine, Sparkles, Users } from 'lucide-react'
+import { Loader2, PenLine, Users } from 'lucide-react'
 import { FeedCard } from '@/components/feed/FeedCard'
 import { ReviewComposer } from '@/components/feed/ReviewComposer'
 import { AskBeatieSheet } from '@/components/beatie/AskBeatieSheet'
+import { AskBeatiePill } from '@/components/beatie/AskBeatiePill'
 import { PersonCard } from '@/components/people/PersonCard'
 import { useAuth } from '@/lib/auth'
 import { useProfile } from '@/hooks/useProfile'
@@ -179,26 +180,29 @@ export default function Home() {
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-5 pb-4">
       <h1 className="sr-only">Home</h1>
 
-      <div role="tablist" aria-label="Feed" className="flex gap-2">
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            role="tab"
-            id={`feed-tab-${t.id}`}
-            aria-selected={tab === t.id}
-            aria-controls={`feed-panel-${t.id}`}
-            onClick={() => setTab(t.id)}
-            className={cn(
-              'rounded-full border px-4 py-2 text-button transition-colors duration-200 ease-soft',
-              tab === t.id
-                ? 'border-primary/60 bg-primary/15 text-foreground'
-                : 'border-transparent bg-surface text-muted-foreground hover:bg-surface-2 hover:text-foreground'
-            )}
-          >
-            {t.label}
-          </button>
-        ))}
+      <div className="flex items-center gap-2">
+        <div role="tablist" aria-label="Feed" className="flex gap-2">
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              role="tab"
+              id={`feed-tab-${t.id}`}
+              aria-selected={tab === t.id}
+              aria-controls={`feed-panel-${t.id}`}
+              onClick={() => setTab(t.id)}
+              className={cn(
+                'rounded-full border px-4 py-2 text-button transition-colors duration-200 ease-soft',
+                tab === t.id
+                  ? 'border-primary/60 bg-primary/15 text-foreground'
+                  : 'border-transparent bg-surface text-muted-foreground hover:bg-surface-2 hover:text-foreground'
+              )}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+        <AskBeatiePill onOpen={() => setAskingBeatie(true)} />
       </div>
 
       {/* The way in to writing: looks like a field, opens the composer. */}
@@ -219,23 +223,6 @@ export default function Home() {
         <PenLine className="size-5 shrink-0 text-primary" strokeWidth={1.75} aria-hidden />
       </button>
 
-      {/* The other way in from Home: talk about a song rather than review it. */}
-      <button
-        type="button"
-        onClick={() => setAskingBeatie(true)}
-        className="-mt-2 flex items-center gap-3 rounded-card border border-white/5 bg-surface p-4 text-left shadow-card transition-colors duration-200 ease-soft hover:bg-surface-2"
-      >
-        <span className="grid size-10 shrink-0 place-items-center rounded-full bg-primary/15">
-          <Sparkles className="size-5 text-accent" strokeWidth={2} aria-hidden />
-        </span>
-        <span className="flex flex-1 flex-col">
-          <span className="text-card-title">Ask Beatie</span>
-          <span className="text-secondary text-muted-foreground">
-            What a song means, its story, the artist
-          </span>
-        </span>
-        <ChevronRight className="size-5 shrink-0 text-muted-foreground" strokeWidth={1.75} aria-hidden />
-      </button>
 
       <section
         role="tabpanel"

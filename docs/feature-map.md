@@ -3,7 +3,7 @@
 ## MVP (build first, in roughly this order)
 
 1. Auth — login / create account (Supabase Auth)
-2. Home — the review feed: For You and Following tabs, a "What song is on your mind?" composer, and an Ask Beatie button (see 10)
+2. Home — the review feed: For You and Following tabs with an Ask Beatie pill at the end of the tab row (see 10), and a "What song is on your mind?" composer
    - The song rails (Trending, For You, Recently viewed) live on Explore's browse view.
    - **Trending** ranks by `songs.popularity` (Deezer rank) descending, falling back to `cached_at` for unmatched tracks. It is *not* review-based: it ranks only songs already in Beatboxed's cache, so it means "most popular of what we've cached", not a global chart.
    - **Recently viewed** merges songs the user opened (`song_views`) and played (`play_history`), newest first, each once.
@@ -16,10 +16,11 @@
 8. Playlist creation and detail view
 9. Settings — theme, translation language, log out
 10. Beatie — the music buddy, powered by Gemini through the `beatie` Edge Function (details in `docs/api-integrations.md`)
-    - **Song page card:** "What's this song about?" (2–4 short paragraphs), then an Ask Beatie chat about that song. The chat is kept only for the current visit, never saved. Off-topic questions are steered back to the song.
+    - **Song page card:** "What's this song about?" (2–3 short paragraphs), then an Ask Beatie chat about that song. The chat is kept only for the current visit, never saved. Off-topic questions are steered back to the song.
     - **Explain this line:** tap a lyric line; a bottom sheet on phones, a popover beside the line on wider screens.
     - **Translate:** a "Translate to <language>" button at the top of the lyrics, shown only when the lyrics' language (detected without AI) differs from the user's Settings language. The whole song is translated in one request and shown line by line under the originals, labelled "Translated by Beatie · may not be exact". Translations appear only on the Song page — never in the feed, reviews or shared content.
-    - **Home:** an Ask Beatie button opens a sheet: pick a song (the review composer's picker), then the same chat. **Now Playing:** its Ask Beatie button jumps to the Song page card.
+    - **Home:** an Ask Beatie pill at the end of the For You / Following row (only Beatie's face under 370px wide) opens a sheet: pick a song (the review composer's picker), then the same chat. The first time a user sees it, a one-time bubble says "Hi, I'm Beatie! Ask me about any song." (remembered per user in the browser). **Now Playing:** its Ask Beatie button jumps to the Song page card.
+    - **Character:** Beatie's art is in `src/assets/beatie/` (read its README): `beatie-mark` at small sizes (the pill, chat avatars, icons in buttons), `beatie-default` on the card and sheet, `thinking` while waiting, `happy` once an answer arrives, `sleepy` for "taking a break" and the daily limit, `sad` for other errors and no lyrics, `excited` for the hello bubble. All through `BeatieImage`, which keeps the README's minimum sizes.
     - **No lyrics:** Beatie says it doesn't have them and works from the title, artist and album only; it never invents lyrics.
     - Beatie answers in the user's Settings language (English if unset), or in whatever language the user writes to it in.
 

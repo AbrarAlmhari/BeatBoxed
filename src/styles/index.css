@@ -72,6 +72,12 @@
   --ease-soft: cubic-bezier(0.2, 0.6, 0.2, 1);
   --animate-page-in: page-in 260ms cubic-bezier(0.2, 0.6, 0.2, 1) both;
   --animate-fade-in: fade-in 200ms cubic-bezier(0.2, 0.6, 0.2, 1) both;
+  /*
+   * Beatie while a request is running. A deliberate, narrow exception to
+   * "no bouncing": a 2px bob, only while Beatie is thinking, and switched
+   * off under reduced motion (motion-reduce:animate-none).
+   */
+  --animate-beatie-bob: beatie-bob 1.6s ease-in-out infinite;
 }
 
 @keyframes page-in {
@@ -82,6 +88,16 @@
   to {
     opacity: 1;
     transform: none;
+  }
+}
+
+@keyframes beatie-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2px);
   }
 }
 

@@ -345,6 +345,59 @@ test.describe('Beatie', () => {
     await expect(page.getByRole('button', { name: 'Translate to Arabic' })).toBeVisible()
   })
 
+  test('the Ask Beatie pill: hello once, then never again; keyboard and small screens', async ({
+    page,
+  }) => {
+    const fresh = await createTestUser('beatie-hello')
+    await login(page, fresh.email)
+    await page.goto('/')
+
+    // The pill sits in the tab row but isn't a tab.
+    const pill = page.getByRole('button', { name: 'Ask Beatie', exact: true })
+    await expect(pill).toBeVisible()
+    await expect(page.getByRole('tablist').getByRole('button', { name: 'Ask Beatie' })).toHaveCount(0)
+    const box = await pill.boundingBox()
+    // Rounded: high-density screens report 44px as 43.99999.
+    expect(Math.round(box!.height)).toBeGreaterThanOrEqual(44)
+    expect(Math.round(box!.width)).toBeGreaterThanOrEqual(44)
+
+    // First visit: Beatie says hello; a tap dismisses it.
+    const hello = page.getByText("Hi, I'm Beatie! Ask me about any song.")
+    await expect(hello).toBeVisible()
+    await hello.click()
+    await expect(hello).toHaveCount(0)
+
+    // Remembered: not shown again after a reload.
+    await page.reload()
+    await expect(page.getByRole('tab', { name: 'For You' })).toBeVisible()
+    await page.waitForTimeout(1000)
+    await expect(hello).toHaveCount(0)
+
+    // Reachable and usable from the keyboard.
+    await pill.focus()
+    await expect(pill).toBeFocused()
+    await page.keyboard.press('Enter')
+    await expect(page.getByRole('dialog', { name: 'Ask Beatie' })).toBeVisible()
+    await page.keyboard.press('Escape')
+
+    // Under 370px only Beatie's face shows, but the name is still announced.
+    await page.setViewportSize({ width: 360, height: 780 })
+    await expect(pill).toBeVisible()
+    await expect(pill.getByText('Ask Beatie')).toHaveCSS('position', 'absolute')
+    await expect(pill).toHaveAccessibleName('Ask Beatie')
+  })
+
+  test('the hello bubble also goes away by itself', async ({ page }) => {
+    await page.clock.install()
+    const fresh = await createTestUser('beatie-hello-timeout')
+    await login(page, fresh.email)
+    await page.goto('/')
+    const hello = page.getByText("Hi, I'm Beatie! Ask me about any song.")
+    await expect(hello).toBeVisible()
+    await page.clock.fastForward(7_000)
+    await expect(hello).toHaveCount(0)
+  })
+
   test("Home's Ask Beatie: pick a song, and the chat opens", async ({ page }) => {
     await mockLyrics(page, ENGLISH)
     await mockBeatie(page, (b) =>
@@ -353,7 +406,7 @@ test.describe('Beatie', () => {
     await login(page, user.email)
     await page.goto('/')
 
-    await page.getByRole('button', { name: /Ask Beatie/ }).first().click()
+    await page.getByRole('button', { name: 'Ask Beatie', exact: true }).click()
     const sheet = page.getByRole('dialog', { name: 'Ask Beatie' })
     await expect(sheet).toBeVisible()
 

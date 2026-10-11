@@ -1,10 +1,11 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowLeft, Sparkles, X } from 'lucide-react'
+import { ArrowLeft, X } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { SongPicker } from '@/components/feed/SongPicker'
 import { Artwork } from '@/components/feed/Artwork'
 import { BeatieChat } from './BeatieChat'
+import { BeatieImage } from './BeatieImage'
 import type { SongCardModel } from '@/lib/types'
 
 /**
@@ -21,6 +22,8 @@ export function AskBeatieSheet({ open, onClose }: { open: boolean; onClose: () =
   const [step, setStep] = useState<1 | 2>(1)
   const [query, setQuery] = useState('')
   const [song, setSong] = useState<SongCardModel | null>(null)
+  // Beatie's face in the header: normal, then happy once an answer arrives.
+  const [answered, setAnswered] = useState(false)
 
   // Each opening starts at the picker; the conversation isn't kept.
   useEffect(() => {
@@ -28,6 +31,7 @@ export function AskBeatieSheet({ open, onClose }: { open: boolean; onClose: () =
     setStep(1)
     setQuery('')
     setSong(null)
+    setAnswered(false)
   }, [open])
 
   useEffect(() => {
@@ -53,7 +57,7 @@ export function AskBeatieSheet({ open, onClose }: { open: boolean; onClose: () =
             <ArrowLeft className="size-5" strokeWidth={1.75} />
           </button>
         )}
-        <Sparkles className="size-5 text-accent" strokeWidth={2} aria-hidden />
+        <BeatieImage mood={answered ? 'happy' : 'default'} size={48} />
         <h2 id={titleId} className="flex-1 text-section-title">
           Ask Beatie
         </h2>
@@ -76,6 +80,7 @@ export function AskBeatieSheet({ open, onClose }: { open: boolean; onClose: () =
             label="Which song do you want to talk about?"
             onPick={(picked) => {
               setSong(picked)
+              setAnswered(false)
               setStep(2)
             }}
           />
@@ -99,7 +104,7 @@ export function AskBeatieSheet({ open, onClose }: { open: boolean; onClose: () =
                 Open song page
               </Link>
             </div>
-            <BeatieChat songId={song.id} />
+            <BeatieChat songId={song.id} onAnswered={() => setAnswered(true)} />
           </div>
         )}
       </div>

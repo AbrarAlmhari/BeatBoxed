@@ -41,7 +41,7 @@ Inter throughout.
 - **Buttons:** primary = `#8B5CF6` fill + white text, 8–10px radius; secondary = `#181820` fill; ghost = transparent + white/secondary text. Not every button should be pill-shaped.
 - **Navigation:** inactive = `#A1A1AA`; active = white text/icon + `#8B5CF6` accent, optional low-opacity purple background. Bottom nav: Home / Explore / Library / Profile (per mockup — no search icon in the bottom nav, search lives inside Explore).
 - **Icons:** one consistent stroke-based icon set throughout.
-- **Animations:** subtle only — fades, slight scale, smooth card/album-artwork transitions. No bouncing, no particle effects, no constant motion.
+- **Animations:** subtle only — fades, slight scale, smooth card/album-artwork transitions. No bouncing, no particle effects, no constant motion. One deliberate exception: Beatie's thinking face bobs 2px while a request is running (`animate-beatie-bob`), only then, and not at all when the user has reduced motion on.
 
 ## Layout principles
 

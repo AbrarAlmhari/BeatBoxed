@@ -1,20 +1,25 @@
-import { Sparkles } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { BeatieChat } from './BeatieChat'
+import { BeatieImage } from './BeatieImage'
 
-/** Beatie's card on the Song page: the label, then the shared chat. */
+/**
+ * Beatie's card on the Song page: Beatie's face and name, then the shared
+ * chat. The face is the normal one until an answer arrives, then happy.
+ */
 export function BeatieCard({ songId }: { songId: string }) {
+  const [answered, setAnswered] = useState(false)
+  useEffect(() => setAnswered(false), [songId])
+
   return (
     <div className="flex flex-col gap-4 rounded-card bg-surface p-4 shadow-card sm:p-5">
-      <div className="flex items-center gap-2.5">
-        <span className="grid size-8 place-items-center rounded-full bg-primary/15">
-          <Sparkles className="size-4 text-accent" strokeWidth={2} aria-hidden />
-        </span>
+      <div className="flex items-center gap-3">
+        <BeatieImage mood={answered ? 'happy' : 'default'} size={48} />
         <div className="flex flex-col">
           <span className="text-card-title">Beatie</span>
           <span className="text-meta text-muted-foreground">Your music buddy</span>
         </div>
       </div>
-      <BeatieChat songId={songId} />
+      <BeatieChat songId={songId} onAnswered={() => setAnswered(true)} />
     </div>
   )
 }

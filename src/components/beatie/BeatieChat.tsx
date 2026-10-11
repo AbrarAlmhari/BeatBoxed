@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react'
-import { ArrowUp, MicVocal, Sparkles } from 'lucide-react'
+import { ArrowUp } from 'lucide-react'
+import { BeatieImage, type BeatieMood } from './BeatieImage'
 import {
   CHAT_HISTORY,
   QUESTION_MAX,
@@ -8,7 +9,6 @@ import {
   type BeatieErrorCode,
   type BeatieMessage,
 } from '@/lib/beatie'
-import { cn } from '@/lib/cn'
 
 const EXPLAIN_QUESTION = "What's this song about?"
 
@@ -24,8 +24,17 @@ type Explanation =
  * The one chat component, used by the Song page's Beatie card and Home's Ask
  * Beatie sheet, so both behave the same. The conversation lives only here, in
  * memory: leaving the song ends it, and nothing is saved.
+ *
+ * `onAnswered` tells the surrounding card or sheet that an answer arrived,
+ * so its Beatie can switch to the happy face.
  */
-export function BeatieChat({ songId }: { songId: string }) {
+export function BeatieChat({
+  songId,
+  onAnswered,
+}: {
+  songId: string
+  onAnswered?: () => void
+}) {
   const inputId = useId()
   const [explanation, setExplanation] = useState<Explanation>({ status: 'idle' })
   const [messages, setMessages] = useState<BeatieMessage[]>([])
@@ -51,6 +60,7 @@ export function BeatieChat({ songId }: { songId: string }) {
     const res = await askBeatie({ action: 'explain', songId })
     if (res.ok && res.text) {
       setExplanation({ status: 'done', text: res.text, hasLyrics: res.hasLyrics })
+      onAnswered?.()
     } else {
       setExplanation({ status: 'error', code: res.ok ? 'error' : res.code })
     }
@@ -86,6 +96,7 @@ export function BeatieChat({ songId }: { songId: string }) {
     setPending(false)
     if (res.ok && res.text) {
       setMessages([...conversation, { role: 'assistant', text: res.text }])
+      onAnswered?.()
     } else {
       // Put the question back so nothing typed is lost.
       setMessages(messages)
@@ -103,14 +114,10 @@ export function BeatieChat({ songId }: { songId: string }) {
             onClick={() => void explain()}
             className="flex w-fit items-center gap-2 rounded-button bg-primary px-4 py-2.5 text-button text-white transition-all duration-200 ease-soft hover:bg-accent active:scale-[0.98]"
           >
-            <Sparkles className="size-4" strokeWidth={2} aria-hidden />
+            <BeatieImage mood="mark" size={18} />
             {EXPLAIN_QUESTION}
           </button>
-          {explanation.status === 'error' && (
-            <p role="alert" className="text-secondary text-muted-foreground">
-              {beatieErrorMessage(explanation.code)}
-            </p>
-          )}
+          {explanation.status === 'error' && <BeatieNotice code={explanation.code} />}
         </div>
       ) : explanation.status === 'loading' ? (
         <Thinking />
@@ -125,28 +132,32 @@ export function BeatieChat({ songId }: { songId: string }) {
       <div className="flex flex-col gap-3 border-t border-white/5 pt-4">
         {messages.length > 0 && (
           <ol className="flex flex-col gap-2.5" aria-label="Conversation with Beatie">
-            {messages.map((m, i) => (
-              <li
-                key={i}
-                className={cn(
-                  'max-w-[88%] rounded-card px-3.5 py-2.5',
-                  m.role === 'user'
-                    ? 'self-end bg-primary/15 text-foreground'
-                    : 'self-start bg-surface-2 text-foreground'
-                )}
-              >
-                <span className="sr-only">{m.role === 'user' ? 'You:' : 'Beatie:'}</span>
-                <BeatieText text={m.text} />
-              </li>
-            ))}
+            {messages.map((m, i) =>
+              m.role === 'user' ? (
+                <li
+                  key={i}
+                  className="max-w-[88%] self-end rounded-card bg-primary/15 px-3.5 py-2.5 text-foreground"
+                >
+                  <span className="sr-only">You:</span>
+                  <BeatieText text={m.text} />
+                </li>
+              ) : (
+                // Beatie's replies carry its mark, like an avatar in a chat.
+                <li key={i} className="flex max-w-[92%] items-start gap-2 self-start">
+                  <span className="mt-1 grid size-7 shrink-0 place-items-center rounded-full bg-primary/15">
+                    <BeatieImage mood="mark" size={22} />
+                  </span>
+                  <div className="min-w-0 rounded-card bg-surface-2 px-3.5 py-2.5 text-foreground">
+                    <span className="sr-only">Beatie:</span>
+                    <BeatieText text={m.text} />
+                  </div>
+                </li>
+              )
+            )}
           </ol>
         )}
         {pending && <Thinking />}
-        {chatError && (
-          <p role="alert" className="text-secondary text-muted-foreground">
-            {beatieErrorMessage(chatError)}
-          </p>
-        )}
+        {chatError && <BeatieNotice code={chatError} />}
         <div ref={endRef} />
 
         <form onSubmit={(e) => void send(e)} className="flex items-end gap-2">
@@ -200,34 +211,46 @@ export function useTakingAWhile(active: boolean) {
 }
 
 /**
- * "Beatie is thinking…", with three softly pulsing dots; after a few
- * seconds it says it's still going, so a long song doesn't look stuck.
+ * "Beatie is thinking…", with Beatie's thinking face bobbing gently; after a
+ * few seconds it says it's still going, so a long song doesn't look stuck.
  * Only shown while a request is out, so it starts fresh with each one.
  */
 export function Thinking() {
   const slow = useTakingAWhile(true)
   return (
-    <div role="status" className="flex items-center gap-2.5 text-secondary text-muted-foreground">
-      <span className="flex gap-1" aria-hidden>
-        {[0, 1, 2].map((i) => (
-          <span
-            key={i}
-            className="size-1.5 animate-pulse rounded-full bg-accent"
-            style={{ animationDelay: `${i * 180}ms` }}
-          />
-        ))}
-      </span>
+    <div role="status" className="flex items-center gap-3 text-secondary text-muted-foreground">
+      <BeatieImage mood="thinking" size={48} />
       {slow ? SLOW_TEXT : 'Beatie is thinking…'}
+    </div>
+  )
+}
+
+/**
+ * A failure, in words and in Beatie's face: sleepy for "taking a break" and
+ * the daily limit, sad for anything else. "Check back in a moment" isn't a
+ * failure, so it keeps the normal face.
+ */
+export function BeatieNotice({ code }: { code: BeatieErrorCode }) {
+  const mood: BeatieMood =
+    code === 'busy' || code === 'global' || code === 'limit'
+      ? 'sleepy'
+      : code === 'pending'
+        ? 'default'
+        : 'sad'
+  return (
+    <div role="alert" className="flex items-center gap-3 text-secondary text-muted-foreground">
+      <BeatieImage mood={mood} size={48} />
+      <p>{beatieErrorMessage(code)}</p>
     </div>
   )
 }
 
 export function NoLyricsNote() {
   return (
-    <p className="flex items-start gap-2 rounded-button bg-surface-2 px-3 py-2 text-meta text-muted-foreground">
-      <MicVocal className="mt-px size-3.5 shrink-0" strokeWidth={2} aria-hidden />
-      No lyrics found for this song, so Beatie is going on the title, artist and album only.
-    </p>
+    <div className="flex items-center gap-3 rounded-button bg-surface-2 px-3 py-2 text-meta text-muted-foreground">
+      <BeatieImage mood="sad" size={48} />
+      <p>No lyrics found for this song, so Beatie is going on the title, artist and album only.</p>
+    </div>
   )
 }
 

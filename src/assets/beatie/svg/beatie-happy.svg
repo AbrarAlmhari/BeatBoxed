@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Beatie (happy)"><title>Beatie (happy)</title>
+  <defs>
+    <linearGradient id="shell" x1="0.2" y1="0" x2="0.8" y2="1">
+      <stop offset="0" stop-color="#EEE6FF"/>
+      <stop offset="0.55" stop-color="#C3ADF5"/>
+      <stop offset="1" stop-color="#9273DF"/>
+    </linearGradient>
+    <radialGradient id="visor" cx="0.45" cy="0.35" r="0.75">
+      <stop offset="0" stop-color="#241640"/>
+      <stop offset="1" stop-color="#0A0616"/>
+    </radialGradient>
+    <linearGradient id="cup" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#9C80E8"/>
+      <stop offset="1" stop-color="#4E3796"/>
+    </linearGradient>
+    <linearGradient id="band" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#5D45A8"/>
+      <stop offset="0.5" stop-color="#8E73DE"/>
+      <stop offset="1" stop-color="#5D45A8"/>
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="7" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="softglow" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="10"/>
+    </filter>
+  </defs>
+  <!-- antenna -->
+  <path d="M256 150 V112" stroke="#B9A2F2" stroke-width="9" stroke-linecap="round"/>
+  <circle cx="256" cy="80" r="26" fill="#C9B4FF" opacity="0.55" filter="url(#softglow)"/>
+  <path d="M256,48 C258.912,71.68 264.32,77.088 288,80 C264.32,82.912 258.912,88.32 256,112 C253.088,88.32 247.68,82.912 224,80 C247.68,77.088 253.088,71.68 256,48Z" fill="#F2ECFF" />
+
+  <!-- headband -->
+  <path d="M96 292 C96 150 176 122 256 122 C336 122 416 150 416 292" stroke="url(#band)" stroke-width="24" stroke-linecap="round" fill="none"/>
+
+  <!-- head shell -->
+  <ellipse cx="256" cy="290" rx="150" ry="138" fill="url(#shell)"/>
+  <ellipse cx="256" cy="290" rx="150" ry="138" fill="none" stroke="#7E62CF" stroke-opacity="0.35" stroke-width="3"/>
+  <path d="M152 222 C178 182 222 162 262 160" stroke="#FFFFFF" stroke-opacity="0.75" stroke-width="12" stroke-linecap="round" fill="none"/>
+
+  <!-- visor -->
+  <ellipse cx="256" cy="300" rx="114" ry="90" fill="url(#visor)"/>
+  <path d="M170 262 C190 230 226 218 262 218" stroke="#FFFFFF" stroke-opacity="0.12" stroke-width="8" stroke-linecap="round" fill="none"/>
+
+  <!-- face -->
+  <g filter="url(#glow)">
+      <path d="M187 300 Q211 270 235 300" stroke="#E6DAFF" stroke-width="13" stroke-linecap="round" fill="none"/>
+      <path d="M277 300 Q301 270 325 300" stroke="#E6DAFF" stroke-width="13" stroke-linecap="round" fill="none"/>
+      <path d="M236 322 Q256 342 276 322" stroke="#E6DAFF" stroke-width="9" stroke-linecap="round" fill="none"/>
+  </g>
+
+  <!-- ear cups -->
+  <g>
+    <rect x="62" y="232" width="70" height="124" rx="35" fill="url(#cup)"/>
+    <rect x="76" y="250" width="42" height="88" rx="21" fill="#2A1B52"/>
+    <path d="M97,277 C98.785,288.9 102.1,292.215 114,294 C102.1,295.785 98.785,299.1 97,311 C95.215,299.1 91.9,295.785 80,294 C91.9,292.215 95.215,288.9 97,277Z" fill="#E6DAFF" />
+    <rect x="380" y="232" width="70" height="124" rx="35" fill="url(#cup)"/>
+    <rect x="394" y="250" width="42" height="88" rx="21" fill="#2A1B52"/>
+    <path d="M415,277 C416.785,288.9 420.1,292.215 432,294 C420.1,295.785 416.785,299.1 415,311 C413.215,299.1 409.9,295.785 398,294 C409.9,292.215 413.215,288.9 415,277Z" fill="#E6DAFF" />
+  </g>
+  
+</svg>

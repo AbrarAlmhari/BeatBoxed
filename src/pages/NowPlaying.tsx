@@ -10,9 +10,9 @@ import {
   Play,
   SkipBack,
   SkipForward,
-  Sparkles,
 } from 'lucide-react'
 import { Chip } from '@/components/ui/Chip'
+import { BeatieImage } from '@/components/beatie/BeatieImage'
 import { usePlayer } from '@/lib/player'
 import { useAuth } from '@/lib/auth'
 import { getLyrics, isSongLiked, setSongLike } from '@/lib/catalog'
@@ -305,7 +305,9 @@ export default function NowPlaying() {
           to={`/song/${current.id}#beatie`}
           className="flex items-center gap-2 rounded-button bg-surface-2 px-3.5 py-2.5 text-button text-muted-foreground transition-all duration-200 ease-soft hover:text-foreground active:scale-[0.98]"
         >
-          <Sparkles className="size-4 text-accent" strokeWidth={1.75} />
+          {/* The mark, not the full face: the README keeps the other
+              expressions at 48px and up, too big for a button icon. */}
+          <BeatieImage mood="mark" size={20} />
           Ask Beatie
         </Link>
       </div>

@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Languages, Loader2, Sparkles, X } from 'lucide-react'
+import { Languages, Loader2, X } from 'lucide-react'
 import { Sheet } from '@/components/ui/Sheet'
-import { BeatieText, SLOW_TEXT, Thinking, useTakingAWhile } from './BeatieChat'
+import { BeatieNotice, BeatieText, SLOW_TEXT, Thinking, useTakingAWhile } from './BeatieChat'
+import { BeatieImage } from './BeatieImage'
 import {
   askBeatie,
-  beatieErrorMessage,
   detectLyricsLanguage,
   languageName,
   useBeatieLanguage,
@@ -96,9 +96,9 @@ export function LyricsView({ songId, lines }: { songId: string; lines: string[] 
             </p>
           )}
           {translation.status === 'error' && (
-            <p role="alert" className="w-full text-secondary text-muted-foreground">
-              {beatieErrorMessage(translation.code)}
-            </p>
+            <div className="w-full">
+              <BeatieNotice code={translation.code} />
+            </div>
           )}
         </div>
       )}
@@ -106,7 +106,7 @@ export function LyricsView({ songId, lines }: { songId: string; lines: string[] 
       <div className="flex flex-col gap-1 rounded-card bg-surface p-3 shadow-card sm:p-4">
         {shown && (
           <p className="flex items-center gap-1.5 px-2 pb-2 text-meta text-muted-foreground">
-            <Sparkles className="size-3.5 text-accent" strokeWidth={2} aria-hidden />
+            <BeatieImage mood="mark" size={16} />
             Translated by Beatie · may not be exact
           </p>
         )}
@@ -188,7 +188,8 @@ function LinePanel({
       className="sm:left-0 sm:right-auto sm:w-96 sm:max-h-[26rem] sm:p-4"
     >
       <div className="flex flex-col gap-3">
-        <div className="flex items-start gap-2">
+        <div className="flex items-start gap-3">
+          <BeatieImage mood={state.status === 'done' ? 'happy' : 'default'} size={48} />
           <blockquote
             dir="auto"
             className="flex-1 border-s-2 border-primary/60 ps-3 text-body italic text-foreground"
@@ -212,14 +213,10 @@ function LinePanel({
               onClick={() => void explain()}
               className="flex w-fit items-center gap-2 rounded-button bg-primary px-3.5 py-2 text-button text-white transition-colors duration-200 ease-soft hover:bg-accent"
             >
-              <Sparkles className="size-4" strokeWidth={2} aria-hidden />
+              <BeatieImage mood="mark" size={16} />
               Explain this line
             </button>
-            {state.status === 'error' && (
-              <p role="alert" className="text-secondary text-muted-foreground">
-                {beatieErrorMessage(state.code)}
-              </p>
-            )}
+            {state.status === 'error' && <BeatieNotice code={state.code} />}
           </>
         ) : state.status === 'loading' ? (
           <Thinking />
