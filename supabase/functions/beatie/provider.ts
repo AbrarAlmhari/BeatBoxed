@@ -10,12 +10,13 @@
 /**
  * The model comes from the GEMINI_MODEL secret, so it can be changed with
  * `supabase secrets set GEMINI_MODEL=...` and no redeploy. This is the
- * fallback when the secret isn't set: a Flash model on the free tier,
- * confirmed with this key's list-models endpoint on 2026-10-11 (it supports
- * generateContent). gemini-2.5-flash, the first choice, now answers 404 for
- * new users.
+ * fallback when the secret isn't set, kept the same as the live model: a
+ * Flash model on the free tier, in this key's list-models response with
+ * generateContent, and accepting thinking level "low" per Google's docs.
+ * gemini-3.8-flash answered 503 (overloaded) and was too slow for an Arabic
+ * explanation in October 2026; gemini-2.5-flash answers 404 for new users.
  */
-const FALLBACK_MODEL = 'gemini-3.8-flash'
+const FALLBACK_MODEL = 'gemini-3.6-flash'
 const MODEL_SECRET = 'GEMINI_MODEL'
 
 /** Supabase secret holding the key. Never sent to the browser. */

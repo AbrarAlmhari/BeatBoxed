@@ -49,7 +49,7 @@ For each request the function checks the user is signed in, loads the song, arti
 
 ### The model
 
-The live model is set by the Supabase secret **`GEMINI_MODEL`**, read on every request: currently **`gemini-3.6-flash`**. If the secret isn't set, `FALLBACK_MODEL` in `provider.ts` applies (`gemini-3.8-flash`).
+The live model is set by the Supabase secret **`GEMINI_MODEL`**, read on every request: currently **`gemini-3.6-flash`**. If the secret isn't set, `FALLBACK_MODEL` in `provider.ts` applies, kept the same: `gemini-3.6-flash`.
 
 Why 3.6 rather than the newer 3.8 (October 2026): `gemini-3.8-flash` answered HTTP 503 (overloaded) and was too slow for an Arabic explanation, while `gemini-3.6-flash` answered the same request in about 15 seconds. 3.6 Flash also accepts thinking level `low` (and `minimal`) per Google's thinking docs. `gemini-3.5-flash` still appears in the key's model list but isn't in Google's current docs, so it wasn't used.
 
