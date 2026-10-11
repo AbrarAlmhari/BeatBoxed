@@ -59,17 +59,45 @@ export type GenerateOptions = {
   json?: boolean
   /** How long to wait for the provider before giving up as 'busy'. */
   timeoutMs?: number
+  /** Names the call in the logs, e.g. "explain 4915e7d5 ar". */
+  label?: string
+}
+
+/** What a call cost and how it ended. Logged, never shown to users. */
+export type CallInfo = {
+  /** STOP is a complete answer; MAX_TOKENS means it was cut off. */
+  finishReason: string | null
+  thinkingTokens: number | null
+  answerTokens: number | null
+  promptTokens: number | null
+  ms: number
+  /** Until the first piece of the answer arrived. */
+  firstChunkMs: number | null
+  chars: number
 }
 
 /**
- * busy:  the provider is down, overloaded or rate limiting us — worth
- *        trying again in a minute.
+ * busy:  the provider is down, overloaded, rate limiting us or too slow —
+ *        worth trying again in a minute.
  * error: anything else (blocked answer, empty answer, bad config).
  */
 export type GenerateResult =
-  | { ok: true; text: string }
-  | { ok: false; reason: 'busy' | 'error'; detail: string }
+  | { ok: true; text: string; info: CallInfo }
+  | { ok: false; reason: 'busy' | 'error'; detail: string; info?: CallInfo }
 
+/** True when the provider stopped because it ran out of room. */
+export function wasCutOff(info: CallInfo) {
+  return info.finishReason === 'MAX_TOKENS'
+}
+
+type Usage = { promptTokenCount?: number; candidatesTokenCount?: number; thoughtsTokenCount?: number }
+
+/**
+ * Streams the answer, so how far it got is known even when the wait runs
+ * out, and logs what it cost: thinking and answer tokens, finish reason and
+ * time. On a timeout it logs the tokens so far and the last ~100 characters
+ * received.
+ */
 export async function generate(
   systemPrompt: string,
   messages: ChatMessage[],
@@ -78,6 +106,8 @@ export async function generate(
   const key = Deno.env.get(KEY_SECRET)
   if (!key) return { ok: false, reason: 'error', detail: `${KEY_SECRET} is not set` }
 
+  const label = options.label ?? 'call'
+  const model = currentModel()
   const body = {
     systemInstruction: { parts: [{ text: systemPrompt }] },
     contents: messages.map((m) => ({
@@ -92,10 +122,27 @@ export async function generate(
     },
   }
 
-  let res: Response
+  const started = Date.now()
+  let text = ''
+  let finishReason: string | null = null
+  let blockReason: string | null = null
+  let usage: Usage = {}
+  let firstChunkMs: number | null = null
+  const info = (): CallInfo => ({
+    finishReason,
+    thinkingTokens: usage.thoughtsTokenCount ?? null,
+    answerTokens: usage.candidatesTokenCount ?? null,
+    promptTokens: usage.promptTokenCount ?? null,
+    ms: Date.now() - started,
+    firstChunkMs,
+    chars: text.length,
+  })
+  const describe = (i: CallInfo) =>
+    `model=${model} finish=${i.finishReason ?? '-'} thinking=${i.thinkingTokens ?? '?'} answer=${i.answerTokens ?? '?'} prompt=${i.promptTokens ?? '?'} ms=${i.ms} firstChunkMs=${i.firstChunkMs ?? '-'} chars=${i.chars}`
+
   try {
-    res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${currentModel()}:generateContent`,
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
@@ -103,24 +150,52 @@ export async function generate(
         signal: AbortSignal.timeout(options.timeoutMs ?? DEFAULT_TIMEOUT_MS),
       }
     )
+    if (res.status === 429 || res.status >= 500) {
+      console.error(`[beatie] gemini ${label}: HTTP ${res.status}`)
+      return { ok: false, reason: 'busy', detail: `HTTP ${res.status}`, info: info() }
+    }
+    if (!res.ok || !res.body) {
+      const detail = `HTTP ${res.status}: ${(await res.text()).slice(0, 300)}`
+      console.error(`[beatie] gemini ${label}: ${detail}`)
+      return { ok: false, reason: 'error', detail, info: info() }
+    }
+
+    // Server-sent events: each "data: {...}" line is a partial response.
+    let buffer = ''
+    for await (const chunk of res.body.pipeThrough(new TextDecoderStream())) {
+      buffer += chunk
+      let newline: number
+      while ((newline = buffer.indexOf('\n')) >= 0) {
+        const line = buffer.slice(0, newline).trim()
+        buffer = buffer.slice(newline + 1)
+        if (!line.startsWith('data:')) continue
+        const event = JSON.parse(line.slice(5))
+        const candidate = event?.candidates?.[0]
+        for (const part of candidate?.content?.parts ?? []) {
+          // Thought summaries only arrive if asked for; skip them regardless.
+          if (part?.thought || typeof part?.text !== 'string') continue
+          if (firstChunkMs === null) firstChunkMs = Date.now() - started
+          text += part.text
+        }
+        if (candidate?.finishReason) finishReason = candidate.finishReason
+        if (event?.usageMetadata) usage = event.usageMetadata
+        if (event?.promptFeedback?.blockReason) blockReason = event.promptFeedback.blockReason
+      }
+    }
   } catch (err) {
-    // Timeouts and network failures: the service isn't answering.
-    return { ok: false, reason: 'busy', detail: (err as Error).message }
+    // Timeouts and network failures: the service isn't answering in time.
+    const i = info()
+    console.warn(
+      `[beatie] gemini ${label}: gave up after ${i.ms}ms (${(err as Error).name}): ${describe(i)} last100=${JSON.stringify(text.slice(-100))}`
+    )
+    return { ok: false, reason: 'busy', detail: (err as Error).message, info: i }
   }
 
-  if (res.status === 429 || res.status >= 500) {
-    return { ok: false, reason: 'busy', detail: `HTTP ${res.status}` }
-  }
-  if (!res.ok) {
-    return { ok: false, reason: 'error', detail: `HTTP ${res.status}: ${(await res.text()).slice(0, 300)}` }
-  }
-
-  const data = await res.json().catch(() => null)
-  const parts: { text?: string }[] = data?.candidates?.[0]?.content?.parts ?? []
-  const text = parts.map((p) => p.text ?? '').join('').trim()
+  const i = info()
+  console.log(`[beatie] gemini ${label}: ${describe(i)}`)
+  text = text.trim()
   if (!text) {
-    const why = data?.candidates?.[0]?.finishReason ?? data?.promptFeedback?.blockReason ?? 'empty'
-    return { ok: false, reason: 'error', detail: `no text (${why})` }
+    return { ok: false, reason: 'error', detail: `no text (${finishReason ?? blockReason ?? 'empty'})`, info: i }
   }
-  return { ok: true, text }
+  return { ok: true, text, info: i }
 }

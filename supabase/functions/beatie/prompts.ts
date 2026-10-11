@@ -170,3 +170,38 @@ export function quotedLyricLines(
   })
   return matched
 }
+
+/* --------------------------------------------------------- answer checks */
+
+/** A sentence this many times or more is a loop, not emphasis. */
+const SENTENCE_REPEATS = 3
+/** Any run of this many words appearing this many times or more, likewise. */
+const PHRASE_WORDS = 6
+const PHRASE_REPEATS = 4
+
+/**
+ * Why a prose answer shouldn't be shown or cached, or null if it's fine:
+ * the same sentence or phrase over and over is a model stuck in a loop.
+ * Not used on translations — songs repeat their chorus, so a faithful
+ * translation repeats lines too.
+ */
+export function repetitionProblem(answer: string): string | null {
+  const sentences = answer
+    .split(/(?<=[.!?\u061F])\s+|\n+/)
+    .map(normalise)
+    .filter((t) => t.split(' ').length >= 4)
+  const sentenceCounts = new Map<string, number>()
+  for (const t of sentences) sentenceCounts.set(t, (sentenceCounts.get(t) ?? 0) + 1)
+  const worstSentence = Math.max(0, ...sentenceCounts.values())
+  if (worstSentence >= SENTENCE_REPEATS) return `a sentence repeated ${worstSentence} times`
+
+  const words = normalise(answer).split(' ').filter(Boolean)
+  const phraseCounts = new Map<string, number>()
+  for (let i = 0; i + PHRASE_WORDS <= words.length; i++) {
+    const phrase = words.slice(i, i + PHRASE_WORDS).join(' ')
+    phraseCounts.set(phrase, (phraseCounts.get(phrase) ?? 0) + 1)
+  }
+  const worstPhrase = Math.max(0, ...phraseCounts.values())
+  if (worstPhrase >= PHRASE_REPEATS) return `a ${PHRASE_WORDS}-word phrase repeated ${worstPhrase} times`
+  return null
+}

@@ -1,6 +1,6 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { corsHeaders, json } from '../_shared/cors.ts'
-import { generate, type ChatMessage } from './provider.ts'
+import { generate, wasCutOff, type ChatMessage } from './provider.ts'
 import {
   EXPLAIN_REQUEST,
   LANGUAGE_NAMES,
@@ -10,6 +10,7 @@ import {
   lineKey,
   lyricLines,
   quotedLyricLines,
+  repetitionProblem,
   songSystemPrompt,
   translationSystemPrompt,
   type SongInfo,
@@ -44,12 +45,18 @@ const USER_DAILY_LIMIT = 30
 const GLOBAL_DAILY_LIMIT = 150
 
 /**
- * How long to wait for Gemini. Explanations, line explanations and
- * translations are cached, so a slow one is paid for once per song and
- * language; chat isn't, so it gets less.
+ * How long a job may spend waiting on Gemini, all its calls together.
+ * Explanations, line explanations and translations are cached and, past
+ * RESPOND_WITHIN_MS, finish in the background while the user sees "check
+ * back", so they get up to 140 seconds: just under Supabase's 150-second
+ * limit for a function. Chat isn't cached and the user is waiting on it, so
+ * it gets 40.
  */
-const CACHED_TIMEOUT_MS = 60_000
-const CHAT_TIMEOUT_MS = 40_000
+const CACHED_BUDGET_MS = 140_000
+const CHAT_BUDGET_MS = 40_000
+
+/** The lyric-quote retry only starts if at least this much budget is left. */
+const MIN_RETRY_MS = 20_000
 
 /**
  * A cacheable answer not ready by now is left to finish in the background:
@@ -62,6 +69,14 @@ const RESPOND_WITHIN_MS = 25_000
  * died (the function was stopped); it's cleared and the work starts again.
  */
 const PENDING_STALE_MS = 3 * 60_000
+
+/**
+ * After a job fails (Gemini down, too slow, or an answer rejected), its row
+ * holds FAILED for this long, and taps meanwhile get 'busy' ("taking a
+ * break") without calling Gemini again. Then the next tap tries afresh.
+ */
+const FAILED_HOLD_MS = 2 * 60_000
+const FAILED = '__beatie_failed__'
 
 const MAX_HISTORY = 10
 const MAX_QUESTION_CHARS = 500
@@ -234,6 +249,16 @@ async function fillCache(ctx: Ctx, kind: CacheKind, key: string, content: string
   if (error) console.error('[beatie] cache write failed', error)
 }
 
+/** Turns a claim into a failure marker, held for FAILED_HOLD_MS. */
+async function markFailed(ctx: Ctx, kind: CacheKind, key: string) {
+  const { error } = await admin
+    .from('beatie_cache')
+    .update({ content: FAILED, created_at: new Date().toISOString() })
+    .match(cacheKey(ctx, kind, key))
+    .eq('content', '')
+  if (error) console.error('[beatie] cache failure mark failed', error)
+}
+
 /** Removes a claim or a stale answer, so the next request starts fresh. */
 async function clearCache(ctx: Ctx, kind: CacheKind, key: string, onlyClaim: boolean) {
   let q = admin.from('beatie_cache').delete().match(cacheKey(ctx, kind, key))
@@ -249,7 +274,8 @@ type Work = { content: string } | { code: Code }
  *
  *   1. A ready answer is served from the cache, free.
  *   2. Someone else's answer still being written: 'pending', free.
- *   3. Otherwise claim it, and run `work` (which takes the quota and calls
+ *   3. One that failed in the last FAILED_HOLD_MS: 'busy', free.
+ *   4. Otherwise claim it, and run `work` (which takes the quota and calls
  *      Gemini). If it's done within RESPOND_WITHIN_MS, reply with it. If
  *      not, reply 'pending' and let it finish in the background: the answer
  *      lands in the cache and the next tap gets it. Either way the work, and
@@ -274,8 +300,12 @@ async function cachedAnswer(
 
   const row = await readCache(ctx, kind, key)
   if (row) {
-    if (row.content !== '' && usable(row.content)) return reply(row.content, row.has_lyrics, true)
     const age = Date.now() - new Date(row.created_at).getTime()
+    if (row.content === FAILED) {
+      if (age < FAILED_HOLD_MS) return fail('busy')
+    } else if (row.content !== '' && usable(row.content)) {
+      return reply(row.content, row.has_lyrics, true)
+    }
     if (row.content === '' && age < PENDING_STALE_MS) return fail('pending')
     // A dead claim, or an answer that no longer fits (e.g. a translation
     // whose line count no longer matches the lyrics): start over.
@@ -284,15 +314,18 @@ async function cachedAnswer(
 
   if (!(await claimCache(ctx, kind, key))) return fail('pending')
 
+  // Quota refusals are about this user (or today's total), not the song, so
+  // they just release the claim; real failures hold it for FAILED_HOLD_MS.
   const job: Promise<Work> = work()
     .then(async (r) => {
-      if ('code' in r) await clearCache(ctx, kind, key, true)
-      else await fillCache(ctx, kind, key, r.content)
+      if (!('code' in r)) await fillCache(ctx, kind, key, r.content)
+      else if (r.code === 'busy' || r.code === 'error') await markFailed(ctx, kind, key)
+      else await clearCache(ctx, kind, key, true)
       return r
     })
     .catch(async (err) => {
       console.error('[beatie] background work failed', err)
-      await clearCache(ctx, kind, key, true)
+      await markFailed(ctx, kind, key)
       return { code: 'error' as Code }
     })
 
@@ -332,22 +365,35 @@ async function proseAnswer(
   ctx: Ctx,
   userId: string,
   messages: ChatMessage[],
-  opts: { maxTokens: number; timeoutMs: number; allowedLine?: string; maxQuoted: number }
+  opts: { maxTokens: number; budgetMs: number; label: string; allowedLine?: string; maxQuoted: number }
 ): Promise<{ text: string } | { code: Code }> {
   const blocked = await takeQuota(userId)
   if (blocked) return { code: blocked }
 
+  const deadline = Date.now() + opts.budgetMs
   const system = songSystemPrompt(PERSONALITY, ctx.song, ctx.language, ctx.lyrics)
   let attempt = messages
   for (let tries = 0; tries < 2; tries++) {
     const res = await generate(system, attempt, {
       maxTokens: opts.maxTokens,
       temperature: 0.7,
-      timeoutMs: opts.timeoutMs,
+      timeoutMs: deadline - Date.now(),
+      label: `${opts.label} try ${tries + 1}`,
     })
     if (!res.ok) {
       console.error('[beatie] provider', res.reason, res.detail)
       return { code: res.reason }
+    }
+    // A cut-off or looping answer isn't worth a retry: the next one would
+    // likely do the same. Logged, then the user sees "taking a break".
+    if (wasCutOff(res.info)) {
+      console.warn(`[beatie] answer rejected (${opts.label}): cut off at the token limit`)
+      return { code: 'error' }
+    }
+    const loop = repetitionProblem(res.text)
+    if (loop) {
+      console.warn(`[beatie] answer rejected (${opts.label}): ${loop}`)
+      return { code: 'error' }
     }
     const quoted = quotedLyricLines(res.text, ctx.lyrics, ctx.song.title, opts.allowedLine)
     if (quoted.length <= opts.maxQuoted) {
@@ -359,6 +405,10 @@ async function proseAnswer(
       `[beatie] answer rejected (try ${tries + 1}): quoted lyric lines ${quoted.join(', ')} of ${ctx.lyrics.length}`
     )
     if (tries === 0) {
+      if (deadline - Date.now() < MIN_RETRY_MS) {
+        console.warn(`[beatie] no time left for the lyric-quote retry (${opts.label})`)
+        break
+      }
       // The retry is a real Gemini call, so it counts against the app's cap.
       const capped = await takeQuota(null)
       if (capped) return { code: capped }
@@ -380,7 +430,8 @@ async function explain(ctx: Ctx, userId: string) {
     async () => {
       const a = await proseAnswer(ctx, userId, [{ role: 'user', text: EXPLAIN_REQUEST }], {
         maxTokens: 700,
-        timeoutMs: CACHED_TIMEOUT_MS,
+        budgetMs: CACHED_BUDGET_MS,
+        label: `explain ${ctx.songId.slice(0, 8)} ${ctx.language}`,
         maxQuoted: 1,
       })
       return 'code' in a ? a : { content: a.text }
@@ -401,7 +452,8 @@ async function explainLine(ctx: Ctx, userId: string, line: unknown) {
     async () => {
       const a = await proseAnswer(ctx, userId, [{ role: 'user', text: explainLineRequest(line) }], {
         maxTokens: 350,
-        timeoutMs: CACHED_TIMEOUT_MS,
+        budgetMs: CACHED_BUDGET_MS,
+        label: `line ${ctx.songId.slice(0, 8)} ${ctx.language}`,
         allowedLine: line,
         maxQuoted: 0,
       })
@@ -427,7 +479,8 @@ async function chat(ctx: Ctx, userId: string, raw: unknown) {
 
   const answer = await proseAnswer(ctx, userId, messages, {
     maxTokens: 400,
-    timeoutMs: CHAT_TIMEOUT_MS,
+    budgetMs: CHAT_BUDGET_MS,
+    label: `chat ${ctx.songId.slice(0, 8)} ${ctx.language}`,
     maxQuoted: 1,
   })
   if ('code' in answer) return fail(answer.code)
@@ -452,12 +505,17 @@ async function translate(ctx: Ctx, userId: string) {
       const blocked = await takeQuota(userId)
       if (blocked) return { code: blocked }
 
+      const deadline = Date.now() + CACHED_BUDGET_MS
       const system = translationSystemPrompt(ctx.language, count)
       const input: ChatMessage[] = [{ role: 'user', text: JSON.stringify(ctx.lyrics) }]
       const maxTokens = Math.min(8192, 200 + ctx.lyrics.join(' ').length * 2)
 
       for (let tries = 0; tries < 2; tries++) {
         if (tries === 1) {
+          if (deadline - Date.now() < MIN_RETRY_MS) {
+            console.warn('[beatie] no time left for the translation retry')
+            break
+          }
           const capped = await takeQuota(null)
           if (capped) return { code: capped }
         }
@@ -465,11 +523,16 @@ async function translate(ctx: Ctx, userId: string) {
           maxTokens,
           temperature: 0.2,
           json: true,
-          timeoutMs: CACHED_TIMEOUT_MS,
+          timeoutMs: deadline - Date.now(),
+          label: `translate ${ctx.songId.slice(0, 8)} ${ctx.language} try ${tries + 1}`,
         })
         if (!res.ok) {
           console.error('[beatie] provider', res.reason, res.detail)
           return { code: res.reason }
+        }
+        if (wasCutOff(res.info)) {
+          console.warn('[beatie] translation rejected: cut off at the token limit')
+          return { code: 'error' }
         }
         const lines = parseLines(res.text, count)
         if (lines) return { content: JSON.stringify(lines) }
