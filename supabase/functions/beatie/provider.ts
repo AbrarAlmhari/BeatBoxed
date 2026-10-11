@@ -26,14 +26,29 @@ export function currentModel() {
   return Deno.env.get(MODEL_SECRET)?.trim() || FALLBACK_MODEL
 }
 
-const TIMEOUT_MS = 25_000
+/**
+ * A safety net, not the expected wait: with thinking at its lowest, answers
+ * normally arrive well within it. Under Supabase's limit for a function even
+ * with the one lyric-quote retry.
+ */
+const TIMEOUT_MS = 40_000
 
 /**
- * Flash models "think" before answering, and those tokens come out of the
- * same maxOutputTokens as the answer. The thinking settings differ between
- * model generations, and the model list doesn't say which ones a model
- * accepts, so none are sent; instead every request gets this much extra
- * room, so thinking can't use up the answer's share and leave it empty.
+ * How hard the model thinks before answering. Gemini 3 models take
+ * generationConfig.thinkingConfig.thinkingLevel; for gemini-3.8-flash the
+ * accepted values are low, medium (its default) and high — thinking can't be
+ * turned off, and "minimal" is rejected with an error. Beatie's answers are
+ * short, so the lowest level keeps them quick: at the default, a long song
+ * ran past the 25-second wait. A different GEMINI_MODEL may need a different
+ * setting here (Gemini 2.5 models use thinkingBudget instead).
+ * Source: https://ai.google.dev/gemini-api/docs/generate-content/thinking
+ */
+const THINKING_LEVEL = 'low'
+
+/**
+ * Thinking tokens come out of the same maxOutputTokens as the answer, so
+ * every request gets this much extra room, so thinking can't use up the
+ * answer's share and leave it empty.
  */
 const THINKING_HEADROOM = 2048
 
@@ -74,6 +89,7 @@ export async function generate(
     generationConfig: {
       temperature: options.temperature,
       maxOutputTokens: options.maxTokens + THINKING_HEADROOM,
+      thinkingConfig: { thinkingLevel: THINKING_LEVEL },
       ...(options.json ? { responseMimeType: 'application/json' } : {}),
     },
   }

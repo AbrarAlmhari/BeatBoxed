@@ -141,6 +141,23 @@ test.describe('Beatie', () => {
     expect(calls).toEqual([{ action: 'explain', songId: songs[0].id }])
   })
 
+  test('a slow answer says "Still thinking" after 8 seconds', async ({ page }) => {
+    // The mock holds the answer for 4 real seconds; the page's clock is
+    // fast-forwarded past the 8-second mark meanwhile.
+    await page.clock.install()
+    await mockLyrics(page, ENGLISH)
+    await mockBeatie(page, () => ok({ text: EXPLANATION }), 4000)
+    await login(page, user.email)
+    await page.goto(`/song/${songs[0].id}`)
+
+    const card = beatieCard(page)
+    await card.getByRole('button', { name: "What's this song about?" }).click()
+    await expect(card.getByText('Beatie is thinking…')).toBeVisible()
+    await page.clock.fastForward(8_500)
+    await expect(card.getByText('Still thinking… long songs take a moment')).toBeVisible()
+    await expect(card.getByText('This one is about leaving a small town')).toBeVisible()
+  })
+
   test('a follow-up question carries the explanation and the conversation', async ({ page }) => {
     await mockLyrics(page, ENGLISH)
     const calls = await mockBeatie(page, (b) =>

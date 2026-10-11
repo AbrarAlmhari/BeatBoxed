@@ -58,7 +58,9 @@ To change it:
 
 Google retires model names: `gemini-2.5-flash` started answering 404 ("no longer available to new users") in October 2026, which is why the model is a secret rather than a constant. When that happens, Beatie shows its general error message and the function log shows `[beatie] provider error HTTP 404`.
 
-No thinking settings are sent: Flash models think by default, the accepted settings differ between model generations, and the model list doesn't say which a model takes. Instead every request allows 2,048 extra output tokens (`THINKING_HEADROOM` in `provider.ts`), so thinking can't use up the answer's share.
+**Thinking:** `gemini-3.8-flash` always thinks before answering. Beatie sets it to the lowest level the model accepts, `generationConfig.thinkingConfig.thinkingLevel: "low"` (`THINKING_LEVEL` in `provider.ts`). The model takes `low`, `medium` (its default) or `high`; `minimal` is rejected ([Google's thinking docs](https://ai.google.dev/gemini-api/docs/generate-content/thinking)). At the default, a long song ran past Beatie's old 25-second wait. Thinking tokens count toward the output limit, so every request also allows 2,048 extra output tokens (`THINKING_HEADROOM`). A different `GEMINI_MODEL` may need a different setting: Gemini 2.5 models use `thinkingBudget` instead.
+
+**Waiting:** Beatie waits up to 40 seconds for Gemini (`TIMEOUT_MS`) as a safety net, then shows "Beatie is taking a break". In the app, "Beatie is thinking…" becomes "Still thinking… long songs take a moment" after 8 seconds.
 
 **Deploying:** `supabase functions deploy beatie --use-api` (`--use-api` bundles on Supabase's side, so Docker isn't needed). The migration `0029_beatie.sql` must be applied first.
 

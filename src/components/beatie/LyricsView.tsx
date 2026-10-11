@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Languages, Loader2, Sparkles, X } from 'lucide-react'
 import { Sheet } from '@/components/ui/Sheet'
-import { BeatieText, Thinking } from './BeatieChat'
+import { BeatieText, SLOW_TEXT, Thinking, useTakingAWhile } from './BeatieChat'
 import {
   askBeatie,
   beatieErrorMessage,
@@ -60,6 +60,7 @@ export function LyricsView({ songId, lines }: { songId: string; lines: string[] 
   }
 
   const shown = translation.status === 'on' ? translation.lines : null
+  const translatingSlowly = useTakingAWhile(translation.status === 'loading')
 
   return (
     <div className="flex flex-col gap-3">
@@ -89,6 +90,11 @@ export function LyricsView({ songId, lines }: { songId: string; lines: string[] 
           >
             Change language
           </Link>
+          {translatingSlowly && (
+            <p role="status" className="w-full text-secondary text-muted-foreground">
+              {SLOW_TEXT}
+            </p>
+          )}
           {translation.status === 'error' && (
             <p role="alert" className="w-full text-secondary text-muted-foreground">
               {beatieErrorMessage(translation.code)}

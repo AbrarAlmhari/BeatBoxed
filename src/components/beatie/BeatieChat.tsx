@@ -183,8 +183,29 @@ export function BeatieChat({ songId }: { songId: string }) {
   )
 }
 
-/** "Beatie is thinking…", with three softly pulsing dots. */
+/** After this long, the loading text says it's still going. */
+export const SLOW_AFTER_MS = 8000
+export const SLOW_TEXT = 'Still thinking… long songs take a moment'
+
+/** True once `active` has stayed true for SLOW_AFTER_MS. */
+export function useTakingAWhile(active: boolean) {
+  const [slow, setSlow] = useState(false)
+  useEffect(() => {
+    setSlow(false)
+    if (!active) return
+    const t = setTimeout(() => setSlow(true), SLOW_AFTER_MS)
+    return () => clearTimeout(t)
+  }, [active])
+  return slow
+}
+
+/**
+ * "Beatie is thinking…", with three softly pulsing dots; after a few
+ * seconds it says it's still going, so a long song doesn't look stuck.
+ * Only shown while a request is out, so it starts fresh with each one.
+ */
 export function Thinking() {
+  const slow = useTakingAWhile(true)
   return (
     <div role="status" className="flex items-center gap-2.5 text-secondary text-muted-foreground">
       <span className="flex gap-1" aria-hidden>
@@ -196,7 +217,7 @@ export function Thinking() {
           />
         ))}
       </span>
-      Beatie is thinking…
+      {slow ? SLOW_TEXT : 'Beatie is thinking…'}
     </div>
   )
 }
