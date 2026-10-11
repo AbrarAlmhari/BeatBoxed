@@ -92,16 +92,18 @@ export function songSystemPrompt(
   ].join('\n')
 }
 
+// Kept in step with personality.md: these are added after it, so anything
+// they say wins.
 export const EXPLAIN_REQUEST =
-  "What's this song about? Explain its theme, its story or mood, and any notable context, in 2–4 short paragraphs."
+  "What's this song about? Explain its theme, its story or mood, and any notable context, in 2–3 short paragraphs."
 
 export function explainLineRequest(line: string) {
-  return `Explain what this line means in the context of the song. You may quote this one line, and no others:\n"${line}"`
+  return `Explain what this line means in the context of the song. I can already see the line, so don't repeat it, just explain it:\n"${line}"`
 }
 
 /** Sent with the one retry when an answer quoted too much of the lyrics. */
 export const STRICTER =
-  'Important: your previous answer quoted too many lyric lines. Answer again in your own words. Quote at most the single line being explained, and no other lyrics.'
+  'Important: your previous answer quoted the lyrics. Answer again entirely in your own words, without quoting any lyric lines.'
 
 /** Translations don't use the personality: they should be faithful, not chatty. */
 export function translationSystemPrompt(language: string, count: number) {
@@ -138,19 +140,33 @@ export function isLyricLine(line: string, lyrics: string[]) {
   return target.length > 0 && lyrics.some((l) => normalise(l) === target)
 }
 
+/** Lines shorter than this many words are never counted as quotes. */
+const MIN_QUOTE_WORDS = 5
+
 /**
- * How many distinct lyric lines an answer reproduces word for word, not
- * counting `allowed` (the line being explained). Very short lines ("oh",
- * "yeah yeah") are ignored: they turn up in ordinary sentences by chance.
+ * The lyric lines an answer reproduces word for word, as 1-based line
+ * numbers (the first line each distinct text appears on), not counting
+ * `allowed` (the line being explained).
+ *
+ * Ignored, because ordinary sentences hit them by chance: lines under five
+ * words ("oh", "billie jean", "beat it"), and any line that is just the
+ * song's title, so naming the song isn't mistaken for quoting it.
  */
-export function quotedLyricLines(answer: string, lyrics: string[], allowed?: string) {
+export function quotedLyricLines(
+  answer: string,
+  lyrics: string[],
+  title: string,
+  allowed?: string
+): number[] {
   const text = normalise(answer)
-  const skip = allowed ? normalise(allowed) : null
+  const skip = new Set([normalise(title), allowed ? normalise(allowed) : ''])
   const seen = new Set<string>()
-  for (const line of lyrics) {
+  const matched: number[] = []
+  lyrics.forEach((line, i) => {
     const n = normalise(line)
-    if (n.length < 15 || n === skip || seen.has(n)) continue
-    if (text.includes(n)) seen.add(n)
-  }
-  return seen.size
+    if (n.split(' ').length < MIN_QUOTE_WORDS || skip.has(n) || seen.has(n)) return
+    seen.add(n)
+    if (text.includes(n)) matched.push(i + 1)
+  })
+  return matched
 }

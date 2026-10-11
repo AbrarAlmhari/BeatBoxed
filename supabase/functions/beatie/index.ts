@@ -233,9 +233,15 @@ async function proseAnswer(
       console.error('[beatie] provider', res.reason, res.detail)
       return { code: res.reason }
     }
-    if (quotedLyricLines(res.text, ctx.lyrics, opts.allowedLine) <= opts.maxQuoted) {
+    const quoted = quotedLyricLines(res.text, ctx.lyrics, ctx.song.title, opts.allowedLine)
+    if (quoted.length <= opts.maxQuoted) {
       return { text: res.text }
     }
+    // Line numbers only, never the lyrics: enough to tell a real quote from
+    // a false alarm by checking the song's lyrics.
+    console.warn(
+      `[beatie] answer rejected (try ${tries + 1}): quoted lyric lines ${quoted.join(', ')} of ${ctx.lyrics.length}`
+    )
     if (tries === 0) {
       // The retry is a real Gemini call, so it counts against the app's cap.
       const capped = await takeQuota(null)
