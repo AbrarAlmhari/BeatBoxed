@@ -11,7 +11,11 @@
 3. Explore / Search — by song, artist, and lyrics; filter chips
 4. Song page — About / Beatie / Lyrics / Reviews sections
 5. Rating & review system — 5-star scale + written reviews (the app's signature feature)
-6. User profile — customization, stats (reviews/followers/following), reviews tab, playlists tab
+6. User profile (redesigned, Part A of 3) — a glowing header with the avatar in a gradient ring, name and @username, and one counts row (ratings · reviews · followers · following · artists; the last three open their lists in a sheet). Then an underlined, sticky tab bar: Reviews · Playlists · Stats · Likes, with the tab in the URL (`/profile/:id?tab=likes`).
+   - **Reviews:** All / Written / Ratings only, sorted Recent / Highest rated / Most liked. Written reviews are feed-style cards; ratings with no text are compact rows. 20 at a time.
+   - **Playlists:** square tiles (2 columns on phones, 4 on desktop); your own starts with "+ New playlist".
+   - **Stats:** coming in Part B. **Likes:** liked songs (unlike with Undo on your own) and liked reviews.
+   - A private profile shows its header and counts to non-followers, with a lock card instead of the tabs. The genre chips under the name are gone for now (Part C works genres out from ratings); `favorite_genres` is kept.
 7. Library — liked songs, playlists, followed artists
 8. Playlist creation and detail view
 9. Settings — theme, translation language, log out

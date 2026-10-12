@@ -110,6 +110,24 @@
   }
 }
 
+/*
+ * The profile page's header glow and avatar ring. Plain custom properties
+ * rather than theme colours, so they can be tuned (Ghadah) without new
+ * utilities. Pink isn't in docs/design-system.md's palette; it's used only
+ * here, at low opacity, as the mockup has it.
+ */
+:root {
+  --profile-glow-1: rgb(139 92 246 / 0.35); /* Primary at ~35% */
+  --profile-glow-2: rgb(236 72 153 / 0.14); /* pink at ~14% */
+  --profile-ring: conic-gradient(
+    from 200deg,
+    var(--color-primary),
+    #ec4899,
+    var(--color-star),
+    var(--color-primary)
+  );
+}
+
 @layer base {
   html {
     -webkit-tap-highlight-color: transparent;

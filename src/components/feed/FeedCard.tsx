@@ -34,11 +34,18 @@ export function FeedCard({
   review,
   highlight = false,
   onDeleted,
+  variant = 'feed',
 }: {
   review: FeedReview
   /** Just posted: outline it briefly so the eye finds it. */
   highlight?: boolean
   onDeleted: (review: FeedReview) => void
+  /**
+   * profile: on someone's own profile the author row would only repeat
+   * whose page it is, so it becomes stars and date; the body is clamped to
+   * four lines with "Read more", and the text opens the review.
+   */
+  variant?: 'feed' | 'profile'
 }) {
   const { user } = useAuth()
   const player = usePlayer()
@@ -100,7 +107,7 @@ export function FeedCard({
           type="button"
           onClick={() => (isCurrent ? player.toggle() : player.playQueue([song], 0))}
           aria-label={isPlaying ? `Pause ${song.title}` : `Play ${song.title}`}
-          className="grid size-10 shrink-0 place-items-center rounded-full bg-primary text-white transition-all duration-200 ease-soft hover:bg-accent active:scale-95"
+          className="grid size-11 shrink-0 place-items-center rounded-full bg-primary text-white transition-all duration-200 ease-soft hover:bg-accent active:scale-95"
         >
           {isCurrent && player.loading ? (
             <Loader2 className="size-4 animate-spin" strokeWidth={2.25} />
@@ -112,7 +119,17 @@ export function FeedCard({
         </button>
       </div>
 
-      {/* Who, and how many stars. */}
+      {variant === 'profile' ? (
+        <div className="flex items-center gap-2">
+          <StarRating value={review.rating} size={15} />
+          <span className="min-w-0 flex-1 truncate text-meta text-muted-foreground">
+            {timeAgo(review.createdAt)}
+            {review.edited && ' · edited'}
+          </span>
+          <ReviewMenu review={review} isOwn={isOwn} onDeleted={() => onDeleted(review)} />
+        </div>
+      ) : (
+      /* Who, and how many stars. */
       <div className="flex items-center gap-3">
         <Link to={`/profile/${review.userId}`} className="shrink-0">
           {review.author?.avatarUrl ? (
@@ -145,22 +162,78 @@ export function FeedCard({
         <StarRating value={review.rating} size={14} />
         <ReviewMenu review={review} isOwn={isOwn} onDeleted={() => onDeleted(review)} />
       </div>
+      )}
 
-      <div className="flex flex-col gap-1.5">
-        {review.title && (
-          <p dir="auto" className="text-card-title">
-            {review.title}
-          </p>
-        )}
-        {review.body && (
-          <p dir="auto" className="whitespace-pre-line text-body text-muted-foreground">
-            {review.body}
-          </p>
-        )}
-      </div>
+      {variant === 'profile' ? (
+        <div className="flex flex-col gap-1.5">
+          {review.title && (
+            <Link
+              to={`/song/${song.id}?review=${review.id}`}
+              dir="auto"
+              className="text-card-title transition-colors duration-200 ease-soft hover:text-accent"
+            >
+              {review.title}
+            </Link>
+          )}
+          {review.body && <ClampedBody text={review.body} href={`/song/${song.id}?review=${review.id}`} />}
+        </div>
+      ) : (
+        <div className="flex flex-col gap-1.5">
+          {review.title && (
+            <p dir="auto" className="text-card-title">
+              {review.title}
+            </p>
+          )}
+          {review.body && (
+            <p dir="auto" className="whitespace-pre-line text-body text-muted-foreground">
+              {review.body}
+            </p>
+          )}
+        </div>
+      )}
 
       <ReviewActions review={review} className="-ml-2" />
     </article>
+  )
+}
+
+/**
+ * A review body clamped to four lines, opening the review when tapped. "Read
+ * more" appears only when the text is actually cut, and expands it in place.
+ */
+function ClampedBody({ text, href }: { text: string; href: string }) {
+  const ref = useRef<HTMLAnchorElement>(null)
+  const [open, setOpen] = useState(false)
+  const [cut, setCut] = useState(false)
+
+  useEffect(() => {
+    const el = ref.current
+    if (el && !open) setCut(el.scrollHeight > el.clientHeight + 1)
+  }, [text, open])
+
+  return (
+    <div className="flex flex-col items-start gap-1">
+      <Link
+        ref={ref}
+        to={href}
+        dir="auto"
+        className={cn(
+          'whitespace-pre-line text-body text-muted-foreground transition-colors duration-200 ease-soft hover:text-foreground',
+          !open && 'line-clamp-4'
+        )}
+      >
+        {text}
+      </Link>
+      {cut && !open && (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="-mx-2 min-h-11 rounded-button px-2 text-button text-accent hover:text-foreground"
+        >
+          Read more
+        </button>
+      )}
+    </div>
   )
 }
 
@@ -214,7 +287,7 @@ function ReviewMenu({
         aria-label="Review options"
         aria-haspopup="dialog"
         aria-expanded={open}
-        className="grid size-9 place-items-center rounded-full text-muted-foreground transition-colors duration-200 ease-soft hover:bg-white/5 hover:text-foreground"
+        className="grid size-11 place-items-center rounded-full text-muted-foreground transition-colors duration-200 ease-soft hover:bg-white/5 hover:text-foreground"
       >
         <MoreHorizontal className="size-[18px]" strokeWidth={1.75} />
       </button>

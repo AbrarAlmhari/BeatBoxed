@@ -11,10 +11,14 @@ import type { ArtistCardModel } from '@/lib/types'
 
 const PAGE = 30
 
-export default function ProfileArtists() {
-  const { userId } = useParams()
+/** /profile/:userId/artists, and the same list inside the profile's sheet. */
+export default function ProfileArtists({
+  userId: forUser,
+  embedded = false,
+}: { userId?: string; embedded?: boolean } = {}) {
+  const { userId: fromRoute } = useParams()
   const { user } = useAuth()
-  const targetId = userId ?? user?.id ?? ''
+  const targetId = forUser ?? fromRoute ?? user?.id ?? ''
   const isOwn = Boolean(user && targetId === user.id)
 
   const [name, setName] = useState<string | null>(null)
@@ -74,6 +78,7 @@ export default function ProfileArtists() {
   return (
     <ListPageShell
       title={isOwn ? 'Artists you follow' : `${name ?? 'Listener'}'s artists`}
+      hideTitle={embedded}
       toolbar={
         artists.length > 0 ? (
           <FilterBox value={filter} onChange={setFilter} placeholder="Filter by name" />

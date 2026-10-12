@@ -106,7 +106,7 @@ test.describe('playlists', () => {
 
     // Profile lists it too, and the stat counts it.
     await page.goto(`/profile/${owner.id}`)
-    await page.getByRole('button', { name: 'Playlists' }).click()
+    await page.getByRole('tab', { name: 'Playlists' }).click()
     await expect(page.getByRole('link', { name: /Late Night/ })).toBeVisible()
   })
 

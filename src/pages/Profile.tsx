@@ -1,79 +1,82 @@
-import { useCallback, useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
-import { Pencil, Settings, UserX } from 'lucide-react'
-import { Chip } from '@/components/ui/Chip'
-import { PlaylistGrid, PlaylistGridSkeleton } from '@/components/playlist/PlaylistGrid'
-import {
-  getPlaylistCount,
-  getUserPlaylists,
-  type PlaylistSummary,
-} from '@/lib/playlists'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { useParams, useSearchParams } from 'react-router-dom'
+import { Lock, UserX } from 'lucide-react'
 import { ProfileEditor } from '@/components/profile/ProfileEditor'
-import { FollowedArtistsGrid } from '@/components/profile/FollowedArtistsGrid'
-import { ProfileReviewCard } from '@/components/profile/ProfileReviewCard'
+import { ProfileHero } from '@/components/profile/ProfileHero'
+import { ProfileTabBar, panelId, tabId, PROFILE_TABS, type ProfileTab } from '@/components/profile/ProfileTabBar'
+import { ProfileReviewsTab } from '@/components/profile/ProfileReviewsTab'
+import { ProfilePlaylistsTab } from '@/components/profile/ProfilePlaylistsTab'
+import { ProfileLikesTab } from '@/components/profile/ProfileLikesTab'
+import { ProfileEmpty } from '@/components/profile/ProfileEmpty'
+import { ProfileListSheet, type ProfileList } from '@/components/profile/ProfileListSheet'
 import { UserFollowButton } from '@/components/people/UserFollowButton'
+import { ReviewComposer } from '@/components/feed/ReviewComposer'
 import { useAuth } from '@/lib/auth'
-import {
-  getFollowedArtists,
-  getFollowStates,
-  getGenres,
-  getProfileDetail,
-  getReviewsByUser,
-} from '@/lib/catalog'
-import type {
-  ArtistCardModel,
-  FollowState,
-  ProfileDetail,
-  ReviewWithSong,
-} from '@/lib/types'
+import { useToast } from '@/lib/toast'
+import { getFollowStates, getProfileDetail } from '@/lib/catalog'
+import { getWrittenReviewCount, type ReviewFilter } from '@/lib/profile'
+import type { FollowState, ProfileDetail } from '@/lib/types'
 
-type Tab = 'reviews' | 'playlists' | 'artists'
+const FILTERS: ReviewFilter[] = ['all', 'written', 'ratings']
 
-const TABS: { id: Tab; label: string }[] = [
-  { id: 'reviews', label: 'Reviews' },
-  { id: 'playlists', label: 'Playlists' },
-  { id: 'artists', label: 'Artists' },
-]
-
-/** Tabs preview; the full lists live on their own pages. */
-const REVIEW_PREVIEW = 5
-/** Two rows of the grid at the widest breakpoint. */
-const PLAYLIST_PREVIEW = 6
-const ARTIST_PREVIEW = 8
-
+/**
+ * A profile: header with counts, then Reviews · Playlists · Stats · Likes.
+ *
+ * The tab (and the Reviews filter) live in the URL, e.g.
+ * /profile/:id?tab=likes, so links and the back button work.
+ *
+ * A private account shows its header and counts to everyone; to anyone who
+ * isn't an accepted follower the tabs are replaced by a lock card. RLS
+ * already returns no rows to those viewers — the card says why.
+ */
 export default function Profile() {
   const { userId } = useParams()
   const { user } = useAuth()
+  const toast = useToast()
+  const [params, setParams] = useSearchParams()
 
-  // /profile is your own; /profile/:userId is someone else's.
+  // /profile is your own; /profile/:userId is anyone's.
   const targetId = userId ?? user?.id ?? ''
   const isOwn = Boolean(user && targetId === user.id)
 
   const [profile, setProfile] = useState<ProfileDetail | null>(null)
   const [loading, setLoading] = useState(true)
-  const [editing, setEditing] = useState(false)
-  const [tab, setTab] = useState<Tab>('reviews')
-
-  const [reviews, setReviews] = useState<ReviewWithSong[] | null>(null)
-  const [artists, setArtists] = useState<ArtistCardModel[] | null>(null)
-  const [playlists, setPlaylists] = useState<PlaylistSummary[] | null>(null)
-  /**
-   * Counted separately from the list: a private profile shows its numbers to
-   * someone who doesn't follow it even though RLS returns none of the rows.
-   */
-  const [playlistCount, setPlaylistCount] = useState(0)
-  const [genres, setGenres] = useState<string[]>([])
   const [followState, setFollowState] = useState<FollowState>('none')
+  const [followKnown, setFollowKnown] = useState(false)
+  const [writtenCount, setWrittenCount] = useState<number | null>(null)
+  const [editing, setEditing] = useState(false)
+  const [list, setList] = useState<ProfileList | null>(null)
+  const [composing, setComposing] = useState(false)
+  const [reloadKey, setReloadKey] = useState(0)
+  const tabsRef = useRef<HTMLDivElement>(null)
+
+  const rawTab = params.get('tab')
+  const tab: ProfileTab = PROFILE_TABS.some((t) => t.id === rawTab) ? (rawTab as ProfileTab) : 'reviews'
+  const rawFilter = params.get('filter')
+  const filter: ReviewFilter = FILTERS.includes(rawFilter as ReviewFilter) ? (rawFilter as ReviewFilter) : 'all'
+
+  /** Tab changes are history entries, so Back returns to the last tab. */
+  const go = useCallback(
+    (next: ProfileTab, nextFilter: ReviewFilter = 'all') => {
+      setParams((prev) => {
+        const p = new URLSearchParams(prev)
+        if (next === 'reviews') p.delete('tab')
+        else p.set('tab', next)
+        if (next === 'reviews' && nextFilter !== 'all') p.set('filter', nextFilter)
+        else p.delete('filter')
+        return p
+      })
+    },
+    [setParams]
+  )
 
   useEffect(() => {
     if (!targetId) return
     let cancelled = false
     setLoading(true)
     setProfile(null)
-    setReviews(null)
-    setArtists(null)
     setEditing(false)
-
+    setList(null)
     getProfileDetail(targetId)
       .then((p) => {
         if (!cancelled) setProfile(p)
@@ -82,92 +85,53 @@ export default function Profile() {
       .finally(() => {
         if (!cancelled) setLoading(false)
       })
-
     return () => {
       cancelled = true
     }
   }, [targetId])
 
-  // Resolve the relationship on open, so the button is right even when the
-  // follow was made from Explore rather than here.
+  // Whether the viewer follows this person, so the button and the lock are
+  // right even when the follow happened elsewhere.
   useEffect(() => {
-    if (!user || !targetId || isOwn) return setFollowState('none')
+    setFollowKnown(false)
+    if (!user || !targetId || isOwn) {
+      setFollowState('none')
+      setFollowKnown(true)
+      return
+    }
     let cancelled = false
     getFollowStates(user.id, [targetId])
       .then((m) => {
         if (!cancelled) setFollowState(m.get(targetId) ?? 'none')
       })
       .catch((err) => console.warn('[beatboxed] follow state failed:', err))
+      .finally(() => {
+        if (!cancelled) setFollowKnown(true)
+      })
     return () => {
       cancelled = true
     }
   }, [user, targetId, isOwn])
 
-  useEffect(() => {
-    if (tab !== 'reviews' || !profile || reviews) return
-    getReviewsByUser(profile.id)
-      .then(setReviews)
-      .catch((err) => {
-        console.error('[beatboxed] user reviews failed:', err)
-        setReviews([])
-      })
-  }, [tab, profile, reviews])
+  const locked = Boolean(profile?.isPrivate) && !isOwn && followState !== 'following'
 
-  // Loaded for the stat as well as the tab, so the count is right before
-  // anyone opens it.
+  // Written reviews are counted through RLS, so only where they're visible;
+  // a locked profile leaves the number out rather than showing 0.
   useEffect(() => {
-    if (!profile) return
+    setWrittenCount(null)
+    if (!profile || !followKnown || locked) return
     let cancelled = false
-    Promise.all([getUserPlaylists(profile.id), getPlaylistCount(profile.id)])
-      .then(([p, count]) => {
-        if (cancelled) return
-        setPlaylists(p)
-        setPlaylistCount(count)
+    getWrittenReviewCount(profile.id)
+      .then((n) => {
+        if (!cancelled) setWrittenCount(n)
       })
-      .catch((err) => {
-        console.error('[beatboxed] profile playlists failed:', err)
-        if (!cancelled) setPlaylists([])
-      })
+      .catch((err) => console.warn('[beatboxed] written count failed:', err))
     return () => {
       cancelled = true
     }
-  }, [profile])
+  }, [profile, followKnown, locked, reloadKey])
 
-  useEffect(() => {
-    if (tab !== 'artists' || !profile || artists) return
-    getFollowedArtists(profile.id)
-      .then(setArtists)
-      .catch((err) => {
-        console.error('[beatboxed] followed artists failed:', err)
-        setArtists([])
-      })
-  }, [tab, profile, artists])
-
-  useEffect(() => {
-    if (!editing) return
-    getGenres()
-      .then(setGenres)
-      .catch((err) => console.warn('[beatboxed] genre list failed:', err))
-  }, [editing])
-
-  const handleSaved = useCallback((next: ProfileDetail) => {
-    setProfile(next)
-    setEditing(false)
-  }, [])
-
-  if (loading) {
-    return (
-      <div className="flex flex-col gap-6 pt-2">
-        <div className="flex items-center gap-4">
-          <div className="size-24 animate-pulse rounded-full bg-surface-2" />
-          <div className="flex flex-col gap-2">
-            <div className="h-7 w-40 animate-pulse rounded bg-surface-2" />
-            <div className="h-4 w-24 animate-pulse rounded bg-surface-2" />
-          </div>
-        </div>
-      </div>
-    )
-  }
+  if (loading) return <ProfileSkeleton />
 
   if (!profile) {
     return (
@@ -181,311 +145,141 @@ export default function Profile() {
     )
   }
 
-  const name = profile.displayName || profile.username || 'Listener'
-  /**
-   * A private account shows its header and counts to everyone but keeps its
-   * reviews, playlists, artists and follow lists to accepted followers. RLS
-   * already returns nothing for these viewers; this is so the page says why
-   * instead of looking empty.
-   */
-  const locked = Boolean(profile?.isPrivate) && !isOwn && followState !== 'following'
-
   if (editing) {
     return (
       <div className="pt-2">
         <ProfileEditor
           profile={profile}
-          genres={genres}
-          onSaved={handleSaved}
+          onSaved={(next) => {
+            setProfile(next)
+            setEditing(false)
+          }}
           onCancel={() => setEditing(false)}
         />
       </div>
     )
   }
 
+  const name = profile.displayName || profile.username || 'Listener'
+  const handle = profile.username ? `@${profile.username}` : name
+
   return (
-    <div className="flex flex-col gap-8 pt-2">
-      <header className="flex flex-col gap-5">
-        <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:items-start sm:text-left">
-          {profile.avatarUrl ? (
-            <img
-              src={profile.avatarUrl}
-              alt=""
-              className="size-24 shrink-0 rounded-full object-cover"
-            />
-          ) : (
-            <span className="grid size-24 shrink-0 place-items-center rounded-full bg-surface-2 text-page-title text-muted-foreground">
-              {name.charAt(0).toUpperCase()}
-            </span>
-          )}
-
-          <div className="flex min-w-0 flex-col gap-2">
-            <div className="flex flex-wrap items-center justify-center gap-3 sm:justify-start">
-              <h1 dir="auto" className="text-page-title">
-                {name}
-              </h1>
-              {isOwn ? (
-                <button
-                  type="button"
-                  onClick={() => setEditing(true)}
-                  className="flex items-center gap-1.5 rounded-button bg-surface-2 px-3 py-1.5 text-button text-muted-foreground transition-colors duration-200 ease-soft hover:text-foreground"
-                >
-                  <Pencil className="size-3.5" strokeWidth={1.75} />
-                  Edit profile
-                </button>
-              ) : null}
-              {isOwn ? (
-                <Link
-                  to="/settings"
-                  aria-label="Settings"
-                  title="Settings"
-                  className="grid size-9 shrink-0 place-items-center rounded-full text-muted-foreground transition-all duration-200 ease-soft hover:bg-white/5 hover:text-foreground active:scale-95"
-                >
-                  <Settings className="size-[18px]" strokeWidth={1.75} />
-                </Link>
-              ) : (
-                <UserFollowButton
-                  personId={profile.id}
-                  state={followState}
-                  isPrivate={profile.isPrivate}
-                  onChange={(next, previous) => {
-                    setFollowState(next)
-                    // Only an accepted follow moves their follower count; a
-                    // pending request doesn't count until it's approved.
-                    const delta =
-                      (next === 'following' ? 1 : 0) - (previous === 'following' ? 1 : 0)
-                    if (delta !== 0) {
-                      setProfile((p) =>
-                        p ? { ...p, followerCount: Math.max(0, p.followerCount + delta) } : p
-                      )
-                    }
-                  }}
-                />
-              )}
-            </div>
-
-            {profile.username && (
-              <p className="text-secondary text-muted-foreground">
-                @{profile.username}
-              </p>
-            )}
-
-            {profile.bio && (
-              <p dir="auto" className="max-w-prose text-body text-muted-foreground">
-                {profile.bio}
-              </p>
-            )}
-
-            {profile.favoriteGenres.length > 0 && (
-              <div className="flex flex-wrap justify-center gap-2 sm:justify-start">
-                {profile.favoriteGenres.map((g) => (
-                  <span
-                    key={g}
-                    className="rounded-full bg-surface-2 px-3 py-1 text-meta capitalize text-muted-foreground"
-                  >
-                    {g}
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Each stat opens its full list. */}
-        <dl className="grid grid-cols-2 gap-3 sm:max-w-xl md:grid-cols-3">
-          <StatLink
-            to={`/profile/${profile.id}/followers`}
-            label="Followers"
-            value={profile.followerCount}
-          />
-          <StatLink
-            to={`/profile/${profile.id}/following`}
-            label="Following"
-            value={profile.followingCount}
-          />
-          <StatLink
-            to={`/profile/${profile.id}/reviews`}
-            label="Reviews written"
-            value={profile.reviewCount}
-          />
-          <StatLink
-            to={`/profile/${profile.id}/artists`}
-            label="Artists followed"
-            value={profile.artistCount}
-          />
-          {/* Locked profiles still show the number, but there's nothing to
-              open, so it isn't a link. */}
-          {locked ? (
-            <div className="rounded-card bg-surface p-4 shadow-card">
-              <dt className="text-meta text-muted-foreground">Playlists</dt>
-              <dd className="mt-1 text-section-title">{playlistCount}</dd>
-            </div>
-          ) : (
-            <StatLink
-              to={`/profile/${profile.id}/playlists`}
-              label="Playlists"
-              value={playlistCount}
-            />
-          )}
-        </dl>
-      </header>
+    <div className="relative isolate flex flex-col gap-5 pb-4">
+      <ProfileHero
+        profile={profile}
+        isOwn={isOwn}
+        writtenCount={locked ? null : writtenCount}
+        followState={followState}
+        hideFollow={locked}
+        onFollowChange={(next, previous) => {
+          setFollowState(next)
+          // Only an accepted follow moves their follower count; a pending
+          // request doesn't count until it's approved.
+          const delta = (next === 'following' ? 1 : 0) - (previous === 'following' ? 1 : 0)
+          if (delta !== 0) {
+            setProfile((p) => (p ? { ...p, followerCount: Math.max(0, p.followerCount + delta) } : p))
+          }
+        }}
+        onOpenList={setList}
+        onShowReviews={(written) => {
+          if (locked) return
+          go('reviews', written ? 'written' : 'all')
+          tabsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        }}
+        onEdit={() => setEditing(true)}
+      />
 
       {locked ? (
-        <div className="rounded-card bg-surface px-6 py-12 text-center">
-          <p className="text-card-title">This account is private</p>
-          <p className="mx-auto mt-2 max-w-sm text-body text-muted-foreground">
-            This account is private. Follow them to request access to their
-            reviews and playlists.
+        <div className="flex flex-col items-center gap-4 rounded-card bg-surface px-6 py-10 text-center shadow-card">
+          <span className="grid size-12 place-items-center rounded-full bg-primary/15">
+            <Lock className="size-5 text-accent" strokeWidth={2} aria-hidden />
+          </span>
+          <p className="max-w-sm text-body text-foreground">
+            This account is private. Follow to see their reviews, playlists and stats.
           </p>
+          <UserFollowButton
+            personId={profile.id}
+            state={followState}
+            isPrivate
+            size="lg"
+            onChange={(next) => setFollowState(next)}
+          />
         </div>
       ) : (
-        <>
-      <div
-        className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
-        role="tablist"
-      >
-        {TABS.map((t) => (
-          <Chip key={t.id} active={tab === t.id} onClick={() => setTab(t.id)}>
-            {t.label}
-          </Chip>
+        <div ref={tabsRef} className="flex scroll-mt-16 flex-col gap-4">
+          <ProfileTabBar tab={tab} onChange={(t) => go(t)} />
+          <div
+            key={tab}
+            role="tabpanel"
+            id={panelId(tab)}
+            aria-labelledby={tabId(tab)}
+            tabIndex={0}
+            className="animate-page-in focus-visible:outline-none motion-reduce:animate-none"
+          >
+            {tab === 'reviews' && (
+              <ProfileReviewsTab
+                userId={profile.id}
+                isOwn={isOwn}
+                handle={handle}
+                filter={filter}
+                onFilterChange={(f) => go('reviews', f)}
+                onWrite={() => setComposing(true)}
+                reloadKey={reloadKey}
+              />
+            )}
+            {tab === 'playlists' && <ProfilePlaylistsTab userId={profile.id} isOwn={isOwn} handle={handle} />}
+            {tab === 'stats' && (
+              <ProfileEmpty
+                face="thinking-sticker"
+                title="Stats are coming soon"
+                detail="Beatie is learning what you listen to. Your top genres, artists and decades will show up here."
+              />
+            )}
+            {tab === 'likes' && <ProfileLikesTab userId={profile.id} isOwn={isOwn} handle={handle} />}
+          </div>
+        </div>
+      )}
+
+      <ProfileListSheet list={list} userId={profile.id} onClose={() => setList(null)} />
+
+      {isOwn && (
+        <ReviewComposer
+          open={composing}
+          onClose={() => setComposing(false)}
+          onPosted={() => {
+            setComposing(false)
+            setReloadKey((n) => n + 1)
+            setProfile((p) => (p ? { ...p, reviewCount: p.reviewCount + 1 } : p))
+            toast.show({ message: 'Review posted' })
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+function ProfileSkeleton() {
+  return (
+    <div className="flex flex-col gap-5 pt-2" aria-hidden>
+      <div className="flex items-center gap-4">
+        <div className="size-[72px] animate-pulse rounded-full bg-surface-2 md:size-24" />
+        <div className="flex flex-col gap-2">
+          <div className="h-6 w-36 animate-pulse rounded bg-surface-2" />
+          <div className="h-4 w-24 animate-pulse rounded bg-surface-2" />
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-4">
+        {Array.from({ length: 4 }, (_, i) => (
+          <div key={i} className="h-4 w-20 animate-pulse rounded bg-surface-2" />
         ))}
       </div>
-
-      {tab === 'reviews' && (
-        <section className="flex flex-col gap-3">
-          {reviews === null ? (
-            <div className="h-24 animate-pulse rounded-card bg-surface" />
-          ) : reviews.length === 0 ? (
-            <EmptyPanel
-              title="No reviews yet"
-              detail={
-                isOwn
-                  ? "Rate a song and it'll show up here."
-                  : "This listener hasn't reviewed anything yet."
-              }
-            />
-          ) : (
-            <>
-              {reviews.slice(0, REVIEW_PREVIEW).map((r) => (
-                <ProfileReviewCard key={r.id} review={r} />
-              ))}
-              {profile.reviewCount > REVIEW_PREVIEW && (
-                <SeeAllLink
-                  to={`/profile/${profile.id}/reviews`}
-                  count={profile.reviewCount}
-                />
-              )}
-            </>
-          )}
-        </section>
-      )}
-
-      {tab === 'playlists' && (
-        <section className="flex flex-col gap-3">
-          {playlists === null ? (
-            <PlaylistGridSkeleton count={2} />
-          ) : playlists.length === 0 ? (
-            <EmptyPanel
-              title="No playlists yet"
-              detail={
-                isOwn
-                  ? 'Create one from your Library, then add songs from any song page.'
-                  : "This listener hasn't made any playlists yet."
-              }
-            />
-          ) : (
-            <>
-              <PlaylistGrid playlists={playlists.slice(0, PLAYLIST_PREVIEW)} />
-              {playlistCount > PLAYLIST_PREVIEW && (
-                <SeeAllLink
-                  to={`/profile/${profile.id}/playlists`}
-                  count={playlistCount}
-                />
-              )}
-            </>
-          )}
-        </section>
-      )}
-
-      {tab === 'artists' && (
-        <section className="flex flex-col gap-3">
-          {artists === null ? (
-            <div className="h-24 animate-pulse rounded-card bg-surface" />
-          ) : artists.length === 0 ? (
-            <EmptyPanel
-              title="No artists followed"
-              detail={
-                isOwn
-                  ? 'Follow an artist from a song page or search.'
-                  : "This listener isn't following anyone yet."
-              }
-            />
-          ) : (
-            <>
-              <FollowedArtistsGrid
-                artists={artists.slice(0, ARTIST_PREVIEW)}
-                showUnfollow={isOwn}
-                onUnfollowed={(artistId) => {
-                  setArtists((prev) => (prev ?? []).filter((x) => x.id !== artistId))
-                  setProfile((p) =>
-                    p ? { ...p, artistCount: Math.max(0, p.artistCount - 1) } : p
-                  )
-                }}
-              />
-              {profile.artistCount > ARTIST_PREVIEW && (
-                <SeeAllLink
-                  to={`/profile/${profile.id}/artists`}
-                  count={profile.artistCount}
-                />
-              )}
-            </>
-          )}
-        </section>
-      )}
-
-        </>
-      )}
-
+      <div className="h-11 w-36 animate-pulse rounded-button bg-surface-2 md:hidden" />
+      <div className="flex gap-6 border-b border-white/10 pb-3">
+        {Array.from({ length: 4 }, (_, i) => (
+          <div key={i} className="h-4 w-16 animate-pulse rounded bg-surface-2" />
+        ))}
+      </div>
+      <div className="h-40 animate-pulse rounded-card bg-surface" />
     </div>
-  )
-}
-
-function EmptyPanel({ title, detail }: { title: string; detail: string }) {
-  return (
-    <div className="flex flex-col items-center gap-2 rounded-card bg-surface px-6 py-12 text-center">
-      <p className="text-card-title">{title}</p>
-      <p className="max-w-sm text-body text-muted-foreground">{detail}</p>
-    </div>
-  )
-}
-
-function StatLink({
-  to,
-  label,
-  value,
-}: {
-  to: string
-  label: string
-  value: number
-}) {
-  return (
-    <Link
-      to={to}
-      className="rounded-card bg-surface p-4 shadow-card transition-all duration-200 ease-soft hover:-translate-y-0.5 hover:bg-surface-2 active:translate-y-0 active:scale-[0.98]"
-    >
-      <dt className="text-meta text-muted-foreground">{label}</dt>
-      <dd className="mt-1 text-section-title">{value}</dd>
-    </Link>
-  )
-}
-
-function SeeAllLink({ to, count }: { to: string; count: number }) {
-  return (
-    <Link
-      to={to}
-      className="flex items-center justify-center rounded-card bg-surface px-4 py-3 text-button text-muted-foreground shadow-card transition-colors duration-200 ease-soft hover:bg-surface-2 hover:text-foreground"
-    >
-      See all ({count})
-    </Link>
   )
 }

@@ -65,7 +65,7 @@ test.describe('playlist covers', () => {
     await expect(customCover(page).first()).toBeVisible()
 
     await page.goto(`/profile/${owner.id}`)
-    await page.getByRole('button', { name: 'Playlists' }).click()
+    await page.getByRole('tab', { name: 'Playlists' }).click()
     await expect(customCover(page).first()).toBeVisible()
   })
 

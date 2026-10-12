@@ -9,18 +9,21 @@ import { cn } from '@/lib/cn'
 export function Artwork({
   src,
   seed,
+  alt = '',
   className,
 }: {
   src: string | null | undefined
   /** Keeps a song's placeholder the same colour everywhere it appears. */
   seed: string
+  /** '' when the title right next to it already says what it is. */
+  alt?: string
   className?: string
 }) {
   if (src) {
     return (
       <img
         src={src}
-        alt=""
+        alt={alt}
         loading="lazy"
         className={cn('shrink-0 rounded-[10px] object-cover', className)}
       />
@@ -29,7 +32,9 @@ export function Artwork({
   const t = tintFor(seed)
   return (
     <span
-      aria-hidden
+      role={alt ? 'img' : undefined}
+      aria-label={alt || undefined}
+      aria-hidden={alt ? undefined : true}
       className={cn('grid shrink-0 place-items-center rounded-[10px]', className)}
       style={{
         background: `linear-gradient(135deg,

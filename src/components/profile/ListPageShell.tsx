@@ -4,6 +4,7 @@ import { Loader2 } from 'lucide-react'
 /** Shared chrome for the three full-list pages. */
 export function ListPageShell({
   title,
+  hideTitle = false,
   toolbar,
   loading,
   isEmpty,
@@ -15,6 +16,8 @@ export function ListPageShell({
   children,
 }: {
   title: string
+  /** Inside a sheet or dialog that already shows the title. */
+  hideTitle?: boolean
   toolbar?: ReactNode
   loading: boolean
   isEmpty: boolean
@@ -27,9 +30,11 @@ export function ListPageShell({
 }) {
   return (
     <div className="flex flex-col gap-6 pt-2">
-      <h1 dir="auto" className="text-page-title">
-        {title}
-      </h1>
+      {!hideTitle && (
+        <h1 dir="auto" className="text-page-title">
+          {title}
+        </h1>
+      )}
 
       {toolbar}
 

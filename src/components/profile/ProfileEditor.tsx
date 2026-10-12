@@ -1,6 +1,5 @@
 import { useRef, useState, type FormEvent } from 'react'
 import { Loader2, Upload } from 'lucide-react'
-import { Chip } from '@/components/ui/Chip'
 import { FormAlert } from '@/components/auth/FormAlert'
 import {
   AVATAR_MAX_BYTES,
@@ -10,33 +9,28 @@ import {
 } from '@/lib/catalog'
 import type { ProfileDetail } from '@/lib/types'
 
+/**
+ * Name, bio and picture. The genre-interest picker was removed with the
+ * profile redesign (genres will be worked out from ratings instead); the
+ * favorite_genres column and any values already saved are left as they are.
+ */
 export function ProfileEditor({
   profile,
-  genres,
   onSaved,
   onCancel,
 }: {
   profile: ProfileDetail
-  /** The catalog's genre vocabulary — same list Explore uses. */
-  genres: string[]
   onSaved: (next: ProfileDetail) => void
   onCancel: () => void
 }) {
   const [displayName, setDisplayName] = useState(profile.displayName ?? '')
   const [bio, setBio] = useState(profile.bio ?? '')
-  const [selected, setSelected] = useState<string[]>(profile.favoriteGenres)
   const [avatarUrl, setAvatarUrl] = useState(profile.avatarUrl)
   const [preview, setPreview] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
-
-  function toggleGenre(g: string) {
-    setSelected((prev) =>
-      prev.includes(g) ? prev.filter((x) => x !== g) : [...prev, g]
-    )
-  }
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -76,14 +70,12 @@ export function ProfileEditor({
       await updateProfile(profile.id, {
         display_name: displayName.trim() || null,
         bio: bio.trim() || null,
-        favorite_genres: selected.length ? selected : null,
         avatar_url: avatarUrl,
       })
       onSaved({
         ...profile,
         displayName: displayName.trim() || null,
         bio: bio.trim() || null,
-        favoriteGenres: selected,
         avatarUrl,
       })
     } catch (err) {
@@ -168,27 +160,6 @@ export function ProfileEditor({
           className="w-full resize-y rounded-button border border-white/5 bg-surface-2 px-3.5 py-2.5 text-body text-foreground transition-colors duration-200 ease-soft placeholder:text-muted-foreground/70 hover:border-white/10 focus:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary/25"
         />
       </label>
-
-      <div className="flex flex-col gap-2">
-        <span className="text-secondary font-medium">Genre interests</span>
-        {genres.length === 0 ? (
-          <p className="text-secondary text-muted-foreground">
-            No genres in the catalog yet.
-          </p>
-        ) : (
-          <div className="flex flex-wrap gap-2">
-            {genres.map((g) => (
-              <Chip
-                key={g}
-                active={selected.includes(g)}
-                onClick={() => toggleGenre(g)}
-              >
-                <span className="capitalize">{g}</span>
-              </Chip>
-            ))}
-          </div>
-        )}
-      </div>
 
       <div className="flex flex-wrap gap-2">
         <button

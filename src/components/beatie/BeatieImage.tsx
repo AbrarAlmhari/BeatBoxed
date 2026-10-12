@@ -5,6 +5,10 @@ import excitedSrc from '@/assets/beatie/svg/beatie-excited.svg'
 import sleepySrc from '@/assets/beatie/svg/beatie-sleepy.svg'
 import sadSrc from '@/assets/beatie/svg/beatie-sad.svg'
 import markSrc from '@/assets/beatie/svg/beatie-mark.svg'
+import happyStickerSrc from '@/assets/beatie/svg/beatie-happy-sticker.svg'
+import thinkingStickerSrc from '@/assets/beatie/svg/beatie-thinking-sticker.svg'
+import excitedStickerSrc from '@/assets/beatie/svg/beatie-excited-sticker.svg'
+import sleepyStickerSrc from '@/assets/beatie/svg/beatie-sleepy-sticker.svg'
 import { cn } from '@/lib/cn'
 
 /**
@@ -21,12 +25,16 @@ import { cn } from '@/lib/cn'
  *   sad       other errors, and no lyrics found
  *   mark      small sizes (16–40px): the Ask Beatie pill, chat avatars,
  *             icons inside buttons
+ *   *-sticker the same faces with a little extra (a note, "?", "zz",
+ *             sparkles), for bigger spots like empty states
  *
- * Minimum sizes from the README: 16px for the mark, 48px for the rest.
+ * Minimum sizes from the README: 16px for the mark, 96px for stickers, 48px
+ * for the rest.
  */
 export type BeatieMood = 'default' | 'happy' | 'thinking' | 'excited' | 'sleepy' | 'sad'
+export type BeatieSticker = 'happy-sticker' | 'thinking-sticker' | 'excited-sticker' | 'sleepy-sticker'
 
-const SOURCES: Record<BeatieMood | 'mark', string> = {
+const SOURCES: Record<BeatieMood | BeatieSticker | 'mark', string> = {
   default: defaultSrc,
   happy: happySrc,
   thinking: thinkingSrc,
@@ -34,6 +42,10 @@ const SOURCES: Record<BeatieMood | 'mark', string> = {
   sleepy: sleepySrc,
   sad: sadSrc,
   mark: markSrc,
+  'happy-sticker': happyStickerSrc,
+  'thinking-sticker': thinkingStickerSrc,
+  'excited-sticker': excitedStickerSrc,
+  'sleepy-sticker': sleepyStickerSrc,
 }
 
 export function BeatieImage({
@@ -42,14 +54,14 @@ export function BeatieImage({
   alt = '',
   className,
 }: {
-  mood: BeatieMood | 'mark'
+  mood: BeatieMood | BeatieSticker | 'mark'
   /** In pixels. Kept at or above the README's minimum for the file. */
   size: number
   /** '' when the words beside it already say "Beatie". */
   alt?: string
   className?: string
 }) {
-  const min = mood === 'mark' ? 16 : 48
+  const min = mood === 'mark' ? 16 : mood.endsWith('-sticker') ? 96 : 48
   const px = Math.max(size, min)
   return (
     <img

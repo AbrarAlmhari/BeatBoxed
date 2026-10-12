@@ -16,11 +16,23 @@ import type { FollowState, PersonCardModel } from '@/lib/types'
 
 const PAGE = 30
 
-/** /profile/:userId/followers and /profile/:userId/following. */
-export default function ProfileFollows({ kind }: { kind: FollowListKind }) {
-  const { userId } = useParams()
+/**
+ * /profile/:userId/followers and /profile/:userId/following, and the same
+ * list inside the profile's sheet (`userId` given, `embedded` drops the
+ * page title the sheet already shows).
+ */
+export default function ProfileFollows({
+  kind,
+  userId: forUser,
+  embedded = false,
+}: {
+  kind: FollowListKind
+  userId?: string
+  embedded?: boolean
+}) {
+  const { userId: fromRoute } = useParams()
   const { user } = useAuth()
-  const targetId = userId ?? user?.id ?? ''
+  const targetId = forUser ?? fromRoute ?? user?.id ?? ''
   const isOwn = Boolean(user && targetId === user.id)
 
   const [name, setName] = useState<string | null>(null)
@@ -112,9 +124,11 @@ export default function ProfileFollows({ kind }: { kind: FollowListKind }) {
   if (!loading && !isOwn && (locked || !visible)) {
     return (
       <div className="flex flex-col gap-6 pt-2">
-        <h1 dir="auto" className="text-page-title">
-          {title}
-        </h1>
+        {!embedded && (
+          <h1 dir="auto" className="text-page-title">
+            {title}
+          </h1>
+        )}
         <div className="flex flex-col items-center gap-3 rounded-card bg-surface px-6 py-14 text-center">
           <Lock className="size-7 text-muted-foreground" strokeWidth={1.5} aria-hidden />
           <p className="text-card-title">
@@ -135,6 +149,7 @@ export default function ProfileFollows({ kind }: { kind: FollowListKind }) {
   return (
     <ListPageShell
       title={title}
+      hideTitle={embedded}
       toolbar={
         people.length > 0 ? (
           <FilterBox

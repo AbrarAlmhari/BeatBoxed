@@ -159,13 +159,13 @@ test.describe('settings', () => {
     // The explanation, not an empty page.
     await expect(
       page.getByText(
-        'This account is private. Follow them to request access to their reviews and playlists.'
+        'This account is private. Follow to see their reviews, playlists and stats.'
       )
     ).toBeVisible()
     await expect(page.getByRole('link', { name: /Private List/ })).toHaveCount(0)
 
     // Counts stay visible even though the rows behind them don't.
-    await expect(page.getByText('Reviews written')).toBeVisible()
+    await expect(page.getByRole('button', { name: /^\d+ ratings?$/ })).toBeVisible()
 
     // And the reviews are gone from the song page too, not just the profile.
     await page.goto(`/song/${songs[1].id}`)
@@ -186,7 +186,7 @@ test.describe('settings', () => {
     await page.goto(`/profile/${owner.id}`)
 
     await expect(page.getByText('This account is private.')).toHaveCount(0)
-    await page.getByRole('button', { name: 'Playlists' }).click()
+    await page.getByRole('tab', { name: 'Playlists' }).click()
     await expect(page.getByRole('link', { name: /Private List/ })).toBeVisible()
   })
 
@@ -204,7 +204,7 @@ test.describe('settings', () => {
     await login(page, stranger.email)
     await page.goto(`/profile/${owner.id}`)
     await expect(page.getByText('This account is private.')).toHaveCount(0)
-    await page.getByRole('button', { name: 'Playlists' }).click()
+    await page.getByRole('tab', { name: 'Playlists' }).click()
     await expect(page.getByRole('link', { name: /Private List/ })).toBeVisible()
   })
 

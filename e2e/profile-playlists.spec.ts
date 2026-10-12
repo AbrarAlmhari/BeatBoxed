@@ -48,24 +48,20 @@ test.describe('profile playlists list', () => {
   const cardTitles = (page: Page) =>
     page.locator('a[href^="/playlist/"] .text-card-title').allInnerTexts()
 
-  test('the stat card and See all both open the full page', async ({ page }) => {
+  test("the profile's Playlists tab shows them all, and the full page still works", async ({
+    page,
+  }) => {
     await login(page, owner.email)
-    await page.goto(`/profile/${owner.id}`)
+    await page.goto(`/profile/${owner.id}?tab=playlists`)
 
-    // Seven playlists, so the tab previews six and offers the rest.
-    await page.getByRole('button', { name: 'Playlists' }).click()
-    await expect.poll(async () => (await cardTitles(page)).length).toBe(6)
+    // All seven tiles, after the "New playlist" tile on your own profile.
+    await expect.poll(async () => (await cardTitles(page)).length).toBe(7)
+    await expect(page.getByRole('button', { name: 'New playlist' })).toBeVisible()
 
-    await page.getByRole('link', { name: /See all \(7\)/ }).click()
-    await page.waitForURL(/\/profile\/.*\/playlists/)
+    // The full page is still there for old links.
+    await page.goto(`/profile/${owner.id}/playlists`)
     await expect(page.getByRole('heading', { name: 'Your playlists' })).toBeVisible()
     await expect.poll(async () => (await cardTitles(page)).length).toBe(7)
-
-    // And the stat card is the other way in.
-    await page.goto(`/profile/${owner.id}`)
-    await page.getByRole('link', { name: /Playlists 7/ }).click()
-    await page.waitForURL(/\/profile\/.*\/playlists/)
-    await expect(page.getByRole('heading', { name: 'Your playlists' })).toBeVisible()
   })
 
   test('search filters, and each sort order works', async ({ page }) => {
@@ -126,11 +122,11 @@ test.describe('profile playlists list', () => {
     await expect(page.getByText('This account is private.')).toBeVisible()
     await expect(page.locator('a[href^="/playlist/"]')).toHaveCount(0)
 
-    // The stat card is still there with its number, but isn't a link.
-    await page.goto(`/profile/${owner.id}`)
-    // Scoped to the stats list: 'Playlists' is also the tab chip's label.
-    await expect(page.locator('dl').getByText('Playlists', { exact: true })).toBeVisible()
-    await expect(page.getByRole('link', { name: /Playlists \d+/ })).toHaveCount(0)
+    // On the profile the tabs are replaced by the lock card.
+    await page.goto(`/profile/${owner.id}?tab=playlists`)
+    await expect(page.getByText('This account is private. Follow to see their reviews, playlists and stats.')).toBeVisible()
+    await expect(page.getByRole('tab', { name: 'Playlists' })).toHaveCount(0)
+    await expect(page.locator('a[href^="/playlist/"]')).toHaveCount(0)
 
     // An accepted follower sees the real list.
     await logout(page)

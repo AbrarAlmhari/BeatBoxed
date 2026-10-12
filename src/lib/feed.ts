@@ -50,7 +50,7 @@ type Rel<T> = T | T[] | null
 const one = <T,>(v: Rel<T> | undefined): T | null =>
   Array.isArray(v) ? (v[0] ?? null) : (v ?? null)
 
-type FeedReviewRow = ReviewRow & {
+export type FeedReviewRow = ReviewRow & {
   songs: Rel<{
     id: string
     title: string
@@ -61,7 +61,8 @@ type FeedReviewRow = ReviewRow & {
   }>
 }
 
-const FEED_SELECT =
+/** A review with its song, as the feed and the profile both read it. */
+export const FEED_SELECT =
   REVIEW_SELECT +
   ', songs(id, title, artist_id, album_id, artists(name), albums(cover_url, title))'
 
@@ -72,37 +73,51 @@ const FEED_SELECT =
  */
 async function hydrate(ids: string[], viewerId: string): Promise<FeedReview[]> {
   if (ids.length === 0) return []
-  const c = client()
-
-  const [rows, likes] = await Promise.all([
-    c.from('reviews').select(FEED_SELECT).in('id', ids),
-    c.from('review_likes').select('review_id').eq('user_id', viewerId).in('review_id', ids),
+  const [rows, liked] = await Promise.all([
+    client().from('reviews').select(FEED_SELECT).in('id', ids),
+    likedByViewer(ids, viewerId),
   ])
   if (rows.error) throw rows.error
-  if (likes.error) throw likes.error
 
-  const liked = new Set((likes.data ?? []).map((l) => l.review_id as string))
   const byId = new Map<string, FeedReview>()
   for (const row of (rows.data ?? []) as unknown as FeedReviewRow[]) {
-    const song = one(row.songs)
-    if (!song) continue
-    byId.set(row.id, {
-      ...toReviewModel(row, liked.has(row.id)),
-      song: {
-        id: song.id,
-        title: song.title,
-        artistName: one(song.artists)?.name ?? 'Unknown artist',
-        artistId: song.artist_id,
-        albumId: song.album_id,
-        coverUrl: one(song.albums)?.cover_url ?? null,
-        albumTitle: one(song.albums)?.title ?? null,
-        // A feed card shows the review's rating, not the song's average.
-        ratingAvg: null,
-        reviewCount: 0,
-      },
-    })
+    const card = toFeedReview(row, liked.has(row.id))
+    if (card) byId.set(row.id, card)
   }
   return ids.flatMap((id) => byId.get(id) ?? [])
+}
+
+/** Which of these reviews the viewer has liked. */
+export async function likedByViewer(ids: string[], viewerId: string): Promise<Set<string>> {
+  if (ids.length === 0) return new Set()
+  const { data, error } = await client()
+    .from('review_likes')
+    .select('review_id')
+    .eq('user_id', viewerId)
+    .in('review_id', ids)
+  if (error) throw error
+  return new Set((data ?? []).map((l) => l.review_id as string))
+}
+
+/** One row read with FEED_SELECT, as a card; null if its song is gone. */
+export function toFeedReview(row: FeedReviewRow, likedByMe: boolean): FeedReview | null {
+  const song = one(row.songs)
+  if (!song) return null
+  return {
+    ...toReviewModel(row, likedByMe),
+    song: {
+      id: song.id,
+      title: song.title,
+      artistName: one(song.artists)?.name ?? 'Unknown artist',
+      artistId: song.artist_id,
+      albumId: song.album_id,
+      coverUrl: one(song.albums)?.cover_url ?? null,
+      albumTitle: one(song.albums)?.title ?? null,
+      // A card shows the review's rating, not the song's average.
+      ratingAvg: null,
+      reviewCount: 0,
+    },
+  }
 }
 
 /** One page of a tab. Pass the previous page's `next` to continue. */

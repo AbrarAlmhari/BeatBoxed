@@ -61,4 +61,7 @@ Keep this updated as the source of truth on progress — don't rely on chat hist
 Things worth revisiting once the whole app exists, not mid-build. Add to this as you notice something rather than stopping to fix it immediately (unless it's an actual bug, not a nice-to-have — fix those now).
 
 - [ ] Light theme (needs a design pass with Ghadah first; `profiles.theme_preference` already exists)
+- [ ] Likes privacy: `song_likes` and `review_likes` are readable by anyone at the database level (`USING (true)`). Restrict them with `can_view_profile` in their own migration, with count functions so like totals and the For You ranking still include every like. Until then the profile's Likes tab is hidden on locked private profiles in the page only.
+- [ ] Report profile: add a `profile_reports` table and a Report option in the profile ⋯ menu (only Share profile is there for now).
+- [ ] Written-review count on locked private profiles (a small count function), if we want it later. Today a locked profile shows ratings, followers, following and artists, but not "reviews".
 - [ ] _(add items here as they come up)_
