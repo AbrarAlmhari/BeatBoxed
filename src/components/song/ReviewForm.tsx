@@ -47,7 +47,7 @@ export function ReviewForm({
   return (
     <form
       onSubmit={handleSubmit}
-      className="animate-fade-in flex flex-col gap-4 rounded-card bg-surface p-5 shadow-card"
+      className="animate-fade-in flex flex-col gap-4 rounded-card border border-line bg-surface p-5 shadow-card"
     >
       <h3 className="text-card-title">
         {existing ? 'Edit your review' : 'Write a review'}

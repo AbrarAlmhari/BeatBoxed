@@ -69,7 +69,7 @@ Inter throughout.
 All in `src/components/ui/`. Use these rather than building the look again.
 
 - **`PageGlow`** — the soft light behind the top of a page. Two layered radial gradients with a fade-out mask; no blur filters, so scrolling stays smooth on cheaper phones. `strength`: `hero` (fills a page header, as on the profile), `soft` (a fainter wash over the top 420px) or `none`. `colors` is a pair of opaque colours (defaults to Glow 1 and 2 for hero; Glow 1 and Accent for soft, since pink reads as a red smudge when faint); when they change the new glow cross-fades in (instant with reduced motion). Decorative: `aria-hidden`, no pointer events, absolutely positioned, so the parent needs `relative isolate`.
-- **`useCoverColors(url)`** (`src/lib/coverColors.ts`) — the two main colours of a cover or artist photo, read in the browser, darkened so text over the glow keeps at least 4.5:1, and cached per URL for the session. Returns `null` until known or when the image can't be read; pass the result to `PageGlow` and let it fall back to purple.
+- **`useCoverColors(url)`** (`src/lib/coverColors.ts`) — the two main colours of a cover or artist photo, read in the browser, darkened so text over the glow keeps at least 4.5:1, and cached per URL for the session. Returns `null` until known or when the image can't be read; pass `useCoverColors(url) ?? COVER_FALLBACK` to `PageGlow` (Primary and Accent, used while loading and for covers with too little colour, like a black-and-white photo).
 - **`Card`** / **`cardClass()`** — surface, 1px subtle border, 18px corners, shadow. `padding`: `none`, `sm` (list rows), `md` (content), `lg` (empty and lock states). `as` keeps the right element (`article`, `li`, `section`); `cardClass()` is the same look for a `Link` or a `button`.
 - **`Tabs`** + **`TabPanel`** + **`useTabParam`** — underlined tabs, 48px tall, a real tablist (arrow keys, Home and End). `sticky` puts the bar on `glass-bar` under the top bar. `useTabParam` keeps the tab in `?tab=` so links and Back work. Use tabs to switch between views of a page.
 - **`Segmented`** — a two- or three-way switch inside one view (Songs / Reviews, Artwork / Lyrics).
@@ -85,7 +85,7 @@ Every control is at least 44px tall, or has a 44px tap area.
 
 1. **Root:** `<div className="relative isolate flex flex-col gap-6 animate-page-in motion-reduce:animate-none">`. `isolate` keeps the glow behind the page and in front of the app background.
 2. **Glow:** pick one.
-   - A page about one thing with a picture (a song, album, artist, playlist): a header with `<PageGlow strength="hero" colors={useCoverColors(url) ?? undefined} />`.
+   - A page about one thing with a picture (a song, album, artist, playlist): a header with `<PageGlow strength="hero" colors={useCoverColors(url) ?? COVER_FALLBACK} />`.
    - A browsing page (Home, Explore, Library, sign-in): `<PageGlow strength="soft" />` as the root's first child.
    - Admin and lists (Settings, Notifications): no glow.
 3. **Title:** an `h1` in `text-page-title`, or the hero for a picture page.

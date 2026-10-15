@@ -90,9 +90,8 @@ test.describe('songs with no preview', () => {
     await page.getByRole('button', { name: /^Play$/ }).click()
     await expect(miniPlayer(page)).toContainText(songs[0].title)
 
-    // The rest runs on Now Playing. The mini player stays mounted
-    // underneath, so Next and the notice both appear twice; .first() is the
-    // Now Playing copy, which precedes it in the DOM.
+    // The rest runs on Now Playing, where the mini player is hidden, so
+    // .first() is simply Now Playing's own control.
     //
     // The bar itself is a region, not a link, so this clicks the artwork
     // link inside it rather than the container.

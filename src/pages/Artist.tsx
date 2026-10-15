@@ -1,9 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { Disc3, Loader2, Play, Users } from 'lucide-react'
-import { Chip } from '@/components/ui/Chip'
+import { Disc3, Play, Users } from 'lucide-react'
 import { FollowButton } from '@/components/ui/FollowButton'
 import { StarRating } from '@/components/ui/StarRating'
+import { TabPanel, Tabs } from '@/components/ui/Tabs'
+import { MEDIA_GRID, SkeletonMediaGrid } from '@/components/ui/Skeleton'
+import { Card } from '@/components/ui/Card'
+import { EmptyState, emptySecondaryActionClass } from '@/components/ui/EmptyState'
+import { PageGlow } from '@/components/ui/PageGlow'
+import { SectionHeader } from '@/components/ui/SectionHeader'
+import { Skeleton } from '@/components/ui/Skeleton'
+import { COVER_FALLBACK, useCoverColors } from '@/lib/coverColors'
 import { usePlayer } from '@/lib/player'
 import { cn } from '@/lib/cn'
 import {
@@ -85,32 +92,34 @@ export default function Artist() {
     }
   }, [id, load, reloadKey])
 
+  // Hooks before the early returns: the glow follows the photo once known.
+  const photoColors = useCoverColors(artist?.imageUrl)
+
   if (loading && !artist) return <ArtistSkeleton />
 
   if (failed || !artist) {
     return (
-      <div className="flex flex-col items-center gap-3 rounded-card bg-surface px-6 py-16 text-center">
-        <p className="text-card-title">Couldn't load this artist</p>
-        <p className="max-w-sm text-body text-muted-foreground">
-          Check your connection and try again.
-        </p>
-        <button
-          type="button"
-          onClick={() => setReloadKey((k) => k + 1)}
-          className="mt-1 rounded-button bg-surface-2 px-3.5 py-2 text-button text-muted-foreground transition-colors duration-200 ease-soft hover:text-foreground"
-        >
-          Retry
-        </button>
-      </div>
+      <EmptyState
+        face="sad"
+        tone="error"
+        title="Couldn't load this artist"
+        detail="Check your connection and try again."
+        action={
+          <button type="button" onClick={() => setReloadKey((k) => k + 1)} className={emptySecondaryActionClass}>
+            Retry
+          </button>
+        }
+      />
     )
   }
 
   const shown = tab === 'albums' ? artist.albums : artist.singles
 
   return (
-    <div className="flex flex-col gap-8 pt-2">
-      <header className="flex flex-col gap-5 sm:flex-row sm:items-end">
-        <div className="size-40 shrink-0 self-center overflow-hidden rounded-full sm:self-auto">
+    <div className="relative isolate flex flex-col gap-8 pt-2">
+      <header className="relative flex flex-col gap-5 pb-2 sm:flex-row sm:items-end">
+        <PageGlow strength="hero" colors={photoColors ?? COVER_FALLBACK} />
+        <div className="size-44 shrink-0 self-center overflow-hidden rounded-full shadow-card sm:size-48 sm:self-auto">
           {artist.imageUrl ? (
             <img
               src={artist.imageUrl}
@@ -134,7 +143,7 @@ export default function Artist() {
               {artist.genres.map((g) => (
                 <span
                   key={g}
-                  className="rounded-full bg-surface-2 px-2.5 py-1 text-meta text-muted-foreground"
+                  className="rounded-chip border border-line-strong bg-surface-2 px-2.5 py-1 text-meta text-muted-foreground"
                 >
                   {g}
                 </span>
@@ -154,8 +163,8 @@ export default function Artist() {
 
       {artist.bio && (
         <section className="flex flex-col gap-2">
-          <h2 className="text-section-title">About</h2>
-          <div className="rounded-card bg-surface p-4 shadow-card">
+          <SectionHeader title="About" />
+          <Card>
             <p
               dir="auto"
               className={cn('text-body text-muted-foreground', !bioOpen && 'line-clamp-3')}
@@ -166,7 +175,7 @@ export default function Artist() {
               <button
                 type="button"
                 onClick={() => setBioOpen((o) => !o)}
-                className="rounded-button text-button text-accent transition-colors duration-200 ease-soft hover:text-foreground"
+                className="-my-2 inline-flex min-h-11 items-center rounded-button text-button text-accent transition-colors duration-200 ease-soft hover:text-foreground"
               >
                 {bioOpen ? 'Show less' : 'Read more'}
               </button>
@@ -180,22 +189,22 @@ export default function Artist() {
                 From Wikipedia
               </a>
             </div>
-          </div>
+          </Card>
         </section>
       )}
 
       {artist.topSongs.length > 0 && (
         <section className="flex flex-col gap-3">
-          <h2 className="text-section-title">Top songs</h2>
-          <ol className="flex flex-col gap-1">
+          <SectionHeader title="Top songs" />
+          <Card as="ol" padding="sm" className="flex flex-col gap-0.5">
             {artist.topSongs.map((song, i) => {
               const isCurrent = player.current?.id === song.id
               return (
                 <li
                   key={song.id}
                   className={cn(
-                    'group flex items-center gap-3 rounded-card px-2 py-2 transition-colors duration-200 ease-soft hover:bg-surface',
-                    isCurrent && 'bg-surface'
+'group flex items-center gap-3 rounded-inset px-2 py-2 transition-colors duration-200 ease-soft hover:bg-surface-2',
+                    isCurrent && 'bg-surface-2'
                   )}
                 >
                   <span className="w-5 shrink-0 text-end text-meta text-muted-foreground">
@@ -247,38 +256,48 @@ export default function Artist() {
                 </li>
               )
             })}
-          </ol>
+          </Card>
         </section>
       )}
 
       <section className="flex flex-col gap-4">
-        <h2 className="text-section-title">Discography</h2>
+        <SectionHeader title="Discography" />
 
-        <div className="flex gap-2" role="tablist">
-          <Chip active={tab === 'albums'} onClick={() => setTab('albums')}>
-            Albums
-          </Chip>
-          <Chip active={tab === 'singles'} onClick={() => setTab('singles')}>
-            Singles &amp; EPs
-          </Chip>
-        </div>
+        <Tabs
+          tabs={[
+            { id: 'albums', label: 'Albums' },
+            { id: 'singles', label: 'Singles & EPs' },
+          ]}
+          value={tab}
+          onChange={setTab}
+          label="Discography"
+          idPrefix="discography"
+          fill={false}
+        />
 
-        {shown.length === 0 ? (
-          <div className="flex items-center gap-2 rounded-card bg-surface px-5 py-8 text-body text-muted-foreground">
-            {syncing.current && (
-              <Loader2 className="size-4 animate-spin" strokeWidth={2} aria-hidden />
-            )}
-            {tab === 'albums'
-              ? 'No albums cached for this artist yet.'
-              : 'No singles or EPs cached for this artist yet.'}
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5">
-            {shown.map((album) => (
-              <AlbumCard key={album.id} album={album} />
-            ))}
-          </div>
-        )}
+        <TabPanel idPrefix="discography" value={tab}>
+          {shown.length === 0 ? (
+            syncing.current ? (
+              <SkeletonMediaGrid count={4} />
+            ) : (
+              <EmptyState
+                face="sleepy"
+                compact
+                title={
+                  tab === 'albums'
+                    ? 'No albums cached for this artist yet.'
+                    : 'No singles or EPs cached for this artist yet.'
+                }
+              />
+            )
+          ) : (
+            <div className={MEDIA_GRID}>
+              {shown.map((album) => (
+                <AlbumCard key={album.id} album={album} />
+              ))}
+            </div>
+          )}
+        </TabPanel>
       </section>
     </div>
   )
@@ -288,7 +307,7 @@ function AlbumCard({ album }: { album: ArtistAlbum }) {
   return (
     <Link
       to={`/album/${album.id}`}
-      className="group flex flex-col gap-3 rounded-card bg-surface p-3 shadow-card transition-all duration-200 ease-soft hover:-translate-y-0.5 hover:bg-surface-2 active:translate-y-0 active:scale-[0.98]"
+      className="group flex flex-col gap-3 rounded-card border border-line bg-surface p-3 shadow-card transition-all duration-200 ease-soft hover:-translate-y-0.5 hover:bg-surface-2 active:translate-y-0 active:scale-[0.98]"
     >
       <div className="relative aspect-square w-full overflow-hidden rounded-cover bg-surface-2">
         {album.coverUrl ? (
@@ -316,24 +335,24 @@ function AlbumCard({ album }: { album: ArtistAlbum }) {
 
 function ArtistSkeleton() {
   return (
-    <div className="flex flex-col gap-8 pt-2">
+    <div className="flex flex-col gap-8 pt-2" aria-busy="true">
       <div className="flex flex-col gap-5 sm:flex-row sm:items-end">
-        <div className="size-40 shrink-0 animate-pulse self-center rounded-full bg-surface sm:self-auto" />
-        <div className="flex flex-1 flex-col gap-3">
-          <div className="h-8 w-56 animate-pulse rounded bg-surface" />
-          <div className="h-4 w-40 animate-pulse rounded bg-surface" />
-          <div className="h-9 w-28 animate-pulse rounded-button bg-surface" />
+        <Skeleton tone="page" className="size-48 shrink-0 self-center rounded-full sm:size-52 sm:self-auto" />
+        <div className="flex flex-1 flex-col items-center gap-3 py-2 sm:items-start">
+          <Skeleton tone="page" className="h-8 w-2/3" />
+          <Skeleton tone="page" className="h-4 w-1/2" />
+          <Skeleton tone="page" className="h-11 w-28 rounded-button" />
         </div>
       </div>
-      <div className="h-24 animate-pulse rounded-card bg-surface" />
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5">
+      <Card padding="sm" shadow={false} className="flex flex-col gap-1">
         {Array.from({ length: 5 }, (_, i) => (
-          <div key={i} className="flex flex-col gap-3 rounded-card bg-surface p-3">
-            <div className="aspect-square w-full animate-pulse rounded-cover bg-surface-2" />
-            <div className="h-3.5 w-3/4 animate-pulse rounded bg-surface-2" />
+          <div key={i} className="flex items-center gap-3 px-2 py-2">
+            <Skeleton className="h-4 w-5" />
+            <Skeleton className="size-11 shrink-0 rounded-thumb" />
+            <Skeleton className="h-4 flex-1" />
           </div>
         ))}
-      </div>
+      </Card>
     </div>
   )
 }

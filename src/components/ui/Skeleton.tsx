@@ -15,9 +15,21 @@ const TONE: Record<SkeletonTone, string> = {
  * reduced motion). Always decorative; give the region aria-busy, or a
  * role="status" with words, instead.
  */
-export function Skeleton({ className, tone = 'card' }: { className?: string; tone?: SkeletonTone }) {
+export function Skeleton({
+  className,
+  tone = 'card',
+  style,
+}: {
+  className?: string
+  tone?: SkeletonTone
+  style?: React.CSSProperties
+}) {
   return (
-    <div aria-hidden className={cn('animate-pulse rounded motion-reduce:animate-none', TONE[tone], className)} />
+    <div
+      aria-hidden
+      style={style}
+      className={cn('animate-pulse rounded motion-reduce:animate-none', TONE[tone], className)}
+    />
   )
 }
 

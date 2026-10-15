@@ -8,6 +8,7 @@ import { useAuth } from '@/lib/auth'
 import { useProfile } from '@/hooks/useProfile'
 import { deleteReview, getSongReviews, upsertReview } from '@/lib/catalog'
 import type { ReviewWithAuthor } from '@/lib/types'
+import { EmptyState } from '@/components/ui/EmptyState'
 
 const PAGE_SIZE = 10
 
@@ -205,7 +206,7 @@ export function ReviewsTab({
           onCancel={() => setFormOpen(false)}
         />
       ) : myReview ? (
-        <div className="flex flex-col gap-3 rounded-card bg-surface-2 p-4">
+        <div className="flex flex-col gap-3 rounded-card border border-primary/25 bg-primary/[0.06] p-4">
           <p className="text-meta text-muted-foreground">Your review</p>
           <ReviewCard
             review={myReview}
@@ -221,14 +222,14 @@ export function ReviewsTab({
               <button
                 type="button"
                 onClick={handleDelete}
-                className="rounded-button bg-danger/15 px-3.5 py-2 text-button text-danger transition-all duration-200 ease-soft hover:bg-danger/25 active:scale-[0.98]"
+                className="min-h-11 rounded-button bg-danger/15 px-3.5 text-button text-danger transition-all duration-200 ease-soft hover:bg-danger/25 active:scale-[0.98]"
               >
                 Yes, delete
               </button>
               <button
                 type="button"
                 onClick={() => setConfirmingDelete(false)}
-                className="rounded-button px-3.5 py-2 text-button text-muted-foreground transition-colors duration-200 ease-soft hover:text-foreground"
+                className="min-h-11 rounded-button px-3.5 text-button text-muted-foreground transition-colors duration-200 ease-soft hover:text-foreground"
               >
                 Keep it
               </button>
@@ -238,7 +239,7 @@ export function ReviewsTab({
               <button
                 type="button"
                 onClick={() => setFormOpen(true)}
-                className="flex items-center gap-2 rounded-button bg-surface px-3.5 py-2 text-button text-muted-foreground transition-all duration-200 ease-soft hover:text-foreground active:scale-[0.98]"
+                className="flex min-h-11 items-center gap-2 rounded-button border border-line-strong bg-surface px-3.5 text-button text-muted-foreground transition-all duration-200 ease-soft hover:text-foreground active:scale-[0.98]"
               >
                 <PenLine className="size-4" strokeWidth={1.75} />
                 Edit your review
@@ -247,7 +248,7 @@ export function ReviewsTab({
                 type="button"
                 onClick={() => setConfirmingDelete(true)}
                 disabled={deleting}
-                className="flex items-center gap-2 rounded-button px-3.5 py-2 text-button text-muted-foreground transition-colors duration-200 ease-soft hover:text-danger disabled:opacity-60"
+                className="flex min-h-11 items-center gap-2 rounded-button px-3.5 text-button text-muted-foreground transition-colors duration-200 ease-soft hover:text-danger disabled:opacity-60"
               >
                 {deleting ? (
                   <Loader2 className="size-4 animate-spin" strokeWidth={2} aria-hidden />
@@ -263,7 +264,7 @@ export function ReviewsTab({
         <button
           type="button"
           onClick={startWriting}
-          className="flex items-center justify-center gap-2 rounded-card bg-surface px-5 py-4 text-button text-foreground shadow-card transition-all duration-200 ease-soft hover:bg-surface-2 active:scale-[0.99]"
+          className="flex min-h-14 items-center justify-center gap-2 rounded-card border border-line bg-surface px-5 py-4 text-button text-foreground shadow-card transition-all duration-200 ease-soft hover:bg-surface-2 active:scale-[0.99]"
         >
           <PenLine className="size-[18px] text-primary" strokeWidth={1.75} />
           Write a review
@@ -271,12 +272,7 @@ export function ReviewsTab({
       )}
 
       {others.length === 0 && !myReview ? (
-        <div className="flex flex-col items-center gap-2 rounded-card bg-surface px-6 py-12 text-center">
-          <p className="text-card-title">No reviews yet</p>
-          <p className="max-w-sm text-body text-muted-foreground">
-            Be the first to rate this song.
-          </p>
-        </div>
+        <EmptyState face="thinking-sticker" title="No reviews yet" detail="Be the first to rate this song." />
       ) : (
         others.map((r) => (
           <ReviewCard
@@ -293,7 +289,7 @@ export function ReviewsTab({
           type="button"
           onClick={loadMore}
           disabled={loadingMore}
-          className="flex items-center justify-center gap-2 rounded-button bg-surface px-4 py-3 text-button text-muted-foreground shadow-card transition-all duration-200 ease-soft hover:bg-surface-2 hover:text-foreground active:scale-[0.99] disabled:opacity-60"
+          className="flex min-h-11 items-center justify-center gap-2 rounded-button border border-line bg-surface px-4 py-3 text-button text-muted-foreground shadow-card transition-all duration-200 ease-soft hover:bg-surface-2 hover:text-foreground active:scale-[0.99] disabled:opacity-60"
         >
           {loadingMore && (
             <Loader2 className="size-4 animate-spin" strokeWidth={2} aria-hidden />

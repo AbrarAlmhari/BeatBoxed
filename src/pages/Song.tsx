@@ -1,19 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import {
-  ChevronDown,
-  Disc3,
-  Heart,
-  Loader2,
-  MicVocal,
-  Pause,
-  Play,
-  SearchX,
-} from 'lucide-react'
+import { ChevronDown, Disc3, Heart, Loader2, Pause, Play } from 'lucide-react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { cn } from '@/lib/cn'
 import { usePlayer } from '@/lib/player'
-import { Chip } from '@/components/ui/Chip'
+import { Card, cardClass } from '@/components/ui/Card'
+import { EmptyState, emptyActionClass, emptySecondaryActionClass } from '@/components/ui/EmptyState'
+import { PageGlow } from '@/components/ui/PageGlow'
+import { SectionHeader } from '@/components/ui/SectionHeader'
+import { Skeleton } from '@/components/ui/Skeleton'
+import { tabClass, useStuck } from '@/components/ui/Tabs'
+import { COVER_FALLBACK, useCoverColors } from '@/lib/coverColors'
 import { FollowButton } from '@/components/ui/FollowButton'
 import { AddToPlaylistButton } from '@/components/playlist/AddToPlaylistButton'
 import { StarRating } from '@/components/ui/StarRating'
@@ -90,6 +87,10 @@ export default function Song() {
   const beatieRef = useRef<HTMLElement>(null)
   const lyricsRef = useRef<HTMLElement>(null)
   const reviewsRef = useRef<HTMLElement>(null)
+  const navRef = useRef<HTMLElement>(null)
+  const navStuck = useStuck(navRef, Boolean(song))
+  // The header's glow takes the cover's colours (purple until known).
+  const coverColors = useCoverColors(song?.album?.coverUrl)
   const sectionRefs: Record<Section, React.RefObject<HTMLElement | null>> = {
     about: aboutRef,
     beatie: beatieRef,
@@ -236,12 +237,12 @@ export default function Song() {
 
   if (loading) {
     return (
-      <div className="flex flex-col gap-8 pt-2">
+      <div className="flex flex-col gap-8 pt-2" aria-busy="true">
         <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-end">
-          <div className="aspect-square w-48 animate-pulse rounded-card bg-surface-2 sm:w-56" />
-          <div className="flex w-full flex-col gap-3">
-            <div className="h-8 w-2/3 animate-pulse rounded bg-surface-2" />
-            <div className="h-4 w-1/3 animate-pulse rounded bg-surface-2" />
+          <Skeleton tone="page" className="aspect-square w-52 rounded-card sm:w-56" />
+          <div className="flex w-full flex-col items-center gap-3 sm:items-start">
+            <Skeleton tone="page" className="h-8 w-2/3" />
+            <Skeleton tone="page" className="h-4 w-1/3" />
           </div>
         </div>
       </div>
@@ -250,28 +251,31 @@ export default function Song() {
 
   if (error) {
     return (
-      <div className="rounded-card bg-surface px-6 py-14 text-center">
-        <p className="text-body text-danger">{error}</p>
-      </div>
+      <EmptyState
+        face="sad"
+        tone="error"
+        title={error}
+        action={
+          <button type="button" onClick={() => window.location.reload()} className={emptySecondaryActionClass}>
+            Retry
+          </button>
+        }
+      />
     )
   }
 
   if (!song) {
     return (
-      <div className="flex flex-col items-center gap-3 rounded-card bg-surface px-6 py-16 text-center">
-        <SearchX className="size-7 text-muted-foreground" strokeWidth={1.5} aria-hidden />
-        <p className="text-card-title">Song not found</p>
-        <p className="max-w-sm text-body text-muted-foreground">
-          This song isn't in our library. It may have been removed, or the link
-          may be wrong.
-        </p>
-        <Link
-          to="/explore"
-          className="mt-2 rounded-button bg-primary px-4 py-2.5 text-button text-white transition-all duration-200 ease-soft hover:bg-accent active:scale-95"
-        >
-          Search for music
-        </Link>
-      </div>
+      <EmptyState
+        face="thinking-sticker"
+        title="Song not found"
+        detail="This song isn't in our library. It may have been removed, or the link may be wrong."
+        action={
+          <Link to="/explore" className={emptyActionClass}>
+            Search for music
+          </Link>
+        }
+      />
     )
   }
 
@@ -282,15 +286,15 @@ export default function Song() {
   const facts: [string, string, string | null][] = [
     ['Album', song.album?.title ?? '—', song.album?.id ?? null],
     ['Released', releaseDate ?? '—', null],
-    ['Genre', song.genre ?? 'Not tagged', null],
     ['Duration', formatDuration(song.durationMs), null],
   ]
 
   return (
-    <div className="flex flex-col gap-8 pt-2">
-      <header className="flex flex-col items-center gap-5 text-center sm:flex-row sm:items-end sm:text-left">
+    <div className="relative isolate flex flex-col gap-8 pt-2">
+      <header className="relative flex flex-col items-center gap-5 pb-2 text-center sm:flex-row sm:items-end sm:text-left">
+        <PageGlow strength="hero" colors={coverColors ?? COVER_FALLBACK} />
         {/* Wrapped in the album link when there's an album to open. */}
-        <AlbumLink albumId={song.album?.id ?? null} className="aspect-square w-44 shrink-0 overflow-hidden rounded-card shadow-card sm:w-56">
+        <AlbumLink albumId={song.album?.id ?? null} className="aspect-square w-52 shrink-0 overflow-hidden rounded-card shadow-card sm:w-56">
           {song.album?.coverUrl ? (
             <img
               src={song.album.coverUrl}
@@ -361,7 +365,7 @@ export default function Song() {
               }
               disabled={isCurrent && player.unavailable}
               aria-label={isCurrent && player.isPlaying ? 'Pause' : 'Play preview'}
-              className="flex items-center gap-2 rounded-button bg-primary px-5 py-2.5 text-button text-white transition-all duration-200 ease-soft hover:bg-accent active:scale-[0.98] disabled:opacity-50 disabled:hover:bg-primary"
+              className="flex min-h-11 items-center gap-2 rounded-button bg-primary px-5 text-button text-white transition-all duration-200 ease-soft hover:bg-accent active:scale-[0.98] disabled:opacity-50 disabled:hover:bg-primary"
             >
               {isCurrent && player.loading ? (
                 <Loader2 className="size-[18px] animate-spin" strokeWidth={2.5} aria-hidden />
@@ -383,10 +387,10 @@ export default function Song() {
               aria-pressed={liked}
               aria-label={liked ? 'Remove from liked songs' : 'Add to liked songs'}
               className={cn(
-                'flex items-center gap-1.5 rounded-button border px-3 py-1.5 text-button transition-colors duration-200 ease-soft active:scale-[0.97]',
+                'flex min-h-11 items-center gap-1.5 rounded-button border px-3.5 text-button transition-colors duration-200 ease-soft active:scale-[0.97]',
                 liked
                   ? 'border-primary/60 bg-primary/15 text-foreground'
-                  : 'border-white/10 bg-surface-2 text-muted-foreground hover:text-foreground'
+                  : 'border-line-strong bg-surface-2 text-muted-foreground hover:text-foreground'
               )}
             >
               <Heart
@@ -420,26 +424,39 @@ export default function Song() {
         </div>
       </header>
 
-      {/* Quick-jump nav. Docks under the sticky TopBar (top-0, ~64px tall) and
-          sits below it in z-order so the two never overlap awkwardly. */}
+      {/* Quick-jump nav. Docks under the sticky TopBar (~64px tall) and sits
+          below it in z-order. It looks like the shared tabs but stays a set
+          of jump links: every section is on the page at once. The glass
+          background only shows once it's stuck. */}
       <nav
+        ref={navRef}
         aria-label="Jump to section"
-        className="no-scrollbar sticky top-16 z-10 -mx-4 flex gap-2 overflow-x-auto border-b border-white/5 bg-background/85 px-4 py-3 backdrop-blur-xl sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
+        className={cn(
+          'no-scrollbar sticky top-16 z-10 -mx-4 flex overflow-x-auto border-b border-line-strong px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8',
+          navStuck && 'glass-bar'
+        )}
       >
         {SECTIONS.map((s) => (
-          <Chip key={s.id} active={active === s.id} onClick={() => jumpTo(s.id)}>
+          <button
+            key={s.id}
+            type="button"
+            onClick={() => jumpTo(s.id)}
+            aria-current={active === s.id ? 'true' : undefined}
+            className={tabClass(active === s.id)}
+          >
             {s.label}
-          </Chip>
+          </button>
         ))}
       </nav>
 
       <section id="about" ref={aboutRef} aria-label="About" className="scroll-mt-36">
-        <h2 className="mb-4 text-section-title">About</h2>
-        <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <SectionHeader title="About" className="mb-4" />
+        <Card padding="none">
+          <dl className="grid grid-cols-3 divide-x divide-line">
           {facts.map(([label, value, albumId]) => (
-            <div key={label} className="rounded-card bg-surface p-4 shadow-card">
+            <div key={label} className="flex min-w-0 flex-col gap-1 px-3 py-4 sm:px-5">
               <dt className="text-meta text-muted-foreground">{label}</dt>
-              <dd dir="auto" className="mt-1 text-card-title capitalize">
+              <dd dir="auto" className="break-words text-card-title">
                 {albumId ? (
                   <Link
                     to={`/album/${albumId}`}
@@ -453,7 +470,8 @@ export default function Song() {
               </dd>
             </div>
           ))}
-        </dl>
+          </dl>
+        </Card>
       </section>
 
       <section id="beatie" ref={beatieRef} aria-label="Beatie" className="scroll-mt-36">
@@ -466,7 +484,10 @@ export default function Song() {
           onClick={() => setLyricsOpen((v) => !v)}
           aria-expanded={lyricsOpen}
           aria-controls="lyrics-panel"
-          className="flex w-full items-center justify-between gap-3 rounded-card bg-surface px-5 py-4 text-left shadow-card transition-colors duration-200 ease-soft hover:bg-surface-2"
+          className={cn(
+            cardClass({ padding: 'none', interactive: true }),
+            'flex min-h-14 w-full items-center justify-between gap-3 px-5 py-4 text-left'
+          )}
         >
           <span className="text-section-title">Lyrics</span>
           <ChevronDown
@@ -479,12 +500,14 @@ export default function Song() {
         </button>
 
         {lyricsOpen && (
-          <div id="lyrics-panel" className="animate-fade-in mt-3">
+          <div id="lyrics-panel" className="animate-fade-in mt-3 motion-reduce:animate-none">
             {lyricsLoading ? (
-              <div className="flex items-center gap-2 px-1 text-body text-muted-foreground">
-                <Loader2 className="size-4 animate-spin" strokeWidth={2} aria-hidden />
-                Looking up lyrics…
-              </div>
+              <Card role="status" className="flex flex-col gap-3">
+                <span className="sr-only">Looking up lyrics…</span>
+                {[90, 70, 80, 55, 75].map((w, i) => (
+                  <Skeleton key={i} className="h-3.5" style={{ width: `${w}%` }} />
+                ))}
+              </Card>
             ) : lyrics?.status === 'found' ? (
               <div className="flex flex-col gap-4">
                 {lyrics.synced && (
@@ -496,13 +519,11 @@ export default function Song() {
                 <LyricsView songId={song.id} lines={lyrics.lines} />
               </div>
             ) : (
-              <div className="flex flex-col items-center gap-3 rounded-card bg-surface px-6 py-14 text-center">
-                <MicVocal className="size-7 text-muted-foreground" strokeWidth={1.5} aria-hidden />
-                <p className="text-card-title">Lyrics not found</p>
-                <p className="max-w-sm text-body text-muted-foreground">
-                  lrclib doesn't have lyrics for this track yet.
-                </p>
-              </div>
+              <EmptyState
+                face="sad"
+                title="Lyrics not found"
+                detail="lrclib doesn't have lyrics for this track yet."
+              />
             )}
           </div>
         )}
@@ -514,7 +535,7 @@ export default function Song() {
         aria-label="Reviews"
         className="scroll-mt-36 pb-4"
       >
-        <h2 className="mb-4 text-section-title">Reviews</h2>
+        <SectionHeader title="Reviews" className="mb-4" />
         <ReviewsTab
           songId={song.id}
           onStatsChange={refreshStats}

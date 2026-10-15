@@ -71,7 +71,7 @@ export function LyricsView({ songId, lines }: { songId: string; lines: string[] 
             onClick={() => void toggleTranslation()}
             disabled={translation.status === 'loading'}
             aria-pressed={translation.status === 'on'}
-            className="flex items-center gap-2 rounded-button border border-white/10 bg-surface-2 px-3.5 py-2 text-button text-foreground transition-colors duration-200 ease-soft hover:bg-white/10 disabled:opacity-60"
+            className="flex min-h-11 items-center gap-2 rounded-button border border-line-strong bg-surface-2 px-3.5 text-button text-foreground transition-colors duration-200 ease-soft hover:bg-white/10 disabled:opacity-60"
           >
             {translation.status === 'loading' ? (
               <Loader2 className="size-4 animate-spin" strokeWidth={2} aria-hidden />
@@ -103,7 +103,7 @@ export function LyricsView({ songId, lines }: { songId: string; lines: string[] 
         </div>
       )}
 
-      <div className="flex flex-col gap-1 rounded-card bg-surface p-3 shadow-card sm:p-4">
+      <div className="flex flex-col gap-1 rounded-card border border-line bg-surface p-3 shadow-card sm:p-4">
         {shown && (
           <p className="flex items-center gap-1.5 px-2 pb-2 text-meta text-muted-foreground">
             <BeatieImage mood="mark" size={16} />
@@ -200,7 +200,7 @@ function LinePanel({
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="-me-1 -mt-1 grid size-8 shrink-0 place-items-center rounded-full text-muted-foreground hover:bg-white/5 hover:text-foreground"
+            className="-me-2 -mt-2 grid size-11 shrink-0 place-items-center rounded-full text-muted-foreground hover:bg-white/5 hover:text-foreground"
           >
             <X className="size-4" strokeWidth={2} />
           </button>
@@ -211,7 +211,7 @@ function LinePanel({
             <button
               type="button"
               onClick={() => void explain()}
-              className="flex w-fit items-center gap-2 rounded-button bg-primary px-3.5 py-2 text-button text-white transition-colors duration-200 ease-soft hover:bg-accent"
+              className="flex min-h-11 w-fit items-center gap-2 rounded-button bg-primary px-3.5 text-button text-white transition-colors duration-200 ease-soft hover:bg-accent"
             >
               <BeatieImage mood="mark" size={16} />
               Explain this line

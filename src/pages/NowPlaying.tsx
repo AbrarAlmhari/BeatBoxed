@@ -1,17 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import {
-  Disc3,
-  ExternalLink,
-  Heart,
-  Loader2,
-  MicVocal,
-  Pause,
-  Play,
-  SkipBack,
-  SkipForward,
-} from 'lucide-react'
-import { Chip } from '@/components/ui/Chip'
+import { Disc3, ExternalLink, Heart, Loader2, Pause, Play, SkipBack, SkipForward } from 'lucide-react'
+import { Card } from '@/components/ui/Card'
+import { EmptyState, emptyActionClass } from '@/components/ui/EmptyState'
+import { PageGlow } from '@/components/ui/PageGlow'
+import { Skeleton } from '@/components/ui/Skeleton'
+import { Segmented } from '@/components/ui/Tabs'
+import { COVER_FALLBACK, useCoverColors } from '@/lib/coverColors'
 import { BeatieImage } from '@/components/beatie/BeatieImage'
 import { usePlayer } from '@/lib/player'
 import { useAuth } from '@/lib/auth'
@@ -46,6 +41,9 @@ export default function NowPlaying() {
   const [liked, setLiked] = useState(false)
   const [lyrics, setLyrics] = useState<LyricsResult | null>(null)
   const [lyricsLoading, setLyricsLoading] = useState(false)
+  // The background takes the cover's colours; PageGlow cross-fades between
+  // songs (600ms, none with reduced motion).
+  const coverColors = useCoverColors(current?.coverUrl)
 
   useEffect(() => {
     if (!user || !current) return setLiked(false)
@@ -100,30 +98,33 @@ export default function NowPlaying() {
 
   if (!current) {
     return (
-      <div className="flex flex-col items-center gap-2 rounded-card bg-surface px-6 py-16 text-center">
-        <Disc3 className="size-7 text-muted-foreground" strokeWidth={1.5} aria-hidden />
-        <p className="text-card-title">Nothing playing</p>
-        <p className="max-w-sm text-body text-muted-foreground">
-          Press play on a song and it'll show up here.
-        </p>
-      </div>
+      <EmptyState
+        face="sleepy-sticker"
+        title="Nothing playing"
+        detail="Press play on a song and it'll show up here."
+        action={
+          <Link to="/explore" className={emptyActionClass}>
+            Find something to play
+          </Link>
+        }
+      />
     )
   }
 
   return (
+    // Full width, so the tint fills the screen rather than the column.
+    <div className="relative isolate min-h-[70dvh]">
+      <PageGlow strength="hero" colors={coverColors ?? COVER_FALLBACK} />
     <div className="mx-auto flex max-w-md flex-col gap-6 pt-2">
-      <div
-        className="no-scrollbar flex gap-2 overflow-x-auto"
-        role="group"
-        aria-label="View"
-      >
-        <Chip active={tab === 'artwork'} onClick={() => setTab('artwork')}>
-          Artwork
-        </Chip>
-        <Chip active={tab === 'lyrics'} onClick={() => setTab('lyrics')}>
-          Lyrics
-        </Chip>
-      </div>
+      <Segmented
+        label="View"
+        value={tab}
+        onChange={setTab}
+        options={[
+          { id: 'artwork', label: 'Artwork' },
+          { id: 'lyrics', label: 'Lyrics' },
+        ]}
+      />
 
       {tab === 'artwork' ? (
         <div className="aspect-square w-full overflow-hidden rounded-card shadow-card">
@@ -140,11 +141,13 @@ export default function NowPlaying() {
           )}
         </div>
       ) : (
-        <div className="min-h-64 rounded-card bg-surface p-5 shadow-card">
+        <Card padding="none" className="min-h-64 p-5">
           {lyricsLoading ? (
-            <div className="flex items-center gap-2 text-body text-muted-foreground">
-              <Loader2 className="size-4 animate-spin" strokeWidth={2} aria-hidden />
-              Looking up lyrics…
+            <div role="status" className="flex flex-col gap-3">
+              <span className="sr-only">Looking up lyrics…</span>
+              {[85, 60, 75, 50, 70, 65].map((w, i) => (
+                <Skeleton key={i} className="h-3.5" style={{ width: `${w}%` }} />
+              ))}
             </div>
           ) : lyrics?.status === 'found' ? (
             <div className="flex flex-col gap-1.5">
@@ -157,12 +160,12 @@ export default function NowPlaying() {
               ))}
             </div>
           ) : (
-            <div className="flex flex-col items-center gap-3 py-10 text-center">
-              <MicVocal className="size-7 text-muted-foreground" strokeWidth={1.5} aria-hidden />
+            <div className="flex flex-col items-center gap-3 py-8 text-center">
+              <BeatieImage mood="sad" size={64} />
               <p className="text-card-title">Lyrics not found</p>
             </div>
           )}
-        </div>
+        </Card>
       )}
 
       <div className="flex flex-col gap-1">
@@ -201,7 +204,7 @@ export default function NowPlaying() {
             onClick={toggleLike}
             aria-pressed={liked}
             aria-label={liked ? 'Remove from liked songs' : 'Add to liked songs'}
-            className="grid size-10 shrink-0 place-items-center rounded-full text-muted-foreground transition-all duration-200 ease-soft hover:bg-white/5 hover:text-foreground active:scale-95"
+            className="grid size-11 shrink-0 place-items-center rounded-full text-muted-foreground transition-all duration-200 ease-soft hover:bg-white/5 hover:text-foreground active:scale-95"
           >
             <Heart
               className={cn('size-5', liked && 'fill-primary text-primary')}
@@ -213,7 +216,7 @@ export default function NowPlaying() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded-full bg-surface-2 px-2.5 py-1 text-meta text-muted-foreground">
+          <span className="rounded-chip border border-line-strong bg-surface-2/70 px-2.5 py-1 text-meta text-muted-foreground">
             Preview
           </span>
           {skipNotice ? (
@@ -283,7 +286,7 @@ export default function NowPlaying() {
       <div className="flex flex-wrap gap-2">
         <Link
           to={`/song/${current.id}`}
-          className="flex items-center gap-2 rounded-button bg-surface-2 px-3.5 py-2.5 text-button text-muted-foreground transition-all duration-200 ease-soft hover:text-foreground active:scale-[0.98]"
+          className="flex min-h-11 items-center gap-2 rounded-button border border-line-strong bg-surface-2/80 px-3.5 text-button text-muted-foreground transition-all duration-200 ease-soft hover:text-foreground active:scale-[0.98]"
         >
           Song details
         </Link>
@@ -293,7 +296,7 @@ export default function NowPlaying() {
             href={`https://open.spotify.com/track/${current.spotifyId}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-2 rounded-button bg-surface-2 px-3.5 py-2.5 text-button text-muted-foreground transition-all duration-200 ease-soft hover:text-foreground active:scale-[0.98]"
+            className="flex min-h-11 items-center gap-2 rounded-button border border-line-strong bg-surface-2/80 px-3.5 text-button text-muted-foreground transition-all duration-200 ease-soft hover:text-foreground active:scale-[0.98]"
           >
             <ExternalLink className="size-4" strokeWidth={1.75} />
             Open in Spotify
@@ -303,7 +306,7 @@ export default function NowPlaying() {
         {/* Beatie lives on the Song page; this jumps straight to its card. */}
         <Link
           to={`/song/${current.id}#beatie`}
-          className="flex items-center gap-2 rounded-button bg-surface-2 px-3.5 py-2.5 text-button text-muted-foreground transition-all duration-200 ease-soft hover:text-foreground active:scale-[0.98]"
+          className="flex min-h-11 items-center gap-2 rounded-button border border-line-strong bg-surface-2/80 px-3.5 text-button text-muted-foreground transition-all duration-200 ease-soft hover:text-foreground active:scale-[0.98]"
         >
           {/* The mark, not the full face: the README keeps the other
               expressions at 48px and up, too big for a button icon. */}
@@ -311,6 +314,7 @@ export default function NowPlaying() {
           Ask Beatie
         </Link>
       </div>
+    </div>
     </div>
   )
 }

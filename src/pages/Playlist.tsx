@@ -14,6 +14,11 @@ import {
 } from 'lucide-react'
 import { PlaylistCover } from '@/components/playlist/PlaylistCover'
 import { PlaylistForm } from '@/components/playlist/PlaylistForm'
+import { Card } from '@/components/ui/Card'
+import { EmptyState } from '@/components/ui/EmptyState'
+import { PageGlow } from '@/components/ui/PageGlow'
+import { Skeleton } from '@/components/ui/Skeleton'
+import { COVER_FALLBACK, useCoverColors } from '@/lib/coverColors'
 import { useAuth } from '@/lib/auth'
 import { usePlayer } from '@/lib/player'
 import { useToast } from '@/lib/toast'
@@ -167,29 +172,38 @@ export default function Playlist() {
     }
   }
 
+  // Hooks before the early returns. The glow follows the playlist's own
+  // cover, or the first song's when it has none (the grid's first tile).
+  const glowSource = playlist?.coverUrl ?? playlist?.songs.find((s) => s.coverUrl)?.coverUrl
+  const coverColors = useCoverColors(glowSource)
+
   if (loading) {
     return (
-      <div className="flex flex-col gap-6 pt-2">
-        <div className="flex gap-5">
-          <div className="size-40 animate-pulse rounded-card bg-surface" />
-          <div className="flex flex-1 flex-col gap-3 py-2">
-            <div className="h-7 w-2/3 animate-pulse rounded bg-surface" />
-            <div className="h-4 w-1/3 animate-pulse rounded bg-surface" />
-          </div>
+    <div className="flex flex-col gap-8 pt-2" aria-busy="true">
+      <div className="flex flex-col gap-5 sm:flex-row sm:items-end">
+        <Skeleton tone="page" className="size-48 shrink-0 self-center rounded-cover sm:size-52 sm:self-auto" />
+        <div className="flex flex-1 flex-col items-center gap-3 py-2 sm:items-start">
+          <Skeleton tone="page" className="h-8 w-2/3" />
+          <Skeleton tone="page" className="h-4 w-1/2" />
+          <Skeleton tone="page" className="h-11 w-28 rounded-button" />
         </div>
-        <div className="h-64 animate-pulse rounded-card bg-surface" />
       </div>
+      <Card padding="sm" shadow={false} className="flex flex-col gap-1">
+        {Array.from({ length: 5 }, (_, i) => (
+          <div key={i} className="flex items-center gap-3 px-2 py-2">
+            <Skeleton className="h-4 w-5" />
+            <Skeleton className="size-11 shrink-0 rounded-thumb" />
+            <Skeleton className="h-4 flex-1" />
+          </div>
+        ))}
+      </Card>
+    </div>
     )
   }
 
   if (missing || !playlist) {
     return (
-      <div className="rounded-card bg-surface px-6 py-16 text-center">
-        <p className="text-card-title">Playlist not found</p>
-        <p className="mt-2 text-body text-muted-foreground">
-          It may have been deleted by its owner.
-        </p>
-      </div>
+      <EmptyState face="sleepy-sticker" title="Playlist not found" detail="It may have been deleted by its owner." />
     )
   }
 
@@ -201,9 +215,10 @@ export default function Playlist() {
   const playingThis = songs.some((s) => s.id === player.current?.id)
 
   return (
-    <div className="flex flex-col gap-8 pt-2">
-      <header className="flex flex-col gap-5 sm:flex-row sm:items-end">
-        <div className="w-40 shrink-0 self-center sm:self-auto">
+    <div className="relative isolate flex flex-col gap-8 pt-2">
+      <header className="relative flex flex-col gap-5 pb-2 sm:flex-row sm:items-end">
+        <PageGlow strength="hero" colors={coverColors ?? COVER_FALLBACK} />
+        <div className="w-48 shrink-0 self-center sm:w-52 sm:self-auto">
           {isOwner ? (
             <>
               <button
@@ -309,7 +324,7 @@ export default function Playlist() {
                       ? player.toggle()
                       : player.playQueue(songs, 0)
                   }
-                  className="flex items-center gap-2 rounded-button bg-primary px-4 py-2 text-button text-white transition-all duration-200 ease-soft hover:bg-primary/90 active:scale-[0.97] disabled:opacity-50"
+                  className="flex min-h-11 items-center gap-2 rounded-button bg-primary px-5 text-button text-white transition-all duration-200 ease-soft hover:bg-primary/90 active:scale-[0.97] disabled:opacity-50"
                 >
                   {playingThis && player.isPlaying ? (
                     <>
@@ -329,7 +344,7 @@ export default function Playlist() {
                     <button
                       type="button"
                       onClick={() => setEditing(true)}
-                      className="flex items-center gap-1.5 rounded-button border border-white/10 bg-surface-2 px-3 py-1.5 text-button text-muted-foreground transition-colors duration-200 ease-soft hover:text-foreground"
+                      className="flex min-h-11 items-center gap-1.5 rounded-button border border-line-strong bg-surface-2 px-3.5 text-button text-muted-foreground transition-colors duration-200 ease-soft hover:text-foreground"
                     >
                       <Pencil className="size-4" strokeWidth={1.75} aria-hidden />
                       Edit
@@ -355,7 +370,7 @@ export default function Playlist() {
                               setConfirmingDelete(false)
                             }
                           }}
-                          className="flex items-center gap-1.5 rounded-button bg-danger/15 px-3 py-1.5 text-button text-danger transition-colors duration-200 ease-soft hover:bg-danger/25 disabled:opacity-60"
+                          className="flex min-h-11 items-center gap-1.5 rounded-button bg-danger/15 px-3.5 text-button text-danger transition-colors duration-200 ease-soft hover:bg-danger/25 disabled:opacity-60"
                         >
                           {deleting && (
                             <Loader2 className="size-3.5 animate-spin" aria-hidden />
@@ -365,7 +380,7 @@ export default function Playlist() {
                         <button
                           type="button"
                           onClick={() => setConfirmingDelete(false)}
-                          className="rounded-button px-3 py-1.5 text-button text-muted-foreground transition-colors duration-200 ease-soft hover:text-foreground"
+                          className="min-h-11 rounded-button px-3.5 text-button text-muted-foreground transition-colors duration-200 ease-soft hover:text-foreground"
                         >
                           Keep
                         </button>
@@ -375,7 +390,7 @@ export default function Playlist() {
                         type="button"
                         onClick={() => setConfirmingDelete(true)}
                         aria-label="Delete playlist"
-                        className="flex items-center gap-1.5 rounded-button border border-white/10 bg-surface-2 px-3 py-1.5 text-button text-muted-foreground transition-colors duration-200 ease-soft hover:text-danger"
+                        className="flex min-h-11 items-center gap-1.5 rounded-button border border-line-strong bg-surface-2 px-3.5 text-button text-muted-foreground transition-colors duration-200 ease-soft hover:text-danger"
                       >
                         <Trash2 className="size-4" strokeWidth={1.75} aria-hidden />
                         Delete
@@ -390,16 +405,13 @@ export default function Playlist() {
       </header>
 
       {songs.length === 0 ? (
-        <div className="rounded-card bg-surface px-6 py-12 text-center">
-          <p className="text-card-title">Nothing here yet</p>
-          <p className="mt-2 text-body text-muted-foreground">
-            {isOwner
-              ? 'Add songs from any song page.'
-              : "This playlist doesn't have any songs."}
-          </p>
-        </div>
+        <EmptyState
+          face="happy-sticker"
+          title="Nothing here yet"
+          detail={isOwner ? 'Add songs from any song page.' : "This playlist doesn't have any songs."}
+        />
       ) : (
-        <ol className="flex flex-col gap-1">
+        <Card as="ol" padding="sm" className="flex flex-col gap-0.5">
           {songs.map((song, i) => {
             const isCurrent = player.current?.id === song.id
             return (
@@ -418,8 +430,8 @@ export default function Playlist() {
                   dragFrom.current = null
                 }}
                 className={cn(
-                  'group flex items-center gap-3 rounded-card px-2 py-2 transition-colors duration-200 ease-soft hover:bg-surface',
-                  isCurrent && 'bg-surface'
+                  'group flex items-center gap-3 rounded-inset px-2 py-2 transition-colors duration-200 ease-soft hover:bg-surface-2',
+                  isCurrent && 'bg-surface-2'
                 )}
               >
                 {isOwner && (
@@ -433,7 +445,9 @@ export default function Playlist() {
                   </span>
                 )}
 
-                <span className="w-5 shrink-0 text-end text-meta text-muted-foreground">
+                {/* Owners' rows carry three controls; the number steps aside on
+                    phones so the title keeps its room. */}
+                <span className={cn('w-5 shrink-0 text-end text-meta text-muted-foreground', isOwner && 'hidden sm:inline')}>
                   {i + 1}
                 </span>
 
@@ -484,18 +498,18 @@ export default function Playlist() {
                   </span>
                 </Link>
 
-                <span className="shrink-0 text-meta text-muted-foreground">
+                <span className={cn('shrink-0 text-meta text-muted-foreground', isOwner && 'hidden sm:inline')}>
                   {formatDuration(song.durationMs)}
                 </span>
 
                 {isOwner && (
-                  <span className="flex shrink-0 items-center">
+                  <span className="-me-1 flex shrink-0 items-center">
                     <button
                       type="button"
                       onClick={() => move(i, i - 1)}
                       disabled={i === 0}
                       aria-label={`Move ${song.title} up`}
-                      className="grid size-8 place-items-center rounded-full text-muted-foreground transition-colors duration-200 ease-soft hover:bg-white/5 hover:text-foreground disabled:opacity-30"
+                      className="grid size-11 place-items-center rounded-full text-muted-foreground transition-colors duration-200 ease-soft hover:bg-white/5 hover:text-foreground disabled:opacity-30"
                     >
                       <ChevronUp className="size-4" strokeWidth={2} />
                     </button>
@@ -504,7 +518,7 @@ export default function Playlist() {
                       onClick={() => move(i, i + 1)}
                       disabled={i === songs.length - 1}
                       aria-label={`Move ${song.title} down`}
-                      className="grid size-8 place-items-center rounded-full text-muted-foreground transition-colors duration-200 ease-soft hover:bg-white/5 hover:text-foreground disabled:opacity-30"
+                      className="grid size-11 place-items-center rounded-full text-muted-foreground transition-colors duration-200 ease-soft hover:bg-white/5 hover:text-foreground disabled:opacity-30"
                     >
                       <ChevronDown className="size-4" strokeWidth={2} />
                     </button>
@@ -512,7 +526,7 @@ export default function Playlist() {
                       type="button"
                       onClick={() => void remove(song)}
                       aria-label={`Remove ${song.title}`}
-                      className="grid size-8 place-items-center rounded-full text-muted-foreground transition-colors duration-200 ease-soft hover:bg-white/5 hover:text-danger"
+                      className="grid size-11 place-items-center rounded-full text-muted-foreground transition-colors duration-200 ease-soft hover:bg-white/5 hover:text-danger"
                     >
                       <X className="size-4" strokeWidth={2} />
                     </button>
@@ -521,7 +535,7 @@ export default function Playlist() {
               </li>
             )
           })}
-        </ol>
+        </Card>
       )}
     </div>
   )

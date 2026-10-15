@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { BeatieChat } from './BeatieChat'
 import { BeatieImage } from './BeatieImage'
+import { Card } from '@/components/ui/Card'
 
 /**
  * Beatie's card on the Song page: Beatie's face and name, then the shared
@@ -11,7 +12,7 @@ export function BeatieCard({ songId }: { songId: string }) {
   useEffect(() => setAnswered(false), [songId])
 
   return (
-    <div className="flex flex-col gap-4 rounded-card bg-surface p-4 shadow-card sm:p-5">
+    <Card className="flex flex-col gap-4 sm:p-5">
       <div className="flex items-center gap-3">
         <BeatieImage mood={answered ? 'happy' : 'default'} size={48} />
         <div className="flex flex-col">
@@ -20,6 +21,6 @@ export function BeatieCard({ songId }: { songId: string }) {
         </div>
       </div>
       <BeatieChat songId={songId} onAnswered={() => setAnswered(true)} />
-    </div>
+    </Card>
   )
 }

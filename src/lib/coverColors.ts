@@ -18,6 +18,13 @@ import { useEffect, useState } from 'react'
  */
 export type CoverColors = [string, string]
 
+/**
+ * The glow for a cover page until the colours are known, or when a cover
+ * has too little colour to read (a black-and-white photo): Primary and
+ * Accent, the purple fallback.
+ */
+export const COVER_FALLBACK: CoverColors = ['var(--color-glow-1)', 'var(--color-accent)']
+
 const cache = new Map<string, Promise<CoverColors | null>>()
 
 /** The colours for a URL, from the cache when they've been worked out. */

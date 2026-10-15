@@ -43,7 +43,7 @@ export function ReviewCard({
     <article
       ref={ref}
       className={cn(
-        'flex scroll-mt-36 flex-col gap-3 rounded-card bg-surface p-4 shadow-card transition-colors duration-500 ease-soft',
+        'flex scroll-mt-36 flex-col gap-3 rounded-card border border-line bg-surface p-4 shadow-card transition-colors duration-500 ease-soft',
         flash && 'ring-2 ring-primary/60'
       )}
     >

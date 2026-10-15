@@ -28,6 +28,8 @@ export function AppShell() {
 function ShellBody() {
   const { pathname } = useLocation()
   const { current } = usePlayer()
+  // The mini player steps aside on Now Playing, so its space does too.
+  const miniPlayerShown = Boolean(current) && pathname !== '/now-playing'
 
   useEffect(() => {
     window.scrollTo({ top: 0 })
@@ -43,7 +45,7 @@ function ShellBody() {
           className={cn(
             'mx-auto w-full max-w-[1400px] px-4 pt-0 sm:px-6 lg:px-8',
             // Clear the bottom nav, and the mini player when it's showing.
-            current ? 'pb-44 md:pb-28' : 'pb-28 md:pb-12'
+            miniPlayerShown ? 'pb-44 md:pb-28' : 'pb-28 md:pb-12'
           )}
         >
           <TopBar />

@@ -93,14 +93,7 @@ export function Tabs<T extends string>({
               aria-controls={panelIdFor(idPrefix, t.id)}
               tabIndex={active ? 0 : -1}
               onClick={() => onChange(t.id)}
-              className={cn(
-                '-mb-px min-h-12 border-b-2 text-button transition-colors duration-200 ease-soft',
-                fill ? 'flex-1 md:flex-none md:px-5' : 'px-4 md:px-5',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary',
-                active
-                  ? 'border-primary text-foreground'
-                  : 'border-transparent text-muted-foreground hover:text-foreground'
-              )}
+              className={tabClass(active, fill)}
             >
               {t.label}
             </button>
@@ -111,8 +104,21 @@ export function Tabs<T extends string>({
   )
 }
 
+/**
+ * One underlined tab's look. Exported for bars that look like tabs but
+ * aren't a tablist (the Song page's jump-to-section nav).
+ */
+export function tabClass(active: boolean, fill = true) {
+  return cn(
+    '-mb-px min-h-12 shrink-0 border-b-2 text-button transition-colors duration-200 ease-soft',
+    fill ? 'flex-1 md:flex-none md:px-5' : 'px-4 md:px-5',
+    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary',
+    active ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'
+  )
+}
+
 /** True while a sticky element sits at its sticky offset (scrolled past). */
-function useStuck(ref: React.RefObject<HTMLElement | null>, enabled: boolean) {
+export function useStuck(ref: React.RefObject<HTMLElement | null>, enabled: boolean) {
   const [stuck, setStuck] = useState(false)
   useEffect(() => {
     const el = ref.current
