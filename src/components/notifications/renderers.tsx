@@ -265,7 +265,7 @@ const artistRelease: NotificationRenderer = (n, ctx) => {
           <img
             src={album.coverUrl}
             alt=""
-            className="size-10 shrink-0 rounded-[6px] object-cover"
+            className="size-10 shrink-0 rounded-thumb object-cover"
           />
         )}
       </span>

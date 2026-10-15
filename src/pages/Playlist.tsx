@@ -211,14 +211,14 @@ export default function Playlist() {
                 onClick={() => coverInput.current?.click()}
                 disabled={uploadingCover}
                 aria-label="Change playlist cover"
-                className="group relative block w-full rounded-[10px] transition-transform duration-200 ease-soft active:scale-[0.98]"
+                className="group relative block w-full rounded-cover transition-transform duration-200 ease-soft active:scale-[0.98]"
               >
                 <PlaylistCover
                   covers={covers}
                   seed={playlist.id}
                   customUrl={playlist.coverUrl}
                 />
-                <span className="absolute inset-0 grid place-items-center rounded-[10px] bg-black/50 opacity-0 transition-opacity duration-200 ease-soft group-hover:opacity-100 group-focus-visible:opacity-100">
+                <span className="absolute inset-0 grid place-items-center rounded-cover bg-black/50 opacity-0 transition-opacity duration-200 ease-soft group-hover:opacity-100 group-focus-visible:opacity-100">
                   {uploadingCover ? (
                     <Loader2 className="size-6 animate-spin text-white" aria-hidden />
                   ) : (
@@ -447,7 +447,7 @@ export default function Playlist() {
                       ? `Pause ${song.title}`
                       : `Play ${song.title}`
                   }
-                  className="relative size-11 shrink-0 overflow-hidden rounded-[8px] bg-surface-2"
+                  className="relative size-11 shrink-0 overflow-hidden rounded-thumb bg-surface-2"
                 >
                   {song.coverUrl && (
                     <img

@@ -6,7 +6,7 @@ import { Sheet } from '@/components/ui/Sheet'
 import { StarRating } from '@/components/ui/StarRating'
 import { FeedCard, timeAgo } from '@/components/feed/FeedCard'
 import { Artwork } from '@/components/feed/Artwork'
-import { ProfileEmpty, emptyActionClass } from './ProfileEmpty'
+import { EmptyState, emptyActionClass } from '@/components/ui/EmptyState'
 import { useLoadMore } from './useLoadMore'
 import { useAuth } from '@/lib/auth'
 import {
@@ -130,7 +130,7 @@ export function ProfileReviewsTab({
       ) : items.length === 0 ? (
         filter === 'all' ? (
           isOwn ? (
-            <ProfileEmpty
+            <EmptyState
               face="thinking-sticker"
               title="No reviews yet"
               detail="Rate a song or tell people what you hear in it."
@@ -142,10 +142,10 @@ export function ProfileReviewsTab({
               }
             />
           ) : (
-            <ProfileEmpty face="sleepy-sticker" title={`${handle} hasn't reviewed anything yet.`} />
+            <EmptyState face="sleepy-sticker" title={`${handle} hasn't reviewed anything yet.`} />
           )
         ) : (
-          <ProfileEmpty
+          <EmptyState
             face="thinking-sticker"
             title={filter === 'written' ? 'No written reviews' : 'No ratings without a review'}
             action={
@@ -254,8 +254,8 @@ function ReviewsSkeleton() {
     <div className="flex flex-col gap-3" aria-hidden>
       {[0, 1].map((i) => (
         <div key={i} className="flex flex-col gap-4 rounded-card bg-surface p-4">
-          <div className="flex items-center gap-3 rounded-[12px] bg-surface-2 p-2.5">
-            <div className="size-14 animate-pulse rounded-[10px] bg-white/5" />
+          <div className="flex items-center gap-3 rounded-inset bg-surface-2 p-2.5">
+            <div className="size-14 animate-pulse rounded-cover bg-white/5" />
             <div className="flex flex-1 flex-col gap-2">
               <div className="h-3.5 w-1/2 animate-pulse rounded bg-white/5" />
               <div className="h-3 w-1/3 animate-pulse rounded bg-white/5" />
@@ -270,7 +270,7 @@ function ReviewsSkeleton() {
       ))}
       {[0, 1].map((i) => (
         <div key={`r${i}`} className="flex items-center gap-3 rounded-card bg-surface p-2.5">
-          <div className="size-12 animate-pulse rounded-[10px] bg-surface-2" />
+          <div className="size-12 animate-pulse rounded-cover bg-surface-2" />
           <div className="flex flex-1 flex-col gap-2">
             <div className="h-3.5 w-1/2 animate-pulse rounded bg-surface-2" />
             <div className="h-3 w-1/3 animate-pulse rounded bg-surface-2" />

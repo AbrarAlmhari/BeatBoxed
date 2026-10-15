@@ -50,7 +50,7 @@ export function MiniPlayer() {
           <Link
             to="/now-playing"
             aria-label="Now playing"
-            className="size-10 shrink-0 overflow-hidden rounded-[8px]"
+            className="size-10 shrink-0 overflow-hidden rounded-thumb"
           >
             {current.coverUrl ? (
               <img src={current.coverUrl} alt="" className="size-full object-cover" />

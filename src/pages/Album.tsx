@@ -106,7 +106,7 @@ export default function Album() {
     <div className="flex flex-col gap-8 pt-2">
       <header className="flex flex-col gap-5 sm:flex-row sm:items-end">
         <div className="w-40 shrink-0 self-center sm:self-auto">
-          <div className="relative aspect-square w-full overflow-hidden rounded-[10px] bg-surface-2">
+          <div className="relative aspect-square w-full overflow-hidden rounded-cover bg-surface-2">
             {album.coverUrl ? (
               <img src={album.coverUrl} alt="" className="absolute inset-0 size-full object-cover" />
             ) : (
@@ -175,7 +175,7 @@ export default function Album() {
             {Array.from({ length: 6 }, (_, i) => (
               <li key={i} className="flex items-center gap-3 px-2 py-2">
                 <span className="h-4 w-5 animate-pulse rounded bg-surface" />
-                <span className="size-11 shrink-0 animate-pulse rounded-[8px] bg-surface" />
+                <span className="size-11 shrink-0 animate-pulse rounded-thumb bg-surface" />
                 <span className="h-4 flex-1 animate-pulse rounded bg-surface" />
               </li>
             ))}
@@ -226,7 +226,7 @@ export default function Album() {
                         ? `Pause ${track.title}`
                         : `Play ${track.title}`
                     }
-                    className="relative size-11 shrink-0 overflow-hidden rounded-[8px] bg-surface-2"
+                    className="relative size-11 shrink-0 overflow-hidden rounded-thumb bg-surface-2"
                   >
                     {track.coverUrl && (
                       <img
@@ -296,7 +296,7 @@ function AlbumSkeleton() {
   return (
     <div className="flex flex-col gap-8 pt-2">
       <div className="flex gap-5">
-        <div className="size-40 animate-pulse rounded-[10px] bg-surface" />
+        <div className="size-40 animate-pulse rounded-cover bg-surface" />
         <div className="flex flex-1 flex-col gap-3 py-2">
           <div className="h-8 w-2/3 animate-pulse rounded bg-surface" />
           <div className="h-4 w-1/2 animate-pulse rounded bg-surface" />

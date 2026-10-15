@@ -78,7 +78,7 @@ export function FeedCard({
       )}
     >
       {/* The song. Artwork and title open its page; the artist opens theirs. */}
-      <div className="flex items-center gap-3 rounded-[12px] bg-surface-2 p-2.5">
+      <div className="flex items-center gap-3 rounded-inset bg-surface-2 p-2.5">
         <Link to={`/song/${song.id}`} aria-hidden tabIndex={-1} className="shrink-0">
           <Artwork src={song.coverUrl} seed={song.id} className="size-14" />
         </Link>

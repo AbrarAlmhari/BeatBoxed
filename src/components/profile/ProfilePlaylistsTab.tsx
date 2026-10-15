@@ -4,7 +4,7 @@ import { Plus, X } from 'lucide-react'
 import { PlaylistCover } from '@/components/playlist/PlaylistCover'
 import { PlaylistForm } from '@/components/playlist/PlaylistForm'
 import { Modal } from '@/components/ui/Modal'
-import { ProfileEmpty, emptyActionClass } from './ProfileEmpty'
+import { EmptyState, emptyActionClass } from '@/components/ui/EmptyState'
 import { useAuth } from '@/lib/auth'
 import {
   createPlaylist,
@@ -83,9 +83,9 @@ export function ProfilePlaylistsTab({
           ))}
         </div>
       ) : playlists.length === 0 && !isOwn ? (
-        <ProfileEmpty face="sleepy-sticker" title={`${handle} hasn't made any playlists yet.`} />
+        <EmptyState face="sleepy-sticker" title={`${handle} hasn't made any playlists yet.`} />
       ) : playlists.length === 0 ? (
-        <ProfileEmpty
+        <EmptyState
           face="happy-sticker"
           title="No playlists yet"
           detail="Group songs you love, for a mood, a moment or a friend."

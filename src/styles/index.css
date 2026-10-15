@@ -16,6 +16,9 @@
    Success / online        ->  text-success
    Danger                  ->  text-danger
    Stars                   ->  text-star
+   Border (subtle)         ->  border-line
+   Border (strong)         ->  border-line-strong
+   Glow 1 / Glow 2         ->  PageGlow's default colours
 --------------------------------------------------------------------------- */
 
 @theme {
@@ -29,6 +32,16 @@
   --color-success: #34d399;
   --color-danger: #f87171;
   --color-star: #f5b94a;
+
+  /* Borders: hairlines on the dark background. Subtle for cards and list
+     dividers, strong for tab bars, inputs and secondary buttons. */
+  --color-line: rgb(255 255 255 / 0.06);
+  --color-line-strong: rgb(255 255 255 / 0.1);
+
+  /* PageGlow's default pair: Primary and a soft pink. Pink isn't in the
+     palette for anything else; it only ever appears faint, in a glow. */
+  --color-glow-1: #8b5cf6;
+  --color-glow-2: #ec4899;
 
   --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI',
     sans-serif;
@@ -62,16 +75,28 @@
   --text-button--line-height: 1;
   --text-button--font-weight: 600;
 
-  /* Cards 12–16px, buttons 8–10px. */
-  --radius-card: 14px;
+  /* Cards 18px, sheets 20px (top corners on phones), buttons 9px, chips
+     fully round. */
+  --radius-card: 18px;
+  --radius-sheet: 20px;
   --radius-button: 9px;
+  --radius-chip: 9999px;
+  /* Inside cards: artwork 10px, small thumbnails (44px and under) 8px, a
+     panel inset in a card 12px. */
+  --radius-cover: 10px;
+  --radius-thumb: 8px;
+  --radius-inset: 12px;
 
   --shadow-card: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px -12px rgb(0 0 0 / 0.6);
+  /* Sheets, dialogs and popovers: further off the page than a card. */
+  --shadow-raised: 0 -2px 8px rgb(0 0 0 / 0.3), 0 24px 48px -16px rgb(0 0 0 / 0.7);
 
   /* Subtle only: fades and slight scale. No bounce, no looping motion. */
   --ease-soft: cubic-bezier(0.2, 0.6, 0.2, 1);
   --animate-page-in: page-in 260ms cubic-bezier(0.2, 0.6, 0.2, 1) both;
   --animate-fade-in: fade-in 200ms cubic-bezier(0.2, 0.6, 0.2, 1) both;
+  /* A glow changing colour (Now Playing's next song): a slow cross-fade. */
+  --animate-glow-in: fade-in 600ms cubic-bezier(0.2, 0.6, 0.2, 1) both;
   /*
    * Beatie while a request is running. A deliberate, narrow exception to
    * "no bouncing": a 2px bob, only while Beatie is thinking, and switched
@@ -110,22 +135,25 @@
   }
 }
 
-/*
- * The profile page's header glow and avatar ring. Plain custom properties
- * rather than theme colours, so they can be tuned (Ghadah) without new
- * utilities. Pink isn't in docs/design-system.md's palette; it's used only
- * here, at low opacity, as the mockup has it.
- */
+/* The profile avatar's ring: Primary → pink → gold. */
 :root {
-  --profile-glow-1: rgb(139 92 246 / 0.35); /* Primary at ~35% */
-  --profile-glow-2: rgb(236 72 153 / 0.14); /* pink at ~14% */
   --profile-ring: conic-gradient(
     from 200deg,
     var(--color-primary),
-    #ec4899,
+    var(--color-glow-2),
     var(--color-star),
     var(--color-primary)
   );
+}
+
+/*
+ * Sticky bars (top bar, tab bars, mini player, bottom nav): the page shows
+ * through, dark and blurred, so content scrolling under them stays legible.
+ */
+@utility glass-bar {
+  background-color: color-mix(in oklab, var(--color-background) 90%, transparent);
+  -webkit-backdrop-filter: blur(24px);
+  backdrop-filter: blur(24px);
 }
 
 @layer base {

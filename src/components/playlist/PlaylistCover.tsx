@@ -24,7 +24,7 @@ export function PlaylistCover({
   className?: string
 }) {
   const tint = tintFor(seed)
-  const shell = cn('relative aspect-square w-full overflow-hidden rounded-[10px]', className)
+  const shell = cn('relative aspect-square w-full overflow-hidden rounded-cover', className)
 
   if (customUrl) {
     return (

@@ -25,7 +25,7 @@ export function Artwork({
         src={src}
         alt={alt}
         loading="lazy"
-        className={cn('shrink-0 rounded-[10px] object-cover', className)}
+        className={cn('shrink-0 rounded-cover object-cover', className)}
       />
     )
   }
@@ -35,7 +35,7 @@ export function Artwork({
       role={alt ? 'img' : undefined}
       aria-label={alt || undefined}
       aria-hidden={alt ? undefined : true}
-      className={cn('grid shrink-0 place-items-center rounded-[10px]', className)}
+      className={cn('grid shrink-0 place-items-center rounded-cover', className)}
       style={{
         background: `linear-gradient(135deg,
           color-mix(in oklab, var(--color-primary) ${20 + t * 50}%, var(--color-surface-2)),

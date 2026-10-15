@@ -209,7 +209,7 @@ export default function Artist() {
                         : player.playQueue(artist.topSongs, i)
                     }
                     aria-label={`Play ${song.title}`}
-                    className="relative size-11 shrink-0 overflow-hidden rounded-[8px] bg-surface-2"
+                    className="relative size-11 shrink-0 overflow-hidden rounded-thumb bg-surface-2"
                   >
                     {song.coverUrl && (
                       <img
@@ -290,7 +290,7 @@ function AlbumCard({ album }: { album: ArtistAlbum }) {
       to={`/album/${album.id}`}
       className="group flex flex-col gap-3 rounded-card bg-surface p-3 shadow-card transition-all duration-200 ease-soft hover:-translate-y-0.5 hover:bg-surface-2 active:translate-y-0 active:scale-[0.98]"
     >
-      <div className="relative aspect-square w-full overflow-hidden rounded-[10px] bg-surface-2">
+      <div className="relative aspect-square w-full overflow-hidden rounded-cover bg-surface-2">
         {album.coverUrl ? (
           <img
             src={album.coverUrl}
@@ -329,7 +329,7 @@ function ArtistSkeleton() {
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5">
         {Array.from({ length: 5 }, (_, i) => (
           <div key={i} className="flex flex-col gap-3 rounded-card bg-surface p-3">
-            <div className="aspect-square w-full animate-pulse rounded-[10px] bg-surface-2" />
+            <div className="aspect-square w-full animate-pulse rounded-cover bg-surface-2" />
             <div className="h-3.5 w-3/4 animate-pulse rounded bg-surface-2" />
           </div>
         ))}

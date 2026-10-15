@@ -1,13 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
-import { Lock, UserX } from 'lucide-react'
+import { Lock } from 'lucide-react'
 import { ProfileEditor } from '@/components/profile/ProfileEditor'
 import { ProfileHero } from '@/components/profile/ProfileHero'
-import { ProfileTabBar, panelId, tabId, PROFILE_TABS, type ProfileTab } from '@/components/profile/ProfileTabBar'
+import { ProfileTabBar, PROFILE_TABS, PROFILE_TABS_ID, type ProfileTab } from '@/components/profile/ProfileTabBar'
+import { TabPanel } from '@/components/ui/Tabs'
+import { Card } from '@/components/ui/Card'
+import { Skeleton } from '@/components/ui/Skeleton'
 import { ProfileReviewsTab } from '@/components/profile/ProfileReviewsTab'
 import { ProfilePlaylistsTab } from '@/components/profile/ProfilePlaylistsTab'
 import { ProfileLikesTab } from '@/components/profile/ProfileLikesTab'
-import { ProfileEmpty } from '@/components/profile/ProfileEmpty'
+import { EmptyState } from '@/components/ui/EmptyState'
 import { ProfileListSheet, type ProfileList } from '@/components/profile/ProfileListSheet'
 import { UserFollowButton } from '@/components/people/UserFollowButton'
 import { ReviewComposer } from '@/components/feed/ReviewComposer'
@@ -135,13 +138,11 @@ export default function Profile() {
 
   if (!profile) {
     return (
-      <div className="flex flex-col items-center gap-3 rounded-card bg-surface px-6 py-16 text-center">
-        <UserX className="size-7 text-muted-foreground" strokeWidth={1.5} aria-hidden />
-        <p className="text-card-title">Profile not found</p>
-        <p className="max-w-sm text-body text-muted-foreground">
-          This account doesn't exist, or the link is wrong.
-        </p>
-      </div>
+      <EmptyState
+        face="sad"
+        title="Profile not found"
+        detail="This account doesn't exist, or the link is wrong."
+      />
     )
   }
 
@@ -190,7 +191,7 @@ export default function Profile() {
       />
 
       {locked ? (
-        <div className="flex flex-col items-center gap-4 rounded-card bg-surface px-6 py-10 text-center shadow-card">
+        <Card padding="lg" className="flex flex-col items-center gap-4 text-center">
           <span className="grid size-12 place-items-center rounded-full bg-primary/15">
             <Lock className="size-5 text-accent" strokeWidth={2} aria-hidden />
           </span>
@@ -204,18 +205,11 @@ export default function Profile() {
             size="lg"
             onChange={(next) => setFollowState(next)}
           />
-        </div>
+        </Card>
       ) : (
         <div ref={tabsRef} className="flex scroll-mt-16 flex-col gap-4">
           <ProfileTabBar tab={tab} onChange={(t) => go(t)} />
-          <div
-            key={tab}
-            role="tabpanel"
-            id={panelId(tab)}
-            aria-labelledby={tabId(tab)}
-            tabIndex={0}
-            className="animate-page-in focus-visible:outline-none motion-reduce:animate-none"
-          >
+          <TabPanel idPrefix={PROFILE_TABS_ID} value={tab}>
             {tab === 'reviews' && (
               <ProfileReviewsTab
                 userId={profile.id}
@@ -229,14 +223,14 @@ export default function Profile() {
             )}
             {tab === 'playlists' && <ProfilePlaylistsTab userId={profile.id} isOwn={isOwn} handle={handle} />}
             {tab === 'stats' && (
-              <ProfileEmpty
+              <EmptyState
                 face="thinking-sticker"
                 title="Stats are coming soon"
                 detail="Beatie is learning what you listen to. Your top genres, artists and decades will show up here."
               />
             )}
             {tab === 'likes' && <ProfileLikesTab userId={profile.id} isOwn={isOwn} handle={handle} />}
-          </div>
+          </TabPanel>
         </div>
       )}
 
@@ -262,24 +256,24 @@ function ProfileSkeleton() {
   return (
     <div className="flex flex-col gap-5 pt-2" aria-hidden>
       <div className="flex items-center gap-4">
-        <div className="size-[72px] animate-pulse rounded-full bg-surface-2 md:size-24" />
+        <Skeleton className="size-[72px] rounded-full md:size-24" />
         <div className="flex flex-col gap-2">
-          <div className="h-6 w-36 animate-pulse rounded bg-surface-2" />
-          <div className="h-4 w-24 animate-pulse rounded bg-surface-2" />
+          <Skeleton className="h-6 w-36" />
+          <Skeleton className="h-4 w-24" />
         </div>
       </div>
       <div className="flex flex-wrap gap-4">
         {Array.from({ length: 4 }, (_, i) => (
-          <div key={i} className="h-4 w-20 animate-pulse rounded bg-surface-2" />
+          <Skeleton key={i} className="h-4 w-20" />
         ))}
       </div>
-      <div className="h-11 w-36 animate-pulse rounded-button bg-surface-2 md:hidden" />
-      <div className="flex gap-6 border-b border-white/10 pb-3">
+      <Skeleton className="h-11 w-36 rounded-button md:hidden" />
+      <div className="flex gap-6 border-b border-line-strong pb-3">
         {Array.from({ length: 4 }, (_, i) => (
-          <div key={i} className="h-4 w-16 animate-pulse rounded bg-surface-2" />
+          <Skeleton key={i} className="h-4 w-16" />
         ))}
       </div>
-      <div className="h-40 animate-pulse rounded-card bg-surface" />
+      <Skeleton onCard={false} className="h-40 rounded-card" />
     </div>
   )
 }

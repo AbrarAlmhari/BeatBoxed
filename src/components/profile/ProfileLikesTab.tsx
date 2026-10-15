@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { Heart, Loader2, Pause, Play } from 'lucide-react'
 import { Artwork } from '@/components/feed/Artwork'
 import { FeedCard } from '@/components/feed/FeedCard'
-import { ProfileEmpty, emptyActionClass } from './ProfileEmpty'
+import { EmptyState, emptyActionClass } from '@/components/ui/EmptyState'
 import { useLoadMore } from './useLoadMore'
 import { useAuth } from '@/lib/auth'
 import { usePlayer } from '@/lib/player'
@@ -122,7 +122,7 @@ function LikedSongs({ userId, isOwn, handle }: { userId: string; isOwn: boolean;
   if (songs === null) return <RowsSkeleton />
   if (songs.length === 0) {
     return isOwn ? (
-      <ProfileEmpty
+      <EmptyState
         face="happy-sticker"
         title="No liked songs yet"
         detail="Tap the heart on any song and it lands here."
@@ -133,7 +133,7 @@ function LikedSongs({ userId, isOwn, handle }: { userId: string; isOwn: boolean;
         }
       />
     ) : (
-      <ProfileEmpty face="sleepy-sticker" title={`${handle} hasn't liked any songs yet.`} />
+      <EmptyState face="sleepy-sticker" title={`${handle} hasn't liked any songs yet.`} />
     )
   }
 
@@ -245,7 +245,7 @@ function LikedReviews({ userId, isOwn, handle }: { userId: string; isOwn: boolea
   if (items === null) return <RowsSkeleton />
   if (items.length === 0) {
     return isOwn ? (
-      <ProfileEmpty
+      <EmptyState
         face="happy-sticker"
         title="No liked reviews yet"
         detail="Like a take you agree with and you'll find it here."
@@ -256,7 +256,7 @@ function LikedReviews({ userId, isOwn, handle }: { userId: string; isOwn: boolea
         }
       />
     ) : (
-      <ProfileEmpty face="sleepy-sticker" title={`${handle} hasn't liked any reviews yet.`} />
+      <EmptyState face="sleepy-sticker" title={`${handle} hasn't liked any reviews yet.`} />
     )
   }
 
@@ -296,7 +296,7 @@ function RowsSkeleton() {
     <div className="flex flex-col gap-2" aria-hidden>
       {Array.from({ length: 4 }, (_, i) => (
         <div key={i} className="flex items-center gap-3 rounded-card bg-surface p-2.5">
-          <div className="size-12 animate-pulse rounded-[10px] bg-surface-2" />
+          <div className="size-12 animate-pulse rounded-cover bg-surface-2" />
           <div className="flex flex-1 flex-col gap-2">
             <div className="h-3.5 w-1/2 animate-pulse rounded bg-surface-2" />
             <div className="h-3 w-1/3 animate-pulse rounded bg-surface-2" />

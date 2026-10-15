@@ -19,7 +19,7 @@ export function ProfileReviewCard({ review }: { review: ReviewWithSong }) {
       to={review.song ? `/song/${review.song.id}` : '#'}
       className="flex gap-3 rounded-card bg-surface p-4 shadow-card transition-colors duration-200 ease-soft hover:bg-surface-2"
     >
-      <span className="size-14 shrink-0 overflow-hidden rounded-[10px]">
+      <span className="size-14 shrink-0 overflow-hidden rounded-cover">
         {review.song?.coverUrl ? (
           <img
             src={review.song.coverUrl}

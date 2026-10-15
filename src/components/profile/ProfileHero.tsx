@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Pencil, Settings } from 'lucide-react'
 import { UserFollowButton } from '@/components/people/UserFollowButton'
+import { PageGlow } from '@/components/ui/PageGlow'
 import { ProfileMenu } from './ProfileMenu'
 import type { ProfileList } from './ProfileListSheet'
 import type { FollowState, ProfileDetail } from '@/lib/types'
@@ -49,7 +50,7 @@ export function ProfileHero({
       <button
         type="button"
         onClick={onEdit}
-        className="inline-flex min-h-11 items-center gap-2 rounded-button border border-white/10 bg-surface-2 px-4 text-button text-foreground transition-colors duration-200 ease-soft hover:bg-white/10"
+        className="inline-flex min-h-11 items-center gap-2 rounded-button border border-line-strong bg-surface-2 px-4 text-button text-foreground transition-colors duration-200 ease-soft hover:bg-white/10"
       >
         <Pencil className="size-4" strokeWidth={1.75} aria-hidden />
         Edit profile
@@ -58,7 +59,7 @@ export function ProfileHero({
         to="/settings"
         aria-label="Settings"
         title="Settings"
-        className="grid size-11 shrink-0 place-items-center rounded-full border border-white/10 bg-surface-2 text-muted-foreground transition-colors duration-200 ease-soft hover:text-foreground"
+        className="grid size-11 shrink-0 place-items-center rounded-full border border-line-strong bg-surface-2 text-muted-foreground transition-colors duration-200 ease-soft hover:text-foreground"
       >
         <Settings className="size-[18px]" strokeWidth={1.75} />
       </Link>
@@ -75,18 +76,8 @@ export function ProfileHero({
 
   return (
     <header className="relative flex flex-col gap-4">
-      {/* The glow: decoration only, behind everything, scrolls away. It
-          fades out before the tabs so they sit on the plain background. */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -inset-x-4 -top-24 bottom-0 -z-10 sm:-inset-x-6 lg:-inset-x-8"
-        style={{
-          background:
-            'radial-gradient(60% 60% at 30% 40%, var(--profile-glow-1), transparent 70%), radial-gradient(40% 50% at 85% 20%, var(--profile-glow-2), transparent 70%)',
-          maskImage: 'linear-gradient(to bottom, black 55%, transparent)',
-          WebkitMaskImage: 'linear-gradient(to bottom, black 55%, transparent)',
-        }}
-      />
+      {/* Fades out before the tabs so they sit on the plain background. */}
+      <PageGlow strength="hero" />
 
       {/* Phones: back and "⋯". */}
       <div className="flex items-center justify-between md:hidden">

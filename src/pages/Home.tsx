@@ -299,8 +299,8 @@ function FeedSkeleton() {
     <div className="flex flex-col gap-4" aria-hidden>
       {Array.from({ length: 3 }, (_, i) => (
         <div key={i} className="flex flex-col gap-4 rounded-card bg-surface p-4">
-          <div className="flex items-center gap-3 rounded-[12px] bg-surface-2 p-2.5">
-            <div className="size-14 animate-pulse rounded-[10px] bg-white/5" />
+          <div className="flex items-center gap-3 rounded-inset bg-surface-2 p-2.5">
+            <div className="size-14 animate-pulse rounded-cover bg-white/5" />
             <div className="flex flex-1 flex-col gap-2">
               <div className="h-3.5 w-1/2 animate-pulse rounded bg-white/5" />
               <div className="h-3 w-1/3 animate-pulse rounded bg-white/5" />

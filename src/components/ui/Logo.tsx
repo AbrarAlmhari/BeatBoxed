@@ -8,22 +8,25 @@ import { cn } from '@/lib/cn'
  * are absolute pixels, so they have to scale with how big the mark renders or
  * a large-logo tuning turns to mush at icon size.
  *
- * Inner layers use Primary #8B5CF6, the outer falloff Accent #C084FC, per
+ * Inner layers use Primary, the outer falloff Accent (theme tokens), per
  * docs/design-system.md. Opacities stay in the 0.15–0.35 band the doc allows.
  */
+const primary = (pct: number) => `color-mix(in srgb, var(--color-primary) ${pct}%, transparent)`
+const accent = (pct: number) => `color-mix(in srgb, var(--color-accent) ${pct}%, transparent)`
+
 const GLOW = {
   /** ~260–288px wide — the auth page wordmark. */
-  lg: `drop-shadow(0 0 8px rgba(139, 92, 246, 0.35))
-       drop-shadow(0 0 24px rgba(139, 92, 246, 0.25))
-       drop-shadow(0 0 56px rgba(192, 132, 252, 0.15))`,
+  lg: `drop-shadow(0 0 8px ${primary(35)})
+       drop-shadow(0 0 24px ${primary(25)})
+       drop-shadow(0 0 56px ${accent(15)})`,
   /** ~120–150px wide — sidebar and top-bar wordmarks. */
-  md: `drop-shadow(0 0 4px rgba(139, 92, 246, 0.35))
-       drop-shadow(0 0 12px rgba(139, 92, 246, 0.25))
-       drop-shadow(0 0 28px rgba(192, 132, 252, 0.15))`,
+  md: `drop-shadow(0 0 4px ${primary(35)})
+       drop-shadow(0 0 12px ${primary(25)})
+       drop-shadow(0 0 28px ${accent(15)})`,
   /** ~36–40px — the standalone boombox mark. */
-  sm: `drop-shadow(0 0 3px rgba(139, 92, 246, 0.35))
-       drop-shadow(0 0 8px rgba(139, 92, 246, 0.25))
-       drop-shadow(0 0 18px rgba(192, 132, 252, 0.15))`,
+  sm: `drop-shadow(0 0 3px ${primary(35)})
+       drop-shadow(0 0 8px ${primary(25)})
+       drop-shadow(0 0 18px ${accent(15)})`,
 } as const
 
 export function Logo({

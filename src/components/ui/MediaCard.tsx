@@ -42,7 +42,7 @@ export function MediaCard({
 
   const body: ReactNode = (
     <>
-      <div className="relative aspect-square w-full overflow-hidden rounded-[10px]">
+      <div className="relative aspect-square w-full overflow-hidden rounded-cover">
         {showCover ? (
           <img
             src={coverUrl!}
