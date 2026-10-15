@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Loader2 } from 'lucide-react'
+import { EmptyState, emptySecondaryActionClass } from '@/components/ui/EmptyState'
+import { SkeletonList } from '@/components/ui/Skeleton'
 import { PersonCard } from '@/components/people/PersonCard'
 import { FollowRequestActions } from '@/components/people/FollowerActions'
 import { useAuth } from '@/lib/auth'
@@ -42,29 +43,27 @@ export default function FollowRequests() {
       <h1 className="text-page-title">Follow requests</h1>
 
       {error ? (
-        <div className="flex flex-col items-center gap-3 rounded-card bg-surface px-6 py-14 text-center">
-          <p className="text-body text-danger">Couldn't load your requests.</p>
-          <button
-            type="button"
-            onClick={() => void load()}
-            className="rounded-button bg-surface-2 px-4 py-2 text-button text-foreground hover:bg-white/10"
-          >
-            Retry
-          </button>
-        </div>
+        <EmptyState
+          face="sad"
+          tone="error"
+          title="Couldn't load your requests."
+          action={
+            <button type="button" onClick={() => void load()} className={emptySecondaryActionClass}>
+              Retry
+            </button>
+          }
+        />
       ) : requests === null ? (
-        <div className="flex items-center gap-2 px-1 text-body text-muted-foreground">
-          <Loader2 className="size-4 animate-spin" strokeWidth={2} aria-hidden />
-          Loading…
+        <div role="status">
+          <span className="sr-only">Loading…</span>
+          <SkeletonList rows={3} cover="size-11 rounded-full" />
         </div>
       ) : requests.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 rounded-card bg-surface px-6 py-14 text-center">
-          <p className="text-card-title">No pending requests.</p>
-          <p className="max-w-sm text-body text-muted-foreground">
-            When your account is private, people who want to follow you show
-            up here for you to approve.
-          </p>
-        </div>
+        <EmptyState
+          face="sleepy-sticker"
+          title="No pending requests."
+          detail="When your account is private, people who want to follow you show up here for you to approve."
+        />
       ) : (
         <div className="flex flex-col gap-3">
           {requests.map((r) => (

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { Lock } from 'lucide-react'
+import { Card } from '@/components/ui/Card'
 import { PersonCard } from '@/components/people/PersonCard'
 import { RemoveFollowerButton } from '@/components/people/FollowerActions'
 import { ListPageShell, FilterBox } from '@/components/profile/ListPageShell'
@@ -129,8 +130,10 @@ export default function ProfileFollows({
             {title}
           </h1>
         )}
-        <div className="flex flex-col items-center gap-3 rounded-card bg-surface px-6 py-14 text-center">
-          <Lock className="size-7 text-muted-foreground" strokeWidth={1.5} aria-hidden />
+        <Card padding="lg" className="flex flex-col items-center gap-3 text-center">
+          <span className="grid size-12 place-items-center rounded-full bg-primary/15">
+            <Lock className="size-5 text-accent" strokeWidth={2} aria-hidden />
+          </span>
           <p className="text-card-title">
             {locked
               ? 'This account is private'
@@ -141,7 +144,7 @@ export default function ProfileFollows({
               Follow them to request access.
             </p>
           )}
-        </div>
+        </Card>
       </div>
     )
   }

@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { CheckCheck, ChevronRight, Loader2, Users } from 'lucide-react'
+import { CheckCheck, ChevronRight, Users } from 'lucide-react'
+import { Card } from '@/components/ui/Card'
 import { Chip } from '@/components/ui/Chip'
+import { EmptyState } from '@/components/ui/EmptyState'
+import { SkeletonList } from '@/components/ui/Skeleton'
 import {
   NOTIFICATION_CATEGORIES,
   NOTIFICATION_RENDERERS,
@@ -187,7 +190,7 @@ export default function Notifications() {
           <button
             type="button"
             onClick={handleMarkAll}
-            className="flex shrink-0 items-center gap-1.5 rounded-button px-2.5 py-1.5 text-meta text-muted-foreground transition-colors duration-200 ease-soft hover:text-foreground"
+            className="flex min-h-11 shrink-0 items-center gap-1.5 rounded-button px-2.5 text-meta text-muted-foreground transition-colors duration-200 ease-soft hover:text-foreground"
           >
             <CheckCheck className="size-3.5" strokeWidth={2} />
             Mark all as read
@@ -198,7 +201,7 @@ export default function Notifications() {
       {requests.length > 0 && (
         <Link
           to="/notifications/requests"
-          className="flex items-center gap-3 rounded-card bg-surface p-4 shadow-card transition-colors duration-200 ease-soft hover:bg-surface-2"
+          className="flex items-center gap-3 rounded-card border border-line bg-surface p-4 shadow-card transition-colors duration-200 ease-soft hover:bg-surface-2"
         >
           <span className="flex shrink-0 -space-x-3">
             {requests.slice(0, 3).map((r) => {
@@ -257,24 +260,22 @@ export default function Notifications() {
       </div>
 
       {!data ? (
-        <div className="flex items-center gap-2 px-1 text-body text-muted-foreground">
-          <Loader2 className="size-4 animate-spin" strokeWidth={2} aria-hidden />
-          Loading…
+        <div role="status">
+          <span className="sr-only">Loading…</span>
+          <SkeletonList rows={5} cover="size-10 rounded-full" />
         </div>
       ) : groups.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 rounded-card bg-surface px-6 py-14 text-center">
-          <p className="text-card-title">You're all caught up.</p>
-          <p className="max-w-sm text-body text-muted-foreground">
-            {filter === 'all'
-              ? 'New activity will show up here.'
-              : 'Nothing under this filter yet.'}
-          </p>
-        </div>
+        <EmptyState
+          face="sleepy-sticker"
+          title="You're all caught up."
+          detail={filter === 'all' ? 'New activity will show up here.' : 'Nothing under this filter yet.'}
+        />
       ) : (
         <div className="flex flex-col gap-6">
           {groups.map(([bucket, items]) => (
             <section key={bucket} className="flex flex-col gap-2">
-              <h2 className="text-meta text-muted-foreground">{bucket}</h2>
+              <h2 className="px-1 text-meta text-muted-foreground">{bucket}</h2>
+              <Card padding="none" className="divide-y divide-line overflow-hidden">
               {items.map(({ item, alsoActorIds }) => {
                 const rendered =
                   item.kind === 'announcement'
@@ -301,8 +302,8 @@ export default function Notifications() {
                   <div
                     key={key}
                     className={cn(
-                      'flex w-full items-start gap-3 rounded-card p-4 shadow-card transition-colors duration-200 ease-soft',
-                      unread ? 'bg-primary/10' : 'bg-surface'
+                      'flex w-full items-start gap-3 p-4 transition-colors duration-200 ease-soft',
+                      unread && 'bg-primary/[0.07]'
                     )}
                   >
                     {/* The avatar is its own link to the actor's profile; the
@@ -341,6 +342,7 @@ export default function Notifications() {
                   </div>
                 )
               })}
+              </Card>
             </section>
           ))}
         </div>

@@ -1,5 +1,8 @@
 import type { ReactNode } from 'react'
 import { Logo } from '@/components/ui/Logo'
+import { BeatieImage } from '@/components/beatie/BeatieImage'
+import { Card } from '@/components/ui/Card'
+import { PageGlow } from '@/components/ui/PageGlow'
 
 export function AuthLayout({
   title,
@@ -13,15 +16,12 @@ export function AuthLayout({
   footer: ReactNode
 }) {
   return (
-    <div className="relative flex min-h-dvh flex-col items-center justify-center bg-background px-4 py-10 sm:px-6">
-      {/* Atmospheric wash, not a neon glow — per design-system.md. */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(75%_55%_at_50%_0%,rgba(139,92,246,0.16),transparent_70%)]"
-      />
+    <div className="relative isolate flex min-h-dvh flex-col items-center justify-center overflow-hidden bg-background px-4 py-10 sm:px-6">
+      <PageGlow strength="soft" className="inset-x-0 top-0 sm:inset-x-0 lg:inset-x-0" />
 
-      <main className="animate-page-in relative w-full max-w-[420px]">
+      <main className="animate-page-in relative w-full max-w-[420px] motion-reduce:animate-none">
         <div className="mb-8 flex flex-col items-center gap-4 text-center">
+          <BeatieImage mood="happy" size={72} />
           <Logo
             variant="full"
             glow="lg"
@@ -33,9 +33,9 @@ export function AuthLayout({
           </div>
         </div>
 
-        <div className="rounded-card bg-surface p-6 shadow-card sm:p-7">
+        <Card padding="none" className="p-6 sm:p-7">
           {children}
-        </div>
+        </Card>
 
         <p className="mt-6 text-center text-secondary text-muted-foreground">
           {footer}

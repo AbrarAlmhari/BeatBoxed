@@ -56,7 +56,7 @@ export function TopBar() {
       className={cn(
         'sticky top-0 z-20 -mx-4 mb-2 items-center',
         profilePage ? 'hidden md:flex' : 'flex',
-        'gap-3 border-b border-white/5 bg-background/80 px-4 py-3 backdrop-blur-xl sm:-mx-6 sm:px-6 md:border-b-0 md:bg-transparent md:backdrop-blur-none lg:-mx-8 lg:px-8'
+        'glass-bar gap-3 border-b border-line px-4 py-3 sm:-mx-6 sm:px-6 md:border-b-0 md:bg-transparent md:backdrop-blur-none lg:-mx-8 lg:px-8'
       )}
     >
       {showBack ? (
@@ -77,7 +77,7 @@ export function TopBar() {
         aria-label={badge > 0 ? `Notifications, ${badge} new` : 'Notifications'}
         className={({ isActive }) =>
           cn(
-            'relative grid size-10 shrink-0 place-items-center rounded-full transition-all duration-200 ease-soft hover:bg-white/5 hover:text-foreground active:scale-95',
+            'relative grid size-11 shrink-0 place-items-center rounded-full transition-all duration-200 ease-soft hover:bg-white/5 hover:text-foreground active:scale-95',
             // Stays active on /notifications/requests too, so the bell doesn't
             // go dim once you step into the requests list.
             isActive ? 'bg-primary/15 text-foreground' : 'text-muted-foreground'

@@ -1,11 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { Loader2, PenLine, Users } from 'lucide-react'
+import { PenLine } from 'lucide-react'
 import { FeedCard } from '@/components/feed/FeedCard'
 import { ReviewComposer } from '@/components/feed/ReviewComposer'
 import { AskBeatieSheet } from '@/components/beatie/AskBeatieSheet'
-import { AskBeatiePill } from '@/components/beatie/AskBeatiePill'
+import { AskBeatiePill, BeatieHello, useBeatieHello } from '@/components/beatie/AskBeatiePill'
+import { BeatieImage } from '@/components/beatie/BeatieImage'
 import { PersonCard } from '@/components/people/PersonCard'
+import { Card, cardClass } from '@/components/ui/Card'
+import { EmptyState, emptyActionClass, emptySecondaryActionClass } from '@/components/ui/EmptyState'
+import { PageGlow } from '@/components/ui/PageGlow'
+import { Skeleton, SkeletonList } from '@/components/ui/Skeleton'
+import { Tabs } from '@/components/ui/Tabs'
 import { useAuth } from '@/lib/auth'
 import { useProfile } from '@/hooks/useProfile'
 import { useToast } from '@/lib/toast'
@@ -72,6 +78,7 @@ export default function Home() {
   const [highlightId, setHighlightId] = useState<string | null>(null)
   const [composing, setComposing] = useState(false)
   const [askingBeatie, setAskingBeatie] = useState(false)
+  const hello = useBeatieHello()
 
   const patch = useCallback((t: FeedTab, p: Partial<TabState>) => {
     setTabs((prev) => ({ ...prev, [t]: { ...prev[t], ...p } }))
@@ -177,32 +184,32 @@ export default function Home() {
   const avatarUrl = profile?.avatar_url ?? null
 
   return (
+    // Full width, so the glow spreads past the feed column on desktop.
+    <div className="relative isolate">
+      <PageGlow strength="soft" />
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-5 pb-4">
       <h1 className="sr-only">Home</h1>
 
-      <div className="flex items-center gap-2">
-        <div role="tablist" aria-label="Feed" className="flex gap-2">
-          {TABS.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              role="tab"
-              id={`feed-tab-${t.id}`}
-              aria-selected={tab === t.id}
-              aria-controls={`feed-panel-${t.id}`}
-              onClick={() => setTab(t.id)}
-              className={cn(
-                'rounded-full border px-4 py-2 text-button transition-colors duration-200 ease-soft',
-                tab === t.id
-                  ? 'border-primary/60 bg-primary/15 text-foreground'
-                  : 'border-transparent bg-surface text-muted-foreground hover:bg-surface-2 hover:text-foreground'
-              )}
-            >
-              {t.label}
-            </button>
-          ))}
+      <div>
+        {/* The pill sits on the tab row's line but outside the tablist. */}
+        <div className="flex items-center gap-2 border-b border-line-strong">
+          <Tabs
+            tabs={TABS}
+            value={tab}
+            onChange={setTab}
+            label="Feed"
+            idPrefix="feed"
+            fill={false}
+            underline={false}
+          />
+          <AskBeatiePill
+            onOpen={() => {
+              hello.dismiss()
+              setAskingBeatie(true)
+            }}
+          />
         </div>
-        <AskBeatiePill onOpen={() => setAskingBeatie(true)} />
+        <BeatieHello hello={hello} />
       </div>
 
       {/* The way in to writing: looks like a field, opens the composer. */}
@@ -210,7 +217,7 @@ export default function Home() {
         type="button"
         onClick={() => setComposing(true)}
         aria-label="Write a review: what song is on your mind?"
-        className="flex items-center gap-3 rounded-card border border-white/5 bg-surface p-4 text-left shadow-card transition-colors duration-200 ease-soft hover:bg-surface-2"
+        className={cn(cardClass({ interactive: true }), 'flex items-center gap-3 text-left')}
       >
         {avatarUrl ? (
           <img src={avatarUrl} alt="" className="size-10 shrink-0 rounded-full object-cover" />
@@ -222,7 +229,6 @@ export default function Home() {
         <span className="flex-1 text-body text-muted-foreground">What song is on your mind?</span>
         <PenLine className="size-5 shrink-0 text-primary" strokeWidth={1.75} aria-hidden />
       </button>
-
 
       <section
         role="tabpanel"
@@ -244,19 +250,16 @@ export default function Home() {
           tab === 'following' ? (
             <FollowingEmpty onFollowed={() => void loadFirst('following')} />
           ) : (
-            <div className="flex flex-col items-center gap-3 rounded-card bg-surface px-6 py-12 text-center">
-              <p className="text-card-title">No takes yet</p>
-              <p className="max-w-sm text-body text-muted-foreground">
-                Be the first: pick a song and say what you hear in it.
-              </p>
-              <button
-                type="button"
-                onClick={() => setComposing(true)}
-                className="rounded-button bg-primary px-4 py-2.5 text-button text-white hover:bg-accent"
-              >
-                Write a review
-              </button>
-            </div>
+            <EmptyState
+              face="happy-sticker"
+              title="No takes yet"
+              detail="Be the first: pick a song and say what you hear in it."
+              action={
+                <button type="button" onClick={() => setComposing(true)} className={emptyActionClass}>
+                  Write a review
+                </button>
+              }
+            />
           )
         ) : (
           <>
@@ -271,9 +274,9 @@ export default function Home() {
 
             <div ref={sentinel} aria-hidden className="h-px" />
             {current.loadingMore && (
-              <div role="status" className="flex items-center justify-center gap-2 py-4 text-secondary text-muted-foreground">
-                <Loader2 className="size-4 animate-spin" strokeWidth={2} aria-hidden />
-                Loading more…
+              <div role="status">
+                <span className="sr-only">Loading more…</span>
+                <FeedSkeleton count={1} />
               </div>
             )}
             {current.moreError && (
@@ -291,30 +294,32 @@ export default function Home() {
         onPosted={handlePosted}
       />
     </div>
+    </div>
   )
 }
 
-function FeedSkeleton() {
+/** Feed cards in outline: the song strip, who wrote it, a few lines. */
+function FeedSkeleton({ count = 3 }: { count?: number }) {
   return (
     <div className="flex flex-col gap-4" aria-hidden>
-      {Array.from({ length: 3 }, (_, i) => (
-        <div key={i} className="flex flex-col gap-4 rounded-card bg-surface p-4">
+      {Array.from({ length: count }, (_, i) => (
+        <Card key={i} shadow={false} className="flex flex-col gap-4">
           <div className="flex items-center gap-3 rounded-inset bg-surface-2 p-2.5">
-            <div className="size-14 animate-pulse rounded-cover bg-white/5" />
+            <Skeleton tone="inset" className="size-14 rounded-cover" />
             <div className="flex flex-1 flex-col gap-2">
-              <div className="h-3.5 w-1/2 animate-pulse rounded bg-white/5" />
-              <div className="h-3 w-1/3 animate-pulse rounded bg-white/5" />
+              <Skeleton tone="inset" className="h-3.5 w-1/2" />
+              <Skeleton tone="inset" className="h-3 w-1/3" />
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <div className="size-9 animate-pulse rounded-full bg-surface-2" />
-            <div className="h-3.5 w-28 animate-pulse rounded bg-surface-2" />
+            <Skeleton className="size-9 rounded-full" />
+            <Skeleton className="h-3.5 w-28" />
           </div>
           <div className="flex flex-col gap-2">
-            <div className="h-3 w-full animate-pulse rounded bg-surface-2" />
-            <div className="h-3 w-5/6 animate-pulse rounded bg-surface-2" />
+            <Skeleton className="h-3 w-full" />
+            <Skeleton className="h-3 w-5/6" />
           </div>
-        </div>
+        </Card>
       ))}
     </div>
   )
@@ -322,16 +327,17 @@ function FeedSkeleton() {
 
 function ErrorPanel({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
-    <div className="flex flex-col items-center gap-3 rounded-card bg-surface px-6 py-10 text-center">
-      <p className="text-body text-danger">{message}</p>
-      <button
-        type="button"
-        onClick={onRetry}
-        className="rounded-button bg-surface-2 px-4 py-2 text-button text-foreground hover:bg-white/10"
-      >
-        Retry
-      </button>
-    </div>
+    <EmptyState
+      face="sad"
+      tone="error"
+      compact
+      title={message}
+      action={
+        <button type="button" onClick={onRetry} className={emptySecondaryActionClass}>
+          Retry
+        </button>
+      }
+    />
   )
 }
 
@@ -361,16 +367,16 @@ function FollowingEmpty({ onFollowed }: { onFollowed: () => void }) {
   }, [attempt])
 
   return (
-    <div className="flex flex-col gap-4 rounded-card bg-surface p-5">
-      <div className="flex flex-col items-center gap-2 py-4 text-center">
-        <Users className="size-7 text-muted-foreground" strokeWidth={1.5} aria-hidden />
+    <Card padding="none" className="flex flex-col gap-4 p-5">
+      <div className="flex flex-col items-center gap-3 py-2 text-center">
+        <BeatieImage mood="happy" size={64} />
         <p className="text-card-title">Follow people to see their takes here</p>
       </div>
 
       {error ? (
         <ErrorPanel message="Couldn't load suggestions." onRetry={() => setAttempt((n) => n + 1)} />
       ) : people === null ? (
-        <div className="h-16 animate-pulse rounded-card bg-surface-2" />
+        <SkeletonList rows={2} />
       ) : (
         people.length > 0 && (
           <div className="flex flex-col gap-3">
@@ -395,10 +401,10 @@ function FollowingEmpty({ onFollowed }: { onFollowed: () => void }) {
 
       <Link
         to="/explore?filter=people"
-        className="self-center rounded-button px-3 py-2 text-button text-accent hover:text-foreground"
+        className="inline-flex min-h-11 items-center self-center rounded-button px-3 text-button text-accent hover:text-foreground"
       >
         Find people
       </Link>
-    </div>
+    </Card>
   )
 }

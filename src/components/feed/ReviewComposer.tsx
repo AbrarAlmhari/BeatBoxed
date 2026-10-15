@@ -159,7 +159,7 @@ export function ReviewComposer({
               type="button"
               onClick={() => setStep(1)}
               aria-label="Back to song search"
-              className="-ml-2 grid size-9 place-items-center rounded-full text-muted-foreground hover:bg-white/5 hover:text-foreground"
+              className="-ml-3 grid size-11 place-items-center rounded-full text-muted-foreground hover:bg-white/5 hover:text-foreground"
             >
               <ArrowLeft className="size-5" strokeWidth={1.75} />
             </button>
@@ -171,7 +171,7 @@ export function ReviewComposer({
             type="button"
             onClick={requestClose}
             aria-label="Close"
-            className="-mr-2 grid size-9 place-items-center rounded-full text-muted-foreground hover:bg-white/5 hover:text-foreground"
+            className="-mr-3 grid size-11 place-items-center rounded-full text-muted-foreground hover:bg-white/5 hover:text-foreground"
           >
             <X className="size-5" strokeWidth={1.75} />
           </button>
@@ -211,7 +211,7 @@ export function ReviewComposer({
               <button
                 type="button"
                 onClick={() => setStep(1)}
-                className="shrink-0 rounded-button bg-white/5 px-3 py-1.5 text-button text-muted-foreground transition-colors duration-200 ease-soft hover:bg-white/10 hover:text-foreground"
+                className="min-h-11 shrink-0 rounded-button bg-white/5 px-3 text-button text-muted-foreground transition-colors duration-200 ease-soft hover:bg-white/10 hover:text-foreground"
               >
                 Change
               </button>
@@ -258,7 +258,7 @@ export function ReviewComposer({
                 dir="auto"
                 placeholder="What did you hear? What stayed with you?"
                 aria-describedby={`${listId}-progress`}
-                className="w-full resize-none rounded-card border border-white/10 bg-surface-2 px-3.5 py-3 text-body text-foreground transition-colors duration-200 ease-soft placeholder:text-muted-foreground/70 focus:border-primary/70 focus:outline-none disabled:opacity-60"
+                className="w-full resize-none rounded-card border border-line-strong bg-surface-2 px-3.5 py-3 text-body text-foreground transition-colors duration-200 ease-soft placeholder:text-muted-foreground/70 focus:border-primary/70 focus:outline-none disabled:opacity-60"
               />
               <div
                 className="h-1 w-full overflow-hidden rounded-full bg-white/10"
@@ -376,7 +376,7 @@ function DiscardConfirm({ onKeep, onDiscard }: { onKeep: () => void; onDiscard: 
           <button
             type="button"
             onClick={onDiscard}
-            className="rounded-button bg-danger/15 px-4 py-2.5 text-button text-danger transition-colors duration-200 ease-soft hover:bg-danger/25"
+            className="min-h-11 rounded-button bg-danger/15 px-4 text-button text-danger transition-colors duration-200 ease-soft hover:bg-danger/25"
           >
             Discard
           </button>
@@ -384,7 +384,7 @@ function DiscardConfirm({ onKeep, onDiscard }: { onKeep: () => void; onDiscard: 
             ref={keepRef}
             type="button"
             onClick={onKeep}
-            className="rounded-button px-4 py-2.5 text-button text-muted-foreground hover:text-foreground sm:mr-auto"
+            className="min-h-11 rounded-button px-4 text-button text-muted-foreground hover:text-foreground sm:mr-auto"
           >
             Keep writing
           </button>

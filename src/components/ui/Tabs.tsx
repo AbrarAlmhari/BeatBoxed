@@ -1,4 +1,4 @@
-import { useCallback, useRef, type KeyboardEvent, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { cn } from '@/lib/cn'
 
@@ -13,8 +13,10 @@ export const panelIdFor = (prefix: string, id: string) => `${prefix}-panel-${id}
  * Tab order.
  *
  * - `sticky` keeps the bar under the top bar once scrolled past, on the
- *   see-through blurred bar. `stickyTop` is where it stops (the profile,
+ *   see-through blurred bar (only while stuck). `stickyTop` is where it stops (the profile,
  *   whose phone top bar is its own, uses `top-0 md:top-16`).
+ * - `underline` off leaves the line to a parent row (Home, where the Ask
+ *   Beatie pill shares it).
  * - `fill` shares the width between tabs on phones; on desktop they sit
  *   left at their natural width.
  * - Pair with <TabPanel> using the same `idPrefix`.
@@ -29,6 +31,7 @@ export function Tabs<T extends string>({
   sticky = false,
   stickyTop = 'top-16',
   fill = true,
+  underline = true,
   className,
 }: {
   tabs: TabItem<T>[]
@@ -40,9 +43,13 @@ export function Tabs<T extends string>({
   sticky?: boolean
   stickyTop?: string
   fill?: boolean
+  /** The line under the bar. Off when the parent row draws it. */
+  underline?: boolean
   className?: string
 }) {
   const refs = useRef<Partial<Record<string, HTMLButtonElement | null>>>({})
+  const bar = useRef<HTMLDivElement>(null)
+  const stuck = useStuck(bar, sticky)
 
   function onKey(e: KeyboardEvent<HTMLDivElement>) {
     const i = tabs.findIndex((t) => t.id === value)
@@ -60,9 +67,13 @@ export function Tabs<T extends string>({
 
   return (
     <div
+      ref={bar}
       className={cn(
-        'border-b border-line-strong',
-        sticky && cn('glass-bar sticky z-10 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8', stickyTop),
+        underline && 'border-b border-line-strong',
+        sticky && cn('sticky z-10 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8', stickyTop),
+        // The glass only once it's stuck, so it doesn't cut a band through
+        // the page's glow while it's still in place.
+        stuck && 'glass-bar',
         className
       )}
     >
@@ -98,6 +109,33 @@ export function Tabs<T extends string>({
       </div>
     </div>
   )
+}
+
+/** True while a sticky element sits at its sticky offset (scrolled past). */
+function useStuck(ref: React.RefObject<HTMLElement | null>, enabled: boolean) {
+  const [stuck, setStuck] = useState(false)
+  useEffect(() => {
+    const el = ref.current
+    if (!enabled || !el) return
+    let frame = 0
+    const check = () => {
+      frame = 0
+      const top = parseFloat(getComputedStyle(el).top) || 0
+      setStuck(window.scrollY > 0 && el.getBoundingClientRect().top <= top + 0.5)
+    }
+    const onScroll = () => {
+      if (!frame) frame = requestAnimationFrame(check)
+    }
+    check()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    window.addEventListener('resize', onScroll)
+    return () => {
+      cancelAnimationFrame(frame)
+      window.removeEventListener('scroll', onScroll)
+      window.removeEventListener('resize', onScroll)
+    }
+  }, [ref, enabled])
+  return stuck
 }
 
 /**

@@ -20,7 +20,7 @@ Source: team's theme spec + mockups. Apply this consistently to every screen and
 | Stars | `#F5B94A` | Rating stars |
 | Border (subtle) | white at 6% | Card edges, list dividers (`border-line`) |
 | Border (strong) | white at 10% | Tab bars, inputs, secondary buttons (`border-line-strong`) |
-| Glow 1 / Glow 2 | `#8B5CF6` / `#EC4899` | PageGlow's default pair, only ever faint. Pink appears nowhere else. |
+| Glow 1 / Glow 2 | `#8B5CF6` / `#EC4899` | PageGlow's hero pair (the soft glow uses Glow 1 with Accent). Pink appears nowhere else. |
 
 All colours live as tokens in `src/styles/index.css` (`@theme`). Components use the Tailwind names (`bg-surface`, `text-muted-foreground`, `border-line`); no hex or rgb values in components.
 
@@ -68,7 +68,7 @@ Inter throughout.
 
 All in `src/components/ui/`. Use these rather than building the look again.
 
-- **`PageGlow`** — the soft light behind the top of a page. Two layered radial gradients with a fade-out mask; no blur filters, so scrolling stays smooth on cheaper phones. `strength`: `hero` (fills a page header, as on the profile), `soft` (a fainter wash over the top 420px) or `none`. `colors` is a pair of opaque colours (defaults to Glow 1 and 2); when they change the new glow cross-fades in (instant with reduced motion). Decorative: `aria-hidden`, no pointer events, absolutely positioned, so the parent needs `relative isolate`.
+- **`PageGlow`** — the soft light behind the top of a page. Two layered radial gradients with a fade-out mask; no blur filters, so scrolling stays smooth on cheaper phones. `strength`: `hero` (fills a page header, as on the profile), `soft` (a fainter wash over the top 420px) or `none`. `colors` is a pair of opaque colours (defaults to Glow 1 and 2 for hero; Glow 1 and Accent for soft, since pink reads as a red smudge when faint); when they change the new glow cross-fades in (instant with reduced motion). Decorative: `aria-hidden`, no pointer events, absolutely positioned, so the parent needs `relative isolate`.
 - **`useCoverColors(url)`** (`src/lib/coverColors.ts`) — the two main colours of a cover or artist photo, read in the browser, darkened so text over the glow keeps at least 4.5:1, and cached per URL for the session. Returns `null` until known or when the image can't be read; pass the result to `PageGlow` and let it fall back to purple.
 - **`Card`** / **`cardClass()`** — surface, 1px subtle border, 18px corners, shadow. `padding`: `none`, `sm` (list rows), `md` (content), `lg` (empty and lock states). `as` keeps the right element (`article`, `li`, `section`); `cardClass()` is the same look for a `Link` or a `button`.
 - **`Tabs`** + **`TabPanel`** + **`useTabParam`** — underlined tabs, 48px tall, a real tablist (arrow keys, Home and End). `sticky` puts the bar on `glass-bar` under the top bar. `useTabParam` keeps the tab in `?tab=` so links and Back work. Use tabs to switch between views of a page.

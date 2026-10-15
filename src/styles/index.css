@@ -156,6 +156,23 @@
   backdrop-filter: blur(24px);
 }
 
+/*
+ * A 44px tap area around a smaller control (a compact Follow button, a
+ * chip), without changing how it looks. The element needs a position
+ * (relative or absolute).
+ */
+@utility tap-44 {
+  &::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: min(0px, calc((100% - 44px) / 2));
+    right: min(0px, calc((100% - 44px) / 2));
+    height: max(100%, 44px);
+    transform: translateY(-50%);
+  }
+}
+
 @layer base {
   html {
     -webkit-tap-highlight-color: transparent;

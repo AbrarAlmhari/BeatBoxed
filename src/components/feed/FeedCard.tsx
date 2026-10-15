@@ -73,7 +73,7 @@ export function FeedCard({
       data-review-id={review.id}
       data-highlighted={flash || undefined}
       className={cn(
-        'flex flex-col gap-4 rounded-card bg-surface p-4 shadow-card transition-shadow duration-500 ease-soft',
+        'flex flex-col gap-4 rounded-card border border-line bg-surface p-4 shadow-card transition-shadow duration-500 ease-soft',
         flash && 'ring-2 ring-primary/70'
       )}
     >

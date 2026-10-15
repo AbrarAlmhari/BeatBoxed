@@ -48,10 +48,10 @@ export function UserFollowButton({
 
   const pad =
     size === 'sm'
-      ? 'px-2.5 py-1 text-meta'
+      ? 'tap-44 px-2.5 py-1 text-meta'
       : size === 'lg'
         ? 'min-h-11 px-4 text-button'
-        : 'px-3 py-1.5 text-button'
+        : 'tap-44 px-3 py-1.5 text-button'
 
   /** Stops the tap from triggering the surrounding card link. */
   function swallow(e: React.MouseEvent) {

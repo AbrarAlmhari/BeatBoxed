@@ -22,7 +22,7 @@ export type MediaCardProps = {
 }
 
 const CARD_CLASS =
-  'group flex w-full flex-col gap-3 rounded-card bg-surface p-3 text-left shadow-card transition-all duration-250 ease-soft hover:-translate-y-1 hover:bg-surface-2 active:translate-y-0 active:scale-[0.98]'
+  'group flex w-full flex-col gap-3 rounded-card border border-line bg-surface p-3 text-left shadow-card transition-all duration-250 ease-soft hover:-translate-y-1 hover:bg-surface-2 active:translate-y-0 active:scale-[0.98]'
 
 export function MediaCard({
   title,

@@ -71,14 +71,14 @@ test.describe('following an artist', () => {
     // 4. Listed exactly once in both places that show followed artists.
     for (const path of [`/profile/${userA.id}/artists`, '/library']) {
       await page.goto(path)
-      if (path === '/library') await page.getByRole('button', { name: 'Artists' }).click()
+      if (path === '/library') await page.getByRole('tab', { name: 'Artists' }).click()
       const named = page.getByText(songs.artistName, { exact: true })
       await expect(named).toHaveCount(1)
     }
 
     // 5. Unfollow somewhere else; the song page must agree.
     await page.goto('/library')
-    await page.getByRole('button', { name: 'Artists' }).click()
+    await page.getByRole('tab', { name: 'Artists' }).click()
     await awaitFollowWrite(page, 'DELETE', () => followButton(page).first().click())
     await expect(followButton(page)).toHaveCount(0)
 

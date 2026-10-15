@@ -6,7 +6,7 @@ import { Sheet } from '@/components/ui/Sheet'
 import { StarRating } from '@/components/ui/StarRating'
 import { FeedCard, timeAgo } from '@/components/feed/FeedCard'
 import { Artwork } from '@/components/feed/Artwork'
-import { EmptyState, emptyActionClass } from '@/components/ui/EmptyState'
+import { EmptyState, emptyActionClass, emptySecondaryActionClass } from '@/components/ui/EmptyState'
 import { useLoadMore } from './useLoadMore'
 import { useAuth } from '@/lib/auth'
 import {
@@ -119,12 +119,16 @@ export function ProfileReviewsTab({
       </div>
 
       {status === 'error' ? (
-        <div className="flex flex-col items-center gap-3 rounded-card bg-surface px-6 py-10 text-center">
-          <p className="text-body text-danger">Couldn't load reviews.</p>
-          <button type="button" onClick={() => void load()} className={emptyActionClass}>
-            Retry
-          </button>
-        </div>
+        <EmptyState
+          face="sad"
+          tone="error"
+          title="Couldn't load reviews."
+          action={
+            <button type="button" onClick={() => void load()} className={emptySecondaryActionClass}>
+              Retry
+            </button>
+          }
+        />
       ) : status === 'loading' ? (
         <ReviewsSkeleton />
       ) : items.length === 0 ? (
@@ -190,7 +194,7 @@ function RatingRow({ review }: { review: FeedReview }) {
   return (
     <Link
       to={`/song/${song.id}?review=${review.id}`}
-      className="flex min-h-16 items-center gap-3 rounded-card bg-surface p-2.5 pr-4 shadow-card transition-colors duration-200 ease-soft hover:bg-surface-2"
+      className="flex min-h-16 items-center gap-3 rounded-card border border-line bg-surface p-2.5 pr-4 shadow-card transition-colors duration-200 ease-soft hover:bg-surface-2"
     >
       <Artwork src={song.coverUrl} seed={song.id} alt={`Cover of ${song.title}`} className="size-12" />
       <span className="flex min-w-0 flex-1 flex-col">

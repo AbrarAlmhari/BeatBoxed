@@ -273,7 +273,7 @@ function ProfileSkeleton() {
           <Skeleton key={i} className="h-4 w-16" />
         ))}
       </div>
-      <Skeleton onCard={false} className="h-40 rounded-card" />
+      <Skeleton tone="page" className="h-40 rounded-card" />
     </div>
   )
 }

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { Plus } from 'lucide-react'
+import { Lock, Plus } from 'lucide-react'
+import { Card } from '@/components/ui/Card'
 import { Chip } from '@/components/ui/Chip'
 import { PlaylistGrid } from '@/components/playlist/PlaylistGrid'
 import { PlaylistForm } from '@/components/playlist/PlaylistForm'
@@ -105,12 +106,15 @@ export default function ProfilePlaylists() {
         <h1 dir="auto" className="text-page-title">
           {title}
         </h1>
-        <div className="rounded-card bg-surface px-6 py-14 text-center">
+        <Card padding="lg" className="flex flex-col items-center gap-3 text-center">
+          <span className="grid size-12 place-items-center rounded-full bg-primary/15">
+            <Lock className="size-5 text-accent" strokeWidth={2} aria-hidden />
+          </span>
           <p className="text-card-title">This account is private.</p>
-          <p className="mx-auto mt-2 max-w-sm text-body text-muted-foreground">
+          <p className="max-w-sm text-body text-muted-foreground">
             Follow them to request access to their reviews and playlists.
           </p>
-        </div>
+        </Card>
       </div>
     )
   }
@@ -122,7 +126,7 @@ export default function ProfilePlaylists() {
         <div className="flex flex-col gap-3">
           {isOwn &&
             (creating ? (
-              <div className="rounded-card bg-surface p-4 shadow-card sm:max-w-md">
+              <Card className="sm:max-w-md">
                 <PlaylistForm
                   submitLabel="Create playlist"
                   onCancel={() => setCreating(false)}
@@ -140,7 +144,7 @@ export default function ProfilePlaylists() {
                     setCreating(false)
                   }}
                 />
-              </div>
+              </Card>
             ) : (
               <button
                 type="button"

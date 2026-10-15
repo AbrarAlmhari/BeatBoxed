@@ -6,7 +6,7 @@ import { cn } from '@/lib/cn'
 export function BottomTabBar() {
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-white/5 bg-background/85 backdrop-blur-xl md:hidden"
+      className="glass-bar fixed inset-x-0 bottom-0 z-40 border-t border-line md:hidden"
       style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
       aria-label="Primary"
     >

@@ -9,7 +9,14 @@ const ALPHA: Record<Exclude<GlowStrength, 'none'>, [number, number]> = {
   soft: [16, 7],
 }
 
-const DEFAULT_COLORS: [string, string] = ['var(--color-glow-1)', 'var(--color-glow-2)']
+/**
+ * Defaults per strength. The pink only works at hero strength: as a faint
+ * wash it reads as a reddish smudge, so soft glows pair Primary with Accent.
+ */
+const DEFAULT_COLORS: Record<Exclude<GlowStrength, 'none'>, [string, string]> = {
+  hero: ['var(--color-glow-1)', 'var(--color-glow-2)'],
+  soft: ['var(--color-glow-1)', 'var(--color-accent)'],
+}
 
 const FADE_OUT = 'linear-gradient(to bottom, black 55%, transparent)'
 
@@ -36,19 +43,21 @@ function gradient([a, b]: [string, string], strength: Exclude<GlowStrength, 'non
  * - `soft` is a fainter wash over the top 420px of the page.
  * - `none` renders nothing.
  *
- * `colors` are two opaque colours (any CSS colour); the strength sets their
+ * `colors` are two opaque colours (any CSS colour, defaulting to Primary
+ * with pink for hero, Primary with Accent for soft); the strength sets their
  * opacity. When they change, the new glow fades in over the old one (600ms;
  * instant with reduced motion).
  */
 export function PageGlow({
   strength = 'soft',
-  colors = DEFAULT_COLORS,
+  colors: given,
   className,
 }: {
   strength?: GlowStrength
   colors?: [string, string]
   className?: string
 }) {
+  const colors = given ?? DEFAULT_COLORS[strength === 'none' ? 'soft' : strength]
   const key = colors.join('|')
   // Earlier layers stay underneath until the newest has faded in.
   const [layers, setLayers] = useState([{ key, colors }])

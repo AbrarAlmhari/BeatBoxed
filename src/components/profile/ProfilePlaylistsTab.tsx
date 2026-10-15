@@ -4,7 +4,8 @@ import { Plus, X } from 'lucide-react'
 import { PlaylistCover } from '@/components/playlist/PlaylistCover'
 import { PlaylistForm } from '@/components/playlist/PlaylistForm'
 import { Modal } from '@/components/ui/Modal'
-import { EmptyState, emptyActionClass } from '@/components/ui/EmptyState'
+import { SkeletonTile } from '@/components/ui/Skeleton'
+import { EmptyState, emptyActionClass, emptySecondaryActionClass } from '@/components/ui/EmptyState'
 import { useAuth } from '@/lib/auth'
 import {
   createPlaylist,
@@ -66,20 +67,20 @@ export function ProfilePlaylistsTab({
   return (
     <>
       {error ? (
-        <div className="flex flex-col items-center gap-3 rounded-card bg-surface px-6 py-10 text-center">
-          <p className="text-body text-danger">Couldn't load playlists.</p>
-          <button type="button" onClick={() => void load()} className={emptyActionClass}>
-            Retry
-          </button>
-        </div>
+        <EmptyState
+          face="sad"
+          tone="error"
+          title="Couldn't load playlists."
+          action={
+            <button type="button" onClick={() => void load()} className={emptySecondaryActionClass}>
+              Retry
+            </button>
+          }
+        />
       ) : playlists === null ? (
         <div className={GRID} aria-hidden>
           {Array.from({ length: 4 }, (_, i) => (
-            <div key={i} className="flex flex-col gap-2">
-              <div className="aspect-square w-full animate-pulse rounded-card bg-surface" />
-              <div className="h-3.5 w-3/4 animate-pulse rounded bg-surface" />
-              <div className="h-3 w-1/3 animate-pulse rounded bg-surface" />
-            </div>
+            <SkeletonTile key={i} />
           ))}
         </div>
       ) : playlists.length === 0 && !isOwn ? (

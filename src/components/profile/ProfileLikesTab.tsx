@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { Heart, Loader2, Pause, Play } from 'lucide-react'
 import { Artwork } from '@/components/feed/Artwork'
 import { FeedCard } from '@/components/feed/FeedCard'
-import { EmptyState, emptyActionClass } from '@/components/ui/EmptyState'
+import { EmptyState, emptyActionClass, emptySecondaryActionClass } from '@/components/ui/EmptyState'
 import { useLoadMore } from './useLoadMore'
 import { useAuth } from '@/lib/auth'
 import { usePlayer } from '@/lib/player'
@@ -36,7 +36,7 @@ export function ProfileLikesTab({
       <div
         role="group"
         aria-label="Liked"
-        className="flex w-full max-w-xs gap-1 self-start rounded-card border border-white/10 bg-surface p-1"
+        className="flex w-full max-w-xs gap-1 self-start rounded-card border border-line-strong bg-surface p-1"
       >
         {(['songs', 'reviews'] as Kind[]).map((k) => (
           <button
@@ -145,7 +145,7 @@ function LikedSongs({ userId, isOwn, handle }: { userId: string; isOwn: boolean;
         return (
           <li
             key={song.id}
-            className="flex min-h-16 items-center gap-3 rounded-card bg-surface p-2.5 shadow-card"
+            className="flex min-h-16 items-center gap-3 rounded-card border border-line bg-surface p-2.5 shadow-card"
           >
             <Link to={`/song/${song.id}`} className="shrink-0" tabIndex={-1} aria-hidden>
               <Artwork src={song.coverUrl} seed={song.id} alt={`Cover of ${song.title}`} className="size-12" />
@@ -282,12 +282,16 @@ function LikedReviews({ userId, isOwn, handle }: { userId: string; isOwn: boolea
 
 function Retry({ what, onRetry }: { what: string; onRetry: () => void }) {
   return (
-    <div className="flex flex-col items-center gap-3 rounded-card bg-surface px-6 py-10 text-center">
-      <p className="text-body text-danger">Couldn't load {what}.</p>
-      <button type="button" onClick={onRetry} className={emptyActionClass}>
-        Retry
-      </button>
-    </div>
+    <EmptyState
+      face="sad"
+      tone="error"
+      title={`Couldn't load ${what}.`}
+      action={
+        <button type="button" onClick={onRetry} className={emptySecondaryActionClass}>
+          Retry
+        </button>
+      }
+    />
   )
 }
 

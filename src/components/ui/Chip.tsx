@@ -30,7 +30,7 @@ export function Chip({
       aria-pressed={active}
       className={cn(
         'shrink-0 whitespace-nowrap rounded-chip border px-3.5 py-1.5 text-button',
-        touchTarget && "relative after:absolute after:inset-x-0 after:-inset-y-2 after:content-['']",
+        touchTarget && 'tap-44 relative',
         'transition-colors duration-200 ease-soft active:scale-[0.97]',
         active
           ? 'border-primary/60 bg-primary/15 text-foreground'

@@ -1,7 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
-import { AlertTriangle, Loader2, MicVocal, Search, SearchX, X } from 'lucide-react'
+import { AlertTriangle, MicVocal, Search, X } from 'lucide-react'
+import { cardClass } from '@/components/ui/Card'
 import { Chip } from '@/components/ui/Chip'
+import { EmptyState, emptySecondaryActionClass } from '@/components/ui/EmptyState'
+import { PageGlow } from '@/components/ui/PageGlow'
+import { SectionHeader } from '@/components/ui/SectionHeader'
+import { MEDIA_GRID, SkeletonList, SkeletonMediaGrid } from '@/components/ui/Skeleton'
 import { MediaCard } from '@/components/ui/MediaCard'
 import { Rail, RailSkeleton } from '@/components/home/Rail'
 import { ArtistResultCard } from '@/components/explore/ArtistResultCard'
@@ -9,6 +14,7 @@ import { LyricResultCard } from '@/components/explore/LyricResultCard'
 import { PersonCard } from '@/components/people/PersonCard'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import { useAuth } from '@/lib/auth'
+import { cn } from '@/lib/cn'
 import { usePlayer } from '@/lib/player'
 import {
   getExploreRails,
@@ -215,7 +221,8 @@ export default function Explore() {
     (results?.people.length ?? 0)
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="relative isolate flex flex-col gap-8">
+      <PageGlow strength="soft" />
       <div className="flex flex-col gap-4">
         <h1 className="text-page-title">Explore</h1>
 
@@ -232,7 +239,7 @@ export default function Explore() {
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search songs, artists, people, or lyrics..."
             aria-label="Search"
-            className="w-full rounded-button border border-white/5 bg-surface-2 py-3 pl-11 pr-11 text-body text-foreground transition-colors duration-200 ease-soft placeholder:text-muted-foreground/70 hover:border-white/10 focus:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary/25"
+            className="w-full rounded-button border border-line-strong bg-surface-2 py-3 pl-11 pr-11 text-body text-foreground transition-colors duration-200 ease-soft placeholder:text-muted-foreground/70 hover:border-white/20 focus:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary/25"
           />
           {query && (
             <button
@@ -270,16 +277,20 @@ export default function Explore() {
       {isBrowsing ? (
         <>
           {railsError ? (
-            <div className="flex flex-col items-center gap-3 rounded-card bg-surface px-5 py-10 text-center">
-              <p className="text-body text-danger">Couldn't load songs to browse.</p>
-              <button
-                type="button"
-                onClick={() => setRailsAttempt((n) => n + 1)}
-                className="rounded-button bg-surface-2 px-4 py-2 text-button text-foreground hover:bg-white/10"
-              >
-                Retry
-              </button>
-            </div>
+            <EmptyState
+              face="sad"
+              tone="error"
+              title="Couldn't load songs to browse."
+              action={
+                <button
+                  type="button"
+                  onClick={() => setRailsAttempt((n) => n + 1)}
+                  className={emptySecondaryActionClass}
+                >
+                  Retry
+                </button>
+              }
+            />
           ) : rails === null ? (
             <>
               {/* No Recently Viewed skeleton: we don't know yet whether this
@@ -312,7 +323,7 @@ export default function Explore() {
           )}
 
           <section className="flex flex-col gap-4">
-            <h2 className="text-section-title">Popular searches</h2>
+            <SectionHeader title="Popular searches" />
             <div className="flex flex-wrap gap-2">
               {popularSearches.map((term) => (
                 <Chip
@@ -330,9 +341,7 @@ export default function Explore() {
           </section>
         </>
       ) : error ? (
-        <div className="rounded-card bg-surface px-6 py-14 text-center">
-          <p className="text-body text-danger">{error}</p>
-        </div>
+        <EmptyState face="sad" tone="error" title={error} />
       ) : (
         <div className="flex flex-col gap-8">
           {results?.warning && (
@@ -350,9 +359,9 @@ export default function Explore() {
           )}
 
           {searching && !results && (
-            <div className="flex items-center gap-2 px-1 text-body text-muted-foreground">
-              <Loader2 className="size-4 animate-spin" strokeWidth={2} aria-hidden />
-              Searching…
+            <div role="status" className="flex flex-col gap-4">
+              <span className="sr-only">Searching…</span>
+              <SkeletonMediaGrid count={4} />
             </div>
           )}
 
@@ -363,7 +372,7 @@ export default function Explore() {
               shown={sliceFor('songs', results.songs)}
               onSeeAll={() => setExpanded((p) => new Set(p).add('songs'))}
             >
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5">
+              <div className={MEDIA_GRID}>
                 {results.songs
                   .slice(0, sliceFor('songs', results.songs))
                   .map((song, i) => (
@@ -442,7 +451,7 @@ export default function Explore() {
             <button
               type="button"
               onClick={() => setFilter('lyrics')}
-              className="flex items-center gap-2.5 rounded-card bg-surface px-5 py-4 text-left shadow-card transition-colors duration-200 ease-soft hover:bg-surface-2"
+              className={cn(cardClass({ padding: 'none', interactive: true }), 'flex items-center gap-2.5 px-5 py-4 text-left')}
             >
               <MicVocal className="size-[18px] shrink-0 text-primary" strokeWidth={1.75} />
               <span className="text-button text-foreground">
@@ -453,14 +462,17 @@ export default function Explore() {
 
           {filter === 'lyrics' && (
             <section className="flex flex-col gap-4">
-              <h2 className="text-section-title">Lyrics</h2>
+              <SectionHeader title="Lyrics" />
               {lyricsLoading ? (
-                <div className="flex items-center gap-2 px-1 text-body text-muted-foreground">
-                  <Loader2 className="size-4 animate-spin" strokeWidth={2} aria-hidden />
-                  Searching lyrics… this one takes a moment.
+                <div role="status" className="flex flex-col gap-3">
+                  <p className="px-1 text-secondary text-muted-foreground">
+                    Searching lyrics… this one takes a moment.
+                  </p>
+                  <SkeletonList rows={3} />
                 </div>
               ) : !lyrics || lyrics.length === 0 ? (
-                <EmptyPanel
+                <EmptyState
+                  face="thinking-sticker"
                   title="No lyric matches"
                   detail={`Nothing in the lyrics we have for “${debouncedQuery.trim()}”.`}
                 />
@@ -475,15 +487,16 @@ export default function Explore() {
           )}
 
           {!searching && results && total === 0 && filter !== 'lyrics' && (
-            <div className="flex flex-col items-center gap-3 rounded-card bg-surface px-6 py-14 text-center">
-              <SearchX className="size-7 text-muted-foreground" strokeWidth={1.5} aria-hidden />
-              <p className="text-card-title">No matches</p>
-              <p className="max-w-sm text-body text-muted-foreground">
-                Nothing here for{' '}
-                {debouncedQuery ? `“${debouncedQuery}”` : 'that filter'}. Try a
-                different spelling, or search the lyrics instead.
-              </p>
-            </div>
+            <EmptyState
+              face="thinking-sticker"
+              title="No matches"
+              detail={
+                <>
+                  Nothing here for {debouncedQuery ? `“${debouncedQuery}”` : 'that filter'}. Try a
+                  different spelling, or search the lyrics instead.
+                </>
+              }
+            />
           )}
         </div>
       )}
@@ -506,31 +519,15 @@ function Section({
 }) {
   return (
     <section className="flex flex-col gap-4">
-      <div className="flex items-baseline justify-between gap-4">
-        <h2 className="text-section-title">
-          {title}{' '}
-          <span className="text-secondary text-muted-foreground">({count})</span>
-        </h2>
-        {shown < count && (
-          <button
-            type="button"
-            onClick={onSeeAll}
-            className="shrink-0 rounded-button px-2 py-1 text-button text-muted-foreground transition-colors duration-200 ease-soft hover:text-accent"
-          >
-            See all
-          </button>
-        )}
-      </div>
+      <SectionHeader
+        title={
+          <>
+            {title} <span className="text-secondary text-muted-foreground">({count})</span>
+          </>
+        }
+        seeAll={shown < count ? { onClick: onSeeAll } : undefined}
+      />
       {children}
     </section>
-  )
-}
-
-function EmptyPanel({ title, detail }: { title: string; detail: string }) {
-  return (
-    <div className="flex flex-col items-center gap-2 rounded-card bg-surface px-6 py-12 text-center">
-      <p className="text-card-title">{title}</p>
-      <p className="max-w-sm text-body text-muted-foreground">{detail}</p>
-    </div>
   )
 }

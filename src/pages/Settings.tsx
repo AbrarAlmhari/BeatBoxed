@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { LogOut } from 'lucide-react'
 import { Toggle } from '@/components/ui/Toggle'
+import { Card } from '@/components/ui/Card'
+import { SectionHeader } from '@/components/ui/SectionHeader'
+import { Skeleton } from '@/components/ui/Skeleton'
 import { MakePublicDialog } from '@/components/settings/MakePublicDialog'
 import { useAuth } from '@/lib/auth'
 import { useToast } from '@/lib/toast'
@@ -112,10 +115,10 @@ export default function Settings() {
 
   if (loading || !account) {
     return (
-      <div className="flex flex-col gap-4 pt-2">
-        <div className="h-8 w-40 animate-pulse rounded bg-surface" />
+      <div className="flex max-w-2xl flex-col gap-4 pt-2" aria-busy="true">
+        <Skeleton tone="page" className="h-8 w-40" />
         {Array.from({ length: 3 }, (_, i) => (
-          <div key={i} className="h-40 animate-pulse rounded-card bg-surface" />
+          <Skeleton key={i} tone="page" className="h-40 rounded-card" />
         ))}
       </div>
     )
@@ -136,10 +139,10 @@ export default function Settings() {
                 onClick={() => void saveAccount({ translationLanguage: l.code })}
                 aria-pressed={account.translationLanguage === l.code}
                 className={cn(
-                  'rounded-button border px-3 py-1.5 text-button transition-colors duration-200 ease-soft',
+                  'min-h-11 rounded-button border px-3.5 text-button transition-colors duration-200 ease-soft',
                   account.translationLanguage === l.code
                     ? 'border-primary/60 bg-primary/15 text-foreground'
-                    : 'border-white/10 bg-surface-2 text-muted-foreground hover:text-foreground'
+                    : 'border-line-strong bg-surface-2 text-muted-foreground hover:text-foreground'
                 )}
               >
                 {l.label}
@@ -153,7 +156,7 @@ export default function Settings() {
       </Section>
 
       <Section title="Notifications">
-        <div className="flex flex-col divide-y divide-white/5">
+        <div className="flex flex-col divide-y divide-line">
           {NOTIFICATION_ROWS.map((row) => (
             <Toggle
               key={row.key}
@@ -167,7 +170,7 @@ export default function Settings() {
       </Section>
 
       <Section title="Privacy">
-        <div className="flex flex-col divide-y divide-white/5">
+        <div className="flex flex-col divide-y divide-line">
           <Toggle
             label="Private account"
             hint="Only followers you approve can see your reviews and playlists."
@@ -220,7 +223,7 @@ export default function Settings() {
               await signOut()
               navigate('/login', { replace: true })
             }}
-            className="flex w-fit items-center gap-2 rounded-button bg-surface-2 px-3.5 py-2 text-button text-muted-foreground transition-colors duration-200 ease-soft hover:text-danger"
+            className="flex min-h-11 w-fit items-center gap-2 rounded-button border border-line-strong bg-surface-2 px-4 text-button text-muted-foreground transition-colors duration-200 ease-soft hover:text-danger"
           >
             <LogOut className="size-4" strokeWidth={1.75} aria-hidden />
             Log out
@@ -234,8 +237,8 @@ export default function Settings() {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="flex flex-col gap-3">
-      <h2 className="text-section-title">{title}</h2>
-      <div className="rounded-card bg-surface p-4 shadow-card">{children}</div>
+      <SectionHeader title={title} />
+      <Card>{children}</Card>
     </section>
   )
 }

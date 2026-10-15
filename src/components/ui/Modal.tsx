@@ -2,6 +2,9 @@ import { useEffect, useRef, type ReactNode, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import { cn } from '@/lib/cn'
 
+/** The grab handle on a phone sheet. Shared with Sheet. Decorative. */
+export const SHEET_HANDLE = 'mx-auto mt-2.5 h-1 w-9 shrink-0 rounded-full bg-white/15 sm:hidden'
+
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
 
@@ -93,7 +96,7 @@ export function Modal({
       <div
         aria-hidden
         onClick={() => close.current()}
-        className="animate-fade-in absolute inset-0 bg-black/60"
+        className="animate-fade-in absolute inset-0 bg-black/60 motion-reduce:animate-none"
       />
       <div
         ref={panel}
@@ -102,18 +105,18 @@ export function Modal({
         aria-labelledby={labelledBy}
         tabIndex={-1}
         className={cn(
-          'animate-page-in relative flex w-full flex-col bg-surface shadow-card outline-none',
+          'animate-page-in relative flex w-full flex-col border border-line bg-surface shadow-raised outline-none motion-reduce:animate-none',
           // Phone: bottom sheet, full width, rounded top corners only.
-          'max-h-[92dvh] rounded-t-[20px] pb-[env(safe-area-inset-bottom)]',
+          'max-h-[92dvh] rounded-t-sheet border-b-0 pb-[env(safe-area-inset-bottom)]',
           // Desktop: centred dialog.
-          'sm:max-h-[85vh] sm:max-w-lg sm:rounded-card sm:pb-0',
+          'sm:max-h-[85vh] sm:max-w-lg sm:rounded-sheet sm:border-b sm:pb-0',
           className
         )}
       >
         {/* Grab handle: tells a phone user this is a sheet. Decorative. */}
         <span
           aria-hidden
-          className="mx-auto mt-2.5 h-1 w-9 shrink-0 rounded-full bg-white/15 sm:hidden"
+          className={SHEET_HANDLE}
         />
         {children}
       </div>

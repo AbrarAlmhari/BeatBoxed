@@ -22,7 +22,7 @@ export function FollowedArtistsGrid({
       {artists.map((a) => (
         <div
           key={a.id}
-          className="flex flex-col items-center gap-3 rounded-card bg-surface p-4 text-center shadow-card"
+          className="flex flex-col items-center gap-3 rounded-card border border-line bg-surface p-4 text-center shadow-card"
         >
           {a.imageUrl ? (
             <img

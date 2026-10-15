@@ -90,7 +90,7 @@ export function ProfileEditor({
   return (
     <form
       onSubmit={handleSubmit}
-      className="animate-fade-in flex flex-col gap-5 rounded-card bg-surface p-5 shadow-card"
+      className="animate-fade-in flex flex-col gap-5 rounded-card border border-line bg-surface p-5 shadow-card"
     >
       <h2 className="text-section-title">Edit profile</h2>
       {error && <FormAlert tone="error">{error}</FormAlert>}

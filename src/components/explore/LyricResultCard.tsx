@@ -5,7 +5,7 @@ export function LyricResultCard({ match }: { match: LyricMatch }) {
   return (
     <button
       type="button"
-      className="flex w-full items-start gap-3 rounded-card bg-surface p-4 text-left shadow-card transition-all duration-250 ease-soft hover:bg-surface-2 active:scale-[0.99]"
+      className="flex w-full items-start gap-3 rounded-card border border-line bg-surface p-4 text-left shadow-card transition-all duration-250 ease-soft hover:bg-surface-2 active:scale-[0.99]"
     >
       <Quote
         className="mt-0.5 size-4 shrink-0 text-primary"
