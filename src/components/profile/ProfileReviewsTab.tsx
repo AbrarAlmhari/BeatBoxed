@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Check, ChevronDown, Loader2, PenLine } from 'lucide-react'
 import { Chip } from '@/components/ui/Chip'
@@ -61,19 +61,26 @@ export function ProfileReviewsTab({
   const [hasMore, setHasMore] = useState(false)
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
   const [loadingMore, setLoadingMore] = useState(false)
+  // Each load gets a number; only the newest one may update the list.
+  // Switching filters quickly used to let a slower, older answer land last
+  // and show the wrong filter's reviews.
+  const latest = useRef(0)
 
   const load = useCallback(async () => {
     if (!user) return
+    const request = ++latest.current
     setStatus('loading')
     setItems([])
     setAll(undefined)
     try {
       const page = await getProfileReviews(userId, user.id, { filter, sort, offset: 0 })
+      if (request !== latest.current) return
       setItems(page.items)
       setAll(page.all)
       setHasMore(page.hasMore)
       setStatus('ready')
     } catch (err) {
+      if (request !== latest.current) return
       console.error('[beatboxed] profile reviews failed:', err)
       setStatus('error')
     }
@@ -85,6 +92,7 @@ export function ProfileReviewsTab({
 
   async function more() {
     if (!user || loadingMore || !hasMore) return
+    const request = latest.current
     setLoadingMore(true)
     try {
       const page = await getProfileReviews(userId, user.id, {
@@ -93,6 +101,8 @@ export function ProfileReviewsTab({
         offset: items.length,
         cachedAll: all,
       })
+      // A filter or sort change since this started: its page is stale.
+      if (request !== latest.current) return
       const seen = new Set(items.map((r) => r.id))
       setItems((prev) => [...prev, ...page.items.filter((r) => !seen.has(r.id))])
       setHasMore(page.hasMore)

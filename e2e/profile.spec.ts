@@ -138,6 +138,27 @@ test.describe('profile', () => {
     await expect(panel.locator('li').first()).toContainText(songs[0].title)
   })
 
+  test('switching filters quickly never shows a slower, older answer', async ({ page }) => {
+    await login(page, owner.email)
+    await page.goto(`/profile/${owner.id}`)
+    const panel = page.getByRole('tabpanel')
+    await expect(panel.getByText(WRITTEN)).toBeVisible()
+
+    // The "Written" answer is held back, so it lands after "Ratings only".
+    await page.route(/\/rest\/v1\/reviews\?.*or=/, async (route) => {
+      await new Promise((r) => setTimeout(r, 1500))
+      await route.continue()
+    })
+    await page.getByRole('button', { name: 'Written' }).click()
+    await page.getByRole('button', { name: 'Ratings only' }).click()
+
+    const row = panel.locator(`a[href*="/song/${songs[1].id}?review="]`)
+    await expect(row).toBeVisible()
+    await page.waitForTimeout(2500) // past the held-back answer
+    await expect(row).toBeVisible()
+    await expect(panel.getByText(WRITTEN)).toHaveCount(0)
+  })
+
   test("empty states: your own invites a first review; someone else's says so", async ({ page }) => {
     const fresh = await createTestUser('prof-empty')
     await login(page, fresh.email)
