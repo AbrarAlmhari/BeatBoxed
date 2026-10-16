@@ -4,7 +4,6 @@ import type {
   ArtistCardModel,
   LyricMatch,
   LyricsResult,
-  ReviewComment,
   ReviewWithAuthor,
   SearchMode,
   SearchResults,
@@ -1068,80 +1067,6 @@ export async function setReviewLike(
   }
 }
 
-type CommentRow = {
-  id: string
-  review_id: string
-  user_id: string
-  body: string
-  created_at: string
-  edited: boolean
-  profiles: Rel<{
-    username: string | null
-    display_name: string | null
-    avatar_url: string | null
-  }>
-}
-
-const COMMENT_SELECT =
-  'id, review_id, user_id, body, created_at, edited, ' +
-  'profiles(username, display_name, avatar_url)'
-
-function toCommentModel(c: CommentRow): ReviewComment {
-  const p = one(c.profiles)
-  return {
-    id: c.id,
-    reviewId: c.review_id,
-    userId: c.user_id,
-    body: c.body,
-    createdAt: c.created_at,
-    edited: c.edited,
-    author: p
-      ? {
-          username: p.username,
-          displayName: p.display_name,
-          avatarUrl: p.avatar_url,
-        }
-      : null,
-  }
-}
-
-/** Oldest first — a comment thread reads as a conversation, not a feed. */
-export async function getReviewComments(reviewId: string) {
-  const { data, error } = await requireClient()
-    .from('review_comments')
-    .select(COMMENT_SELECT)
-    .eq('review_id', reviewId)
-    .order('created_at', { ascending: true })
-  if (error) throw error
-  return ((data ?? []) as unknown as CommentRow[]).map(toCommentModel)
-}
-
-export async function addReviewComment(
-  reviewId: string,
-  userId: string,
-  body: string
-) {
-  const { data, error } = await requireClient()
-    .from('review_comments')
-    .insert({ review_id: reviewId, user_id: userId, body: body.trim() })
-    .select(COMMENT_SELECT)
-    .single()
-  if (error) throw error
-  return toCommentModel(data as unknown as CommentRow)
-}
-
-export async function deleteReviewComment(commentId: string, userId: string) {
-  // RLS already scopes this to the author; the explicit filter matches
-  // deleteReview and means a policy regression can't turn into a way to
-  // delete other people's comments.
-  const { error } = await requireClient()
-    .from('review_comments')
-    .delete()
-    .eq('id', commentId)
-    .eq('user_id', userId)
-  if (error) throw error
-}
-
 /* ------------------------------------------------------------------ follows */
 
 export async function getFollowedArtistIds(userId: string): Promise<Set<string>> {
@@ -1650,7 +1575,7 @@ export async function getNotificationCenter(
     getFollowRequests(viewerId),
     client
       .from('notifications')
-      .select('id, type, payload, read, created_at')
+      .select('id, type, payload, read, created_at, group_key')
       .eq('user_id', viewerId)
       .neq('type', 'follow_requested')
       .order('created_at', { ascending: false })
@@ -1678,6 +1603,7 @@ export async function getNotificationCenter(
     payload: (n.payload ?? {}) as Record<string, unknown>,
     read: n.read,
     createdAt: n.created_at,
+    groupKey: (n as { group_key?: string | null }).group_key ?? null,
   }))
 
   // Turned off, so they leave the page and the badge entirely.
@@ -1704,7 +1630,8 @@ export async function getNotificationCenter(
     // Follow requests page: losing sight of a request someone sent you is
     // worse than a quiet badge.
     (prefs.follow_requests ? requests.length : 0) +
-    notifications.filter((n) => !n.read).length +
+    // Several likes on one thing are one row on the page, so one here too.
+    new Set(notifications.filter((n) => !n.read).map((n) => n.groupKey ?? n.id)).size +
     anns.filter((a) => !a.read).length
 
   return { requests, updates, badge }
@@ -1770,15 +1697,27 @@ export async function getPeopleByIds(
  * readable text: who acted, which song, and the opening words of a comment.
  * Three batched queries rather than one per notification.
  */
-export async function getNotificationContext(
-  notifications: NotificationRow[]
-): Promise<{
+export type NotificationContext = {
   people: Map<string, PersonCardModel>
-  songs: Map<string, string>
-  comments: Map<string, string>
+  /** Song id -> title and cover, for the sentence and the thumbnail. */
+  songs: Map<string, { title: string; coverUrl: string | null }>
+  /**
+   * Comment id -> what the quote needs. Mentions are stored as <@id>; their
+   * people are in `people`. likedByMe drives the Like button on the row.
+   */
+  comments: Map<string, { body: string; isReply: boolean; likedByMe: boolean }>
   artists: Map<string, { name: string; imageUrl: string | null }>
   albums: Map<string, { title: string; coverUrl: string | null }>
-}> {
+}
+
+/**
+ * Everything the notification rows show, looked up at render time so names,
+ * titles and comment text are never stale.
+ */
+export async function getNotificationContext(
+  notifications: NotificationRow[],
+  viewerId?: string
+): Promise<NotificationContext> {
   const client = requireClient()
   const str = (v: unknown) => (typeof v === 'string' ? v : null)
 
@@ -1809,13 +1748,19 @@ export async function getNotificationContext(
     if (comment) commentIds.add(comment)
   }
 
-  const [people, songs, comments, artists, albums] = await Promise.all([
-    personIds.size ? getPeopleByIds([...personIds]) : Promise.resolve(new Map()),
+  const [songs, comments, liked, artists, albums] = await Promise.all([
     songIds.size
-      ? client.from('songs').select('id, title').in('id', [...songIds])
+      ? client.from('songs').select('id, title, albums(cover_url)').in('id', [...songIds])
       : Promise.resolve({ data: [], error: null }),
     commentIds.size
-      ? client.from('review_comments').select('id, body').in('id', [...commentIds])
+      ? client.from('review_comments').select('id, body, parent_id').in('id', [...commentIds])
+      : Promise.resolve({ data: [], error: null }),
+    commentIds.size && viewerId
+      ? client
+          .from('comment_likes')
+          .select('comment_id')
+          .eq('user_id', viewerId)
+          .in('comment_id', [...commentIds])
       : Promise.resolve({ data: [], error: null }),
     artistIds.size
       ? client.from('artists').select('id, name, image_url').in('id', [...artistIds])
@@ -1825,11 +1770,26 @@ export async function getNotificationContext(
       : Promise.resolve({ data: [], error: null }),
   ])
 
-  const songMap = new Map<string, string>()
-  if (!songs.error) for (const s of songs.data ?? []) songMap.set(s.id, s.title)
+  const songMap = new Map<string, { title: string; coverUrl: string | null }>()
+  if (!songs.error) {
+    for (const s of (songs.data ?? []) as { id: string; title: string; albums: Rel<{ cover_url: string | null }> }[]) {
+      songMap.set(s.id, { title: s.title, coverUrl: one(s.albums)?.cover_url ?? null })
+    }
+  }
 
-  const commentMap = new Map<string, string>()
-  if (!comments.error) for (const c of comments.data ?? []) commentMap.set(c.id, c.body)
+  const likedIds = new Set(
+    liked.error ? [] : ((liked.data ?? []) as { comment_id: string }[]).map((l) => l.comment_id)
+  )
+  const commentMap = new Map<string, { body: string; isReply: boolean; likedByMe: boolean }>()
+  if (!comments.error) {
+    for (const c of (comments.data ?? []) as { id: string; body: string; parent_id: string | null }[]) {
+      commentMap.set(c.id, { body: c.body, isReply: c.parent_id !== null, likedByMe: likedIds.has(c.id) })
+      // Mentioned people, so a quote can say @username.
+      for (const m of c.body.matchAll(/<@([0-9a-f-]{36})>/g)) personIds.add(m[1])
+    }
+  }
+
+  const people = personIds.size ? await getPeopleByIds([...personIds]) : new Map<string, PersonCardModel>()
 
   const artistMap = new Map<string, { name: string; imageUrl: string | null }>()
   if (!artists.error) {
@@ -1852,6 +1812,18 @@ export async function getNotificationContext(
     artists: artistMap,
     albums: albumMap,
   }
+}
+
+/**
+ * Unread counts for the notification filter chips, from the database
+ * (several likes on one thing count once, as the page shows them).
+ */
+export async function getNotificationUnreadCounts(): Promise<Record<string, number>> {
+  const { data, error } = await requireClient().rpc('notification_unread_counts')
+  if (error) throw error
+  return Object.fromEntries(
+    ((data ?? []) as { category: string; unread: number }[]).map((r) => [r.category, r.unread])
+  )
 }
 
 /* ------------------------------------------------------------ full lists */

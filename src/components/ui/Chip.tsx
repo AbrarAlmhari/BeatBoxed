@@ -12,6 +12,7 @@ export function Chip({
   onClick,
   children,
   touchTarget = true,
+  solid = false,
 }: {
   active?: boolean
   /** Without one the chip is a plain label (an artist's genres), not a button. */
@@ -23,6 +24,11 @@ export function Chip({
    * only where chips wrap onto rows closer than 8px apart.
    */
   touchTarget?: boolean
+  /**
+   * The conversation screens' look: the active chip is a solid white pill
+   * with dark text (comment sorting, notification filters).
+   */
+  solid?: boolean
 }) {
   if (!onClick) {
     return (
@@ -42,8 +48,12 @@ export function Chip({
         touchTarget && 'tap-44 relative',
         'transition-colors duration-200 ease-soft active:scale-[0.97]',
         active
-          ? 'border-primary/60 bg-primary/15 text-foreground'
-          : 'border-transparent bg-surface text-muted-foreground hover:bg-surface-2 hover:text-foreground'
+          ? solid
+            ? 'border-transparent bg-foreground text-background'
+            : 'border-primary/60 bg-primary/15 text-foreground'
+          : solid
+            ? 'border-transparent bg-surface-2 text-muted-foreground hover:text-foreground'
+            : 'border-transparent bg-surface text-muted-foreground hover:bg-surface-2 hover:text-foreground'
       )}
     >
       {children}

@@ -17,6 +17,8 @@ export function ReviewsTab({
   onStatsChange,
   targetReviewId,
   targetCommentId,
+  replyToTarget = false,
+  song,
 }: {
   songId: string
   /** Fires after any successful write so the header average can refresh. */
@@ -25,6 +27,10 @@ export function ReviewsTab({
   targetReviewId?: string | null
   /** From &comment= — opens that review's thread as well. */
   targetCommentId?: string | null
+  /** From &reply=1: the reply box opens, replying to that comment. */
+  replyToTarget?: boolean
+  /** For the cards' glow and the comments sheet's song row. */
+  song?: { id: string; title: string; artistName: string; coverUrl: string | null }
 }) {
   const { user } = useAuth()
   const { displayName } = useProfile()
@@ -212,6 +218,9 @@ export function ReviewsTab({
             review={myReview}
             highlight={myReview.id === targetReviewId}
             openComments={Boolean(targetCommentId) && myReview.id === targetReviewId}
+            highlightCommentId={myReview.id === targetReviewId ? targetCommentId : null}
+            replyToCommentId={myReview.id === targetReviewId && replyToTarget ? targetCommentId : null}
+            song={song}
           />
 
           {confirmingDelete ? (
@@ -280,6 +289,9 @@ export function ReviewsTab({
             review={r}
             highlight={r.id === targetReviewId}
             openComments={Boolean(targetCommentId) && r.id === targetReviewId}
+            highlightCommentId={r.id === targetReviewId ? targetCommentId : null}
+            replyToCommentId={r.id === targetReviewId && replyToTarget ? targetCommentId : null}
+            song={song}
           />
         ))
       )}

@@ -38,8 +38,6 @@
   --color-line: rgb(255 255 255 / 0.06);
   --color-line-strong: rgb(255 255 255 / 0.1);
 
-  /* PageGlow's default pair: Primary and a soft pink. Pink isn't in the
-     palette for anything else; it only ever appears faint, in a glow. */
   /* Beatie's tour bubble: a light card on the dimmed page (the one place
      the app uses a light surface). */
   --color-paper: #ffffff;
@@ -47,8 +45,15 @@
   --color-paper-muted: #52525b;
   --color-paper-line: #d4d4d8;
 
+  /* PageGlow's default pair: Primary and a soft pink. */
   --color-glow-1: #8b5cf6;
   --color-glow-2: #ec4899;
+
+  /* Conversations: a liked heart, and the badge on a notification's avatar
+     (a reply uses Primary). */
+  --color-like: #f472b6;
+  --color-badge-mention: #3b82f6;
+  --color-badge-follow: #14b8a6;
 
   --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI',
     sans-serif;

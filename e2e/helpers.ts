@@ -909,3 +909,62 @@ export async function followArtistAs(userId: string, artistId: string) {
     body: JSON.stringify({ user_id: userId, artist_id: artistId }),
   })
 }
+
+/* ---------------------------------------------------------- conversations */
+
+/** Sets a fixture account's username and display name. */
+export async function nameUser(userId: string, username: string, displayName: string) {
+  const res = await admin(`/rest/v1/profiles?id=eq.${userId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ username, display_name: displayName }),
+  })
+  if (!res.ok) throw new Error(`nameUser failed: ${res.status} ${await res.text()}`)
+}
+
+/**
+ * Posts a comment, or a reply when replyTo is given, as a real signed-in
+ * user, so the database turns @names into mentions and sends the
+ * notifications exactly as it does for the app.
+ */
+export async function commentAs(
+  token: string,
+  reviewId: string,
+  userId: string,
+  body: string,
+  replyTo: string | null = null
+) {
+  const res = await fetch(`${SB}/rest/v1/review_comments`, {
+    method: 'POST',
+    headers: {
+      apikey: env.VITE_SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      Prefer: 'return=representation',
+    },
+    body: JSON.stringify({ review_id: reviewId, user_id: userId, body, reply_to_id: replyTo }),
+  })
+  if (!res.ok) throw new Error(`commentAs failed: ${res.status} ${await res.text()}`)
+  const [row] = (await res.json()) as { id: string; body: string; parent_id: string | null }[]
+  return row
+}
+
+/** Likes a comment as a real signed-in user, so the trigger fires. */
+export async function likeCommentAs(token: string, commentId: string, userId: string) {
+  return fetch(`${SB}/rest/v1/comment_likes`, {
+    method: 'POST',
+    headers: {
+      apikey: env.VITE_SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ comment_id: commentId, user_id: userId }),
+  })
+}
+
+/** A table read with the public key and no session: what a logged-out visitor gets. */
+export async function readLoggedOut(path: string) {
+  const res = await fetch(`${SB}/rest/v1/${path}`, {
+    headers: { apikey: env.VITE_SUPABASE_ANON_KEY },
+  })
+  return (await res.json()) as unknown[]
+}
