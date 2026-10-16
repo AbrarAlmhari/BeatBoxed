@@ -17,6 +17,10 @@ export default defineConfig({
   use: {
     baseURL: 'http://localhost:5173',
     trace: 'retain-on-failure',
+    // Keep the test browsers out of Windows' media controls. Otherwise
+    // anything else playing on the machine can send the player "pause" a
+    // moment after a test starts a song.
+    launchOptions: { args: ['--disable-features=HardwareMediaKeyHandling'] },
   },
   projects: [
     { name: 'desktop', use: { ...devices['Desktop Chrome'] } },
