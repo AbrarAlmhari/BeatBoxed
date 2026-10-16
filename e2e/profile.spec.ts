@@ -66,7 +66,7 @@ test.describe('profile', () => {
     await expect(page).toHaveURL(/\?tab=likes/)
     await tab(page, 'Stats').click()
     await expect(page).toHaveURL(/\?tab=stats/)
-    await expect(page.getByText('Stats are coming soon')).toBeVisible()
+    await expect(page.getByRole('group', { name: 'Time range' })).toBeVisible()
 
     await page.goBack()
     await expect(tab(page, 'Likes')).toHaveAttribute('aria-selected', 'true')
@@ -165,12 +165,12 @@ test.describe('profile', () => {
     })
     await login(page, owner.email)
     await page.goto(`/profile/${owner.id}?tab=likes`)
-    await expect(page.getByRole('button', { name: `Play ${songs[3].title}` })).toBeVisible()
+    await expect(page.getByRole('button', { name: `Play ${songs[3].title}`, exact: true })).toBeVisible()
 
-    await page.getByRole('button', { name: `Unlike ${songs[3].title}` }).click()
-    await expect(page.getByRole('button', { name: `Unlike ${songs[3].title}` })).toHaveCount(0)
+    await page.getByRole('button', { name: `Unlike ${songs[3].title}`, exact: true }).click()
+    await expect(page.getByRole('button', { name: `Unlike ${songs[3].title}`, exact: true })).toHaveCount(0)
     await page.getByRole('button', { name: 'Undo' }).click()
-    await expect(page.getByRole('button', { name: `Unlike ${songs[3].title}` })).toBeVisible()
+    await expect(page.getByRole('button', { name: `Unlike ${songs[3].title}`, exact: true })).toBeVisible()
     await expect
       .poll(async () =>
         (

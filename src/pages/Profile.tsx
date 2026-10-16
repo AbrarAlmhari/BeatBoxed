@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/Skeleton'
 import { ProfileReviewsTab } from '@/components/profile/ProfileReviewsTab'
 import { ProfilePlaylistsTab } from '@/components/profile/ProfilePlaylistsTab'
 import { ProfileLikesTab } from '@/components/profile/ProfileLikesTab'
+import { ProfileStatsTab } from '@/components/profile/ProfileStatsTab'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { ProfileListSheet, type ProfileList } from '@/components/profile/ProfileListSheet'
 import { UserFollowButton } from '@/components/people/UserFollowButton'
@@ -222,13 +223,7 @@ export default function Profile() {
               />
             )}
             {tab === 'playlists' && <ProfilePlaylistsTab userId={profile.id} isOwn={isOwn} handle={handle} />}
-            {tab === 'stats' && (
-              <EmptyState
-                face="thinking-sticker"
-                title="Stats are coming soon"
-                detail="Beatie is learning what you listen to. Your top genres, artists and decades will show up here."
-              />
-            )}
+            {tab === 'stats' && <ProfileStatsTab userId={profile.id} isOwn={isOwn} handle={handle} />}
             {tab === 'likes' && <ProfileLikesTab userId={profile.id} isOwn={isOwn} handle={handle} />}
           </TabPanel>
         </div>
