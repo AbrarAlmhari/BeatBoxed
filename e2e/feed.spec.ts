@@ -18,15 +18,15 @@ import {
 /**
  * Home's review feed (0028) and the "New review" composer.
  *
- * The feed only lists reviews with at least FEED_MIN_CHARS (80) characters of
- * body text, and privacy is enforced in the database, so the visibility tests
+ * The feed only lists reviews with at least FEED_MIN_BODY_CHARS (20)
+ * characters of body text, and privacy is enforced in the database, so the visibility tests
  * read what the page shows for different viewers rather than trusting any
  * client-side filter.
  */
 
 type User = { id: string; email: string }
 
-/** Comfortably past 80 characters, and unique per call so text checks are exact. */
+/** Comfortably long, and unique per call so text checks are exact. */
 let n = 0
 function longText(label: string) {
   n += 1
@@ -118,7 +118,7 @@ test.describe('review composer', () => {
     await expect(page.getByText(text)).toBeVisible()
   })
 
-  test('Post stays disabled below 80 characters or without a rating', async ({ page }) => {
+  test('Post needs only a rating; the length hint never blocks', async ({ page }) => {
     const me = await createTestUser('fc-limits')
     await login(page, me.email)
     await page.goto('/')
@@ -128,30 +128,25 @@ test.describe('review composer', () => {
     const dialog = composerDialog(page)
     const post = dialog.getByRole('button', { name: 'Post review' })
     const textarea = dialog.getByLabel('Your review')
+    const hint = dialog.getByTestId('composer-hint')
 
-    // 79 characters, with a rating: still off, and the counter says why.
+    // No rating yet: off. No counter, no "x / 80".
+    await expect(post).toBeDisabled()
+    await expect(dialog.getByTestId('composer-counter')).toHaveCount(0)
+
+    // A rating alone is enough.
     await rate(page, 5)
-    await textarea.fill('x'.repeat(79))
-    await expect(dialog.getByTestId('composer-counter')).toHaveText('79 / 80')
-    await expect(dialog.getByText('Write a little more so it can appear in the feed')).toBeVisible()
-    await expect(post).toBeDisabled()
-
-    // Spaces at the ends don't count, as in the database.
-    await textarea.fill(`   ${'x'.repeat(79)}   `)
-    await expect(post).toBeDisabled()
-
-    // 80: on, and the hint becomes a quiet check.
-    await textarea.fill('x'.repeat(80))
     await expect(post).toBeEnabled()
-    await expect(dialog.getByText('Write a little more so it can appear in the feed')).toHaveCount(0)
+    await expect(hint).toHaveText('Optional. Longer reviews reach more people.')
 
-    // 80 characters but no rating (a fresh draft): off.
-    await dialog.getByRole('button', { name: 'Close' }).click()
-    await page.getByRole('alertdialog').getByRole('button', { name: 'Discard' }).click()
-    await openComposer(page)
-    await searchAndPick(page, songs[1])
-    await composerDialog(page).getByLabel('Your review').fill('x'.repeat(120))
-    await expect(composerDialog(page).getByRole('button', { name: 'Post review' })).toBeDisabled()
+    // A few characters: still enabled, the hint just suggests more.
+    await textarea.fill('Nice one')
+    await expect(post).toBeEnabled()
+    await expect(hint).toHaveText('Add a few more words to show it in the feed.')
+
+    await textarea.fill('Lovely chorus, big drums!')
+    await expect(hint).toHaveText('Longer reviews reach more people.')
+    await expect(post).toBeEnabled()
   })
 
   test('"Now playing" leads the list when something is playing', async ({ page }) => {
@@ -276,10 +271,14 @@ test.describe('review feed', () => {
     await deleteTestUsers()
   })
 
-  test('short and star-only reviews stay out of the feed', async ({ page }) => {
+  test('a 25-character review shows; shorter and star-only reviews stay out', async ({ page }) => {
     const viewer = await createTestUser('ff-short-viewer')
-    const long = longText('Long enough')
+    // 25 characters: past FEED_MIN_BODY_CHARS (20).
+    const long = 'Lovely chorus, big drums!'
+    expect([...long].length).toBe(25)
+    // 19 characters: one short.
     const short = 'Too short to count.'
+    expect([...short].length).toBe(19)
     await createReview(author.id, songs[0].id, 5, long)
     await createReview(author.id, songs[1].id, 4, short)
     // Star-only: no body at all.

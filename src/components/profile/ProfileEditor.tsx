@@ -1,6 +1,14 @@
 import { useRef, useState, type FormEvent } from 'react'
 import { Loader2, Upload } from 'lucide-react'
 import { FormAlert } from '@/components/auth/FormAlert'
+import { UsernameField } from '@/components/auth/UsernameField'
+import {
+  USERNAME_MESSAGES,
+  normalizeUsername,
+  usernameProblem,
+  usernameSubmittable,
+  useUsernameStatus,
+} from '@/lib/username'
 import {
   AVATAR_MAX_BYTES,
   AVATAR_TYPES,
@@ -10,7 +18,9 @@ import {
 import type { ProfileDetail } from '@/lib/types'
 
 /**
- * Name, bio and picture. The genre-interest picker was removed with the
+ * Name, username, bio and picture. A username follows the rule (4–20
+ * characters, letters, numbers, _ and .) only when it's changed: someone
+ * with an older, shorter username keeps it and can edit everything else. The genre-interest picker was removed with the
  * profile redesign (genres will be worked out from ratings instead); the
  * favorite_genres column and any values already saved are left as they are.
  */
@@ -24,6 +34,8 @@ export function ProfileEditor({
   onCancel: () => void
 }) {
   const [displayName, setDisplayName] = useState(profile.displayName ?? '')
+  const [username, setUsername] = useState(profile.username ?? '')
+  const usernameStatus = useUsernameStatus(username, profile.username)
   const [bio, setBio] = useState(profile.bio ?? '')
   const [avatarUrl, setAvatarUrl] = useState(profile.avatarUrl)
   const [preview, setPreview] = useState<string | null>(null)
@@ -64,23 +76,42 @@ export function ProfileEditor({
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
-    setPending(true)
     setError(null)
+
+    const nextUsername = normalizeUsername(username)
+    const changed = nextUsername !== normalizeUsername(profile.username ?? '')
+    if (changed) {
+      const problem = usernameProblem(nextUsername)
+      if (problem) return setError(`Username: ${USERNAME_MESSAGES[problem].toLowerCase()}.`)
+      if (!usernameSubmittable(usernameStatus)) return setError('That username is taken. Pick another.')
+    }
+
+    setPending(true)
     try {
       await updateProfile(profile.id, {
         display_name: displayName.trim() || null,
+        // Only sent when it changed, so an older short username is untouched.
+        ...(changed ? { username: nextUsername } : {}),
         bio: bio.trim() || null,
         avatar_url: avatarUrl,
       })
       onSaved({
         ...profile,
         displayName: displayName.trim() || null,
+        username: changed ? nextUsername : profile.username,
         bio: bio.trim() || null,
         avatarUrl,
       })
     } catch (err) {
       console.error('[beatboxed] profile save failed:', err)
-      setError("Couldn't save your profile. Try again.")
+      const code = (err as { code?: string } | null)?.code
+      setError(
+        code === '23505'
+          ? 'That username is taken. Pick another.'
+          : code === '23514'
+            ? 'Usernames are 4–20 characters: letters, numbers, _ and . only.'
+            : "Couldn't save your profile. Try again."
+      )
       setPending(false)
     }
   }
@@ -147,6 +178,8 @@ export function ProfileEditor({
         />
       </label>
 
+      <UsernameField value={username} onChange={setUsername} status={usernameStatus} disabled={pending} />
+
       <label className="flex flex-col gap-1.5">
         <span className="text-secondary font-medium">Bio</span>
         <textarea
@@ -164,7 +197,7 @@ export function ProfileEditor({
       <div className="flex flex-wrap gap-2">
         <button
           type="submit"
-          disabled={pending || uploading}
+          disabled={pending || uploading || !usernameSubmittable(usernameStatus)}
           className="flex items-center gap-2 rounded-button bg-primary px-4 py-2.5 text-button text-white transition-all duration-200 ease-soft hover:bg-accent active:scale-[0.98] disabled:opacity-60 disabled:hover:bg-primary"
         >
           {pending && <Loader2 className="size-4 animate-spin" strokeWidth={2.5} aria-hidden />}

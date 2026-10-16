@@ -22,6 +22,8 @@ import {
   type FeedReview,
   type FeedTab,
   type SuggestedReviewer,
+  FEED_MIN_BODY_CHARS,
+  feedLength,
 } from '@/lib/feed'
 import { cn } from '@/lib/cn'
 
@@ -32,7 +34,7 @@ import { cn } from '@/lib/cn'
  *   For You    public reviews plus people you follow, ranked (feed_for_you)
  *   Following  people you follow, plus your own, newest first
  *
- * Both only list reviews with FEED_MIN_CHARS of written text, and both are
+ * Both only list reviews with FEED_MIN_BODY_CHARS of written text, and both are
  * filtered for privacy in the database; nothing here decides who may see what.
  */
 
@@ -153,6 +155,16 @@ export default function Home() {
 
   function handlePosted(review: FeedReview) {
     setComposing(false)
+    // A rating with little or no text is saved to the song but doesn't
+    // belong in the feed, so it isn't pinned there either.
+    if (feedLength(review.body ?? '') < FEED_MIN_BODY_CHARS) {
+      toast.show({
+        message: 'Rating saved',
+        actionLabel: 'View song',
+        onAction: () => navigate(`/song/${review.song.id}`),
+      })
+      return
+    }
     // Replace any earlier copy (an edit, or a re-post of the same song).
     const without = (list: FeedReview[]) =>
       list.filter((r) => r.id !== review.id && !(r.userId === review.userId && r.song.id === review.song.id))

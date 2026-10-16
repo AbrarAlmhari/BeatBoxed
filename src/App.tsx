@@ -6,6 +6,7 @@ import Login from '@/pages/Login'
 import SignUp from '@/pages/SignUp'
 import Home from '@/pages/Home'
 import Explore from '@/pages/Explore'
+import RailList from '@/pages/RailList'
 import LibraryPage from '@/pages/LibraryPage'
 import Profile from '@/pages/Profile'
 import Song from '@/pages/Song'
@@ -35,6 +36,7 @@ export default function App() {
             <Route element={<AppShell />}>
               <Route index element={<Home />} />
               <Route path="explore" element={<Explore />} />
+              <Route path="explore/:rail" element={<RailList />} />
               <Route path="library" element={<LibraryPage />} />
               <Route path="profile" element={<Profile />} />
               <Route path="profile/:userId" element={<Profile />} />

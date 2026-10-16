@@ -142,6 +142,59 @@ async function decorate(rows: SongRow[]): Promise<SongCardModel[]> {
   return rows.map((r) => toCardModel(r, stats.get(r.id)))
 }
 
+/** Songs a rail shows on Explore. */
+export const RAIL_SIZE = 12
+/**
+ * How many songs For You and Recently viewed work out in full. The rail is
+ * the first RAIL_SIZE of the same list its "See all" page shows, so the two
+ * always agree on which songs and in what order.
+ */
+const LIST_POOL = 60
+/** A "See all" page loads this many at a time. */
+export const RAIL_PAGE_SIZE = 20
+
+export type RailId = 'trending' | 'for-you' | 'recent'
+
+/** Recently viewed as the rail shows it: the start of the full list. */
+export async function getRecentlyViewedRail(userId: string) {
+  return (await getRecentlyViewed(userId, LIST_POOL)).slice(0, RAIL_SIZE)
+}
+
+/**
+ * One page of a rail's full list, for its "See all" page, in the rail's
+ * order. Trending pages through the database; For You and Recently viewed
+ * are worked out once (LIST_POOL songs, the same computation as the rail)
+ * and paged from that. For You falls back to Trending when there's nothing
+ * to personalise from yet, as the rail does.
+ */
+const poolCache = new Map<string, Promise<SongCardModel[]>>()
+export async function getRailPage(
+  rail: RailId,
+  userId: string | undefined,
+  offset: number,
+  fresh = false
+): Promise<{ items: SongCardModel[]; hasMore: boolean }> {
+  if (rail === 'trending' || !userId) {
+    const items = await withRetry(() => fetchTrending(RAIL_PAGE_SIZE + 1, offset))
+    return { items: items.slice(0, RAIL_PAGE_SIZE), hasMore: items.length > RAIL_PAGE_SIZE }
+  }
+  const key = `${rail}:${userId}`
+  if (fresh || !poolCache.has(key)) {
+    const pool =
+      rail === 'recent'
+        ? withRetry(() => getRecentlyViewed(userId, LIST_POOL))
+        : withRetry(() => fetchForYou(userId, LIST_POOL))
+    poolCache.set(key, pool)
+    pool.catch(() => poolCache.delete(key))
+  }
+  const pool = await poolCache.get(key)!
+  if (rail === 'for-you' && pool.length === 0) return getRailPage('trending', userId, offset)
+  return {
+    items: pool.slice(offset, offset + RAIL_PAGE_SIZE),
+    hasMore: offset + RAIL_PAGE_SIZE < pool.length,
+  }
+}
+
 /** The song rails on Explore's browse view (they used to be Home). */
 export type ExploreRails = {
   recentlyViewed: SongCardModel[]
@@ -160,13 +213,16 @@ export type ExploreRails = {
  * Beatboxed knows about", not a global chart. Review counts and averages are
  * unchanged elsewhere; they just no longer drive this rail.
  */
-async function fetchTrending(limit = 12): Promise<SongCardModel[]> {
+async function fetchTrending(limit = RAIL_SIZE, offset = 0): Promise<SongCardModel[]> {
   const { data, error } = await requireClient()
     .from('songs')
     .select(SONG_SELECT)
     .order('popularity', { ascending: false, nullsFirst: false })
     .order('cached_at', { ascending: false })
-    .limit(limit)
+    // A final tie-break, so equal rows can't swap places between the rail
+    // and its full list, or between pages.
+    .order('id', { ascending: true })
+    .range(offset, offset + limit - 1)
   if (error) throw error
 
   return decorate((data ?? []) as unknown as SongRow[])
@@ -227,12 +283,14 @@ export async function getRecentlyViewed(
       .select(`viewed_at, songs(${SONG_SELECT})`)
       .eq('user_id', userId)
       .order('viewed_at', { ascending: false })
+      .order('song_id', { ascending: true })
       .limit(limit * 4),
     client
       .from('play_history')
       .select(`played_at, songs(${SONG_SELECT})`)
       .eq('user_id', userId)
       .order('played_at', { ascending: false })
+      .order('song_id', { ascending: true })
       .limit(limit * 4),
   ])
   if (views.error) throw views.error
@@ -295,6 +353,7 @@ async function fetchForYou(
       .select('song_id')
       .eq('user_id', userId)
       .order('viewed_at', { ascending: false })
+      .order('song_id', { ascending: true })
       .limit(40),
     client.from('follows').select('artist_id').eq('user_id', userId),
   ])
@@ -338,6 +397,7 @@ async function fetchForYou(
           .select(SONG_SELECT)
           .in('artist_id', [...seedArtistIds])
           .order('popularity', { ascending: false, nullsFirst: false })
+          .order('id', { ascending: true })
           .limit(limit * 3)
       : Promise.resolve({ data: [], error: null }),
     seedGenres.size
@@ -346,6 +406,7 @@ async function fetchForYou(
           .select(SONG_SELECT)
           .in('genre', [...seedGenres])
           .order('popularity', { ascending: false, nullsFirst: false })
+          .order('id', { ascending: true })
           .limit(limit * 3)
       : Promise.resolve({ data: [], error: null }),
   ])
@@ -392,6 +453,7 @@ async function fetchForYou(
       .from('songs')
       .select(SONG_SELECT)
       .order('popularity', { ascending: false, nullsFirst: false })
+      .order('id', { ascending: true })
       .limit(limit * 4)
     if (error) throw error
     for (const row of (popular ?? []) as unknown as SongRow[]) consider(row)
@@ -422,9 +484,9 @@ async function withRetry<T>(load: () => Promise<T>, pauseMs = 700): Promise<T> {
  */
 export async function getExploreRails(userId?: string): Promise<ExploreRails> {
   const [trending, recent, personal] = await Promise.allSettled([
-    withRetry(() => fetchTrending()),
-    userId ? withRetry(() => getRecentlyViewed(userId)) : Promise.resolve([]),
-    userId ? withRetry(() => fetchForYou(userId)) : Promise.resolve([]),
+    withRetry(() => fetchTrending(RAIL_SIZE, 0)),
+    userId ? withRetry(() => getRecentlyViewedRail(userId)) : Promise.resolve([]),
+    userId ? withRetry(() => fetchForYou(userId, LIST_POOL)).then((l) => l.slice(0, RAIL_SIZE)) : Promise.resolve([]),
   ])
   if (trending.status === 'rejected') throw trending.reason
 
@@ -1245,6 +1307,8 @@ export async function updateProfile(
   userId: string,
   patch: {
     display_name?: string | null
+    /** Lowercase; the database checks the rule on a change (0037). */
+    username?: string
     bio?: string | null
     favorite_genres?: string[] | null
     avatar_url?: string | null
@@ -1514,19 +1578,6 @@ export async function getPendingRequestSummary(
     .filter((p): p is NonNullable<typeof p> => Boolean(p))
     .map(toPerson)
   return { count: count ?? people.length, people }
-}
-
-/** Case-insensitive availability check for the signup form. */
-export async function isUsernameAvailable(username: string) {
-  const name = username.trim().toLowerCase()
-  if (!name) return false
-  const { data, error } = await requireClient()
-    .from('profiles')
-    .select('id')
-    .ilike('username', name)
-    .limit(1)
-  if (error) throw error
-  return (data ?? []).length === 0
 }
 
 /* ------------------------------------------------------------ unified search */

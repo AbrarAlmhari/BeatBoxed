@@ -11,14 +11,18 @@ import type { PersonCardModel, ReviewWithAuthor, SongCardModel } from './types'
  */
 
 /**
- * The fewest characters of written review (the body, trimmed — the headline
- * doesn't count) for a review to appear in the feed. The composer's counter
- * and Post button use the same number, and it's passed to the database
- * functions rather than repeated there, so this is the one place to change
- * it. Shorter and star-only reviews still count in song averages and still
- * show on song pages.
+ * How much body text (trimmed, in characters; the headline doesn't count) a
+ * review needs to appear in the feed. 20 is about four words ("The chorus
+ * hits so hard"): enough to be a thought, short enough that nobody has to
+ * pad a review to reach it, and still enough to keep one-word "fire" posts
+ * and star-only ratings out. It's passed to the database functions rather
+ * than repeated there, so this is the one place to change it.
+ *
+ * Shorter and star-only reviews still count in song averages and still
+ * show on song pages. Longer reviews get a gentle boost in For You
+ * (migration 0038), so length still pays off without being required.
  */
-export const FEED_MIN_CHARS = 80
+export const FEED_MIN_BODY_CHARS = 20
 
 /** About a screenful at a time. */
 export const FEED_PAGE_SIZE = 20
@@ -131,7 +135,7 @@ export async function getFeedPage(
   if (tab === 'following') {
     const after = cursor?.tab === 'following' ? cursor : null
     const { data, error } = await c.rpc('feed_following', {
-      min_chars: FEED_MIN_CHARS,
+      min_chars: FEED_MIN_BODY_CHARS,
       before_at: after?.at ?? null,
       before_id: after?.id ?? null,
       page_size: FEED_PAGE_SIZE,
@@ -152,7 +156,7 @@ export async function getFeedPage(
   // Fixed at the first page and carried through every later one.
   const asOf = after?.asOf ?? new Date().toISOString()
   const { data, error } = await c.rpc('feed_for_you', {
-    min_chars: FEED_MIN_CHARS,
+    min_chars: FEED_MIN_BODY_CHARS,
     as_of: asOf,
     after_score: after?.score ?? null,
     after_id: after?.id ?? null,
@@ -175,7 +179,7 @@ export type SuggestedReviewer = PersonCardModel & { reviewCount: number }
 /** Public accounts that review often, for an empty Following tab. */
 export async function getSuggestedReviewers(limit = 5): Promise<SuggestedReviewer[]> {
   const { data, error } = await client().rpc('suggested_reviewers', {
-    min_chars: FEED_MIN_CHARS,
+    min_chars: FEED_MIN_BODY_CHARS,
     max_count: limit,
   })
   if (error) throw error
@@ -234,11 +238,11 @@ export async function getMyReviews(
 }
 
 /**
- * Counts toward FEED_MIN_CHARS the way the database does: the body, trimmed
- * (upsertReview stores it trimmed), in characters. Spread rather than
- * .length, because .length counts an emoji as two and Postgres's
- * char_length counts it as one — the composer would otherwise enable Post
- * for a review the feed then leaves out.
+ * Counts toward FEED_MIN_BODY_CHARS the way the database does: the body,
+ * trimmed (upsertReview stores it trimmed), in characters. Spread rather
+ * than .length, because .length counts an emoji as two and Postgres's
+ * char_length counts it as one, so the composer's hint would otherwise
+ * disagree with the feed.
  */
 export function feedLength(body: string) {
   return [...body.trim()].length

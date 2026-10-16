@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
-import { ArrowLeft, Check, Loader2, X } from 'lucide-react'
+import { ArrowLeft, Loader2, X } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { StarInput } from '@/components/ui/StarInput'
 import { Artwork } from './Artwork'
 import { SongPicker } from './SongPicker'
 import { useAuth } from '@/lib/auth'
 import { upsertReview } from '@/lib/catalog'
-import { FEED_MIN_CHARS, feedLength, getMyReviews, type FeedReview } from '@/lib/feed'
+import { FEED_MIN_BODY_CHARS, feedLength, getMyReviews, type FeedReview } from '@/lib/feed'
 import type { ReviewWithAuthor, SongCardModel } from '@/lib/types'
 
 const HEADLINE_MAX = 80
@@ -15,9 +15,10 @@ const HEADLINE_MAX = 80
  * "New review": pick a song, then write about it.
  *
  * Step 1 is the shared SongPicker, with a "Reviewed" badge on songs the user
- * has already written about. Step 2 is the review itself; Post stays
- * off until there's a rating and FEED_MIN_CHARS of written text, because
- * anything shorter wouldn't appear in the feed it was written from.
+ * has already written about. Step 2 is the review itself; Post is on as
+ * soon as there's a rating. Nothing has to be written: a hint under the
+ * text says that a few words put it in the feed (FEED_MIN_BODY_CHARS) and
+ * that longer reviews reach more people, but never blocks.
  *
  * Every way out (✕, Escape, the backdrop) goes through requestClose(), which
  * asks before throwing away unsaved text.
@@ -104,8 +105,8 @@ export function ReviewComposer({
   }, [step, open])
 
   const length = feedLength(body)
-  const longEnough = length >= FEED_MIN_CHARS
-  const canPost = rating > 0 && longEnough && !posting
+  const inFeed = length >= FEED_MIN_BODY_CHARS
+  const canPost = rating > 0 && !posting
 
   const dirty = existing
     ? rating !== existing.rating ||
@@ -257,38 +258,17 @@ export function ReviewComposer({
                 rows={6}
                 dir="auto"
                 placeholder="What did you hear? What stayed with you?"
-                aria-describedby={`${listId}-progress`}
+                aria-describedby={`${listId}-hint`}
                 className="w-full resize-none rounded-card border border-line-strong bg-surface-2 px-3.5 py-3 text-body text-foreground transition-colors duration-200 ease-soft placeholder:text-muted-foreground/70 focus:border-primary/70 focus:outline-none disabled:opacity-60"
               />
-              <div
-                className="h-1 w-full overflow-hidden rounded-full bg-white/10"
-                role="progressbar"
-                aria-label="Length for the feed"
-                aria-valuemin={0}
-                aria-valuemax={FEED_MIN_CHARS}
-                aria-valuenow={Math.min(length, FEED_MIN_CHARS)}
-              >
-                <div
-                  className="h-full rounded-full bg-primary transition-[width] duration-200 ease-soft"
-                  style={{ width: `${Math.min(1, length / FEED_MIN_CHARS) * 100}%` }}
-                />
-              </div>
-              <div
-                id={`${listId}-progress`}
-                className="flex items-center justify-between gap-3 text-meta text-muted-foreground"
-              >
-                {longEnough ? (
-                  <span className="flex items-center gap-1.5">
-                    <Check className="size-3.5 text-success" strokeWidth={2.25} aria-hidden />
-                    <span className="sr-only">Long enough to appear in the feed</span>
-                  </span>
-                ) : (
-                  <span>Write a little more so it can appear in the feed</span>
-                )}
-                <span data-testid="composer-counter" className="tabular-nums">
-                  {longEnough ? length : `${length} / ${FEED_MIN_CHARS}`}
-                </span>
-              </div>
+              {/* A hint, never a gate: Post works with just a rating. */}
+              <p id={`${listId}-hint`} data-testid="composer-hint" className="text-meta text-muted-foreground">
+                {length === 0
+                  ? 'Optional. Longer reviews reach more people.'
+                  : inFeed
+                    ? 'Longer reviews reach more people.'
+                    : 'Add a few more words to show it in the feed.'}
+              </p>
             </div>
 
             {postError && (
