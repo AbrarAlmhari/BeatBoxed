@@ -81,6 +81,8 @@ export const TOUR_STEPS: TourStep[] = [
 const MARGIN = 16
 const GAP = 14
 const PAD = 6
+/** Room for the phone's sticky top bar when scrolling a card up. */
+const TOP_BAR = 80
 
 function visibleTarget(name: string): HTMLElement | null {
   const all = document.querySelectorAll<HTMLElement>(`[data-tour="${name}"]`)
@@ -112,29 +114,41 @@ export function BeatieTour() {
   }, [tourOpen])
 
   // Find the step's element, bring it into view, then measure it; and keep
-  // measuring as the page scrolls or resizes.
+  // measuring as the page scrolls or resizes. The feed can still be loading
+  // when the tour opens, so each measure looks for the target again and
+  // moves from the fallback to the first card once it's there.
   useEffect(() => {
     if (!open) return
     let frame = 0
-    const el = visibleTarget(step.target) ?? (step.fallback ? visibleTarget(step.fallback) : null)
-    if (!el) {
-      setRect(null)
-      return
+    let el: HTMLElement | null = null
+    const resized = new ResizeObserver(() => measure())
+    resized.observe(document.body)
+    const find = () => {
+      const found = visibleTarget(step.target) ?? (step.fallback ? visibleTarget(step.fallback) : null)
+      if (found === el) return
+      if (el) resized.unobserve(el)
+      el = found
+      if (!el) return
+      resized.observe(el)
+      const fixed = getComputedStyle(el).position === 'fixed' || el.closest('nav, aside') !== null
+      if (!fixed) el.scrollIntoView({ block: 'center', behavior: reducedMotion() ? 'auto' : 'smooth' })
     }
-    const fixed = getComputedStyle(el).position === 'fixed' || el.closest('nav, aside') !== null
-    if (!fixed) el.scrollIntoView({ block: 'center', behavior: reducedMotion() ? 'auto' : 'smooth' })
     const measure = () => {
       cancelAnimationFrame(frame)
-      frame = requestAnimationFrame(() => setRect(el.getBoundingClientRect()))
+      frame = requestAnimationFrame(() => {
+        find()
+        setRect(el ? el.getBoundingClientRect() : null)
+      })
     }
     measure()
-    const settle = setTimeout(measure, reducedMotion() ? 0 : 450)
-    window.addEventListener('scroll', measure, { passive: true })
+    const settles = [reducedMotion() ? 0 : 450, 1000].map((ms) => setTimeout(measure, ms))
+    document.addEventListener('scroll', measure, { passive: true, capture: true })
     window.addEventListener('resize', measure)
     return () => {
       cancelAnimationFrame(frame)
-      clearTimeout(settle)
-      window.removeEventListener('scroll', measure)
+      settles.forEach(clearTimeout)
+      resized.disconnect()
+      document.removeEventListener('scroll', measure, { capture: true })
       window.removeEventListener('resize', measure)
     }
   }, [open, step])
@@ -142,6 +156,17 @@ export function BeatieTour() {
   useLayoutEffect(() => {
     if (bubbleRef.current) setBubbleHeight(bubbleRef.current.offsetHeight)
   }, [open, index, rect])
+
+  // A tall card on a small phone leaves room neither below nor above it;
+  // scroll it up (to just under the top bar) so the bubble fits beneath.
+  useEffect(() => {
+    if (!open || !rect || !bubbleHeight) return
+    const vh = window.innerHeight
+    const overflow = rect.bottom + PAD + GAP + bubbleHeight - (vh - MARGIN)
+    const roomAbove = rect.top - PAD - GAP - bubbleHeight >= MARGIN
+    if (overflow <= 1 || roomAbove || rect.top < TOP_BAR) return
+    window.scrollBy({ top: Math.min(overflow, rect.top - TOP_BAR), behavior: 'auto' })
+  }, [open, rect, bubbleHeight])
 
   useEffect(() => {
     if (open) nextRef.current?.focus({ preventScroll: true })
@@ -227,6 +252,18 @@ export function BeatieTour() {
   const titleId = 'beatie-tour-title'
   const textId = 'beatie-tour-text'
   const motion = 'transition-all duration-300 ease-soft motion-reduce:transition-none'
+  // Small phones: the dots get their own row so Skip tour, Back and Next fit.
+  const narrow = width < 360
+  const dots = (
+    <span className="flex items-center gap-1.5" aria-hidden>
+      {TOUR_STEPS.map((_, i) => (
+        <span
+          key={i}
+          className={cn('h-1.5 rounded-full', motion, i === index ? 'w-7 bg-primary' : 'w-1.5 bg-paper-line')}
+        />
+      ))}
+    </span>
+  )
 
   return createPortal(
     <div className="fixed inset-0 z-[70]" data-testid="beatie-tour">
@@ -281,22 +318,16 @@ export function BeatieTour() {
             </p>
           </div>
         </div>
-        <div className="mt-4 flex items-center gap-2">
+        {narrow && <div className="mt-4 flex justify-center">{dots}</div>}
+        <div className={cn('flex items-center gap-2', narrow ? 'mt-3' : 'mt-4')}>
           <button
             type="button"
             onClick={() => end('skipped')}
-            className="-ml-2 min-h-11 rounded-button px-2 text-button text-paper-muted transition-colors duration-200 ease-soft hover:text-paper-foreground"
+            className="-ml-2 min-h-11 whitespace-nowrap rounded-button px-2 text-button text-paper-muted transition-colors duration-200 ease-soft hover:text-paper-foreground"
           >
             Skip tour
           </button>
-          <span className="flex flex-1 items-center justify-center gap-1.5" aria-hidden>
-            {TOUR_STEPS.map((_, i) => (
-              <span
-                key={i}
-                className={cn('h-1.5 rounded-full', motion, i === index ? 'w-7 bg-primary' : 'w-1.5 bg-paper-line')}
-              />
-            ))}
-          </span>
+          <span className="flex flex-1 justify-center">{!narrow && dots}</span>
           {index > 0 && (
             <button
               type="button"
