@@ -8,6 +8,7 @@ import { Modal } from '@/components/ui/Modal'
 import { SectionHeader } from '@/components/ui/SectionHeader'
 import { Skeleton, SkeletonList } from '@/components/ui/Skeleton'
 import { StatsBarChart } from './StatsBarChart'
+import { TopGenresCard } from './TopGenresCard'
 import { useToast } from '@/lib/toast'
 import { cn } from '@/lib/cn'
 import {
@@ -26,7 +27,7 @@ type Loaded = { status: 'ready'; stats: UserStats } | { status: 'hidden' } | { s
 /**
  * The profile's Stats tab, after docs/mockups/beatboxed-stats-mockup.html:
  * the time range, Beatie's take, headline tiles, the ratings spread, ratings
- * by decade, most rated artists, and Share. Genres arrive with Part C.
+ * by decade, top genres, most rated artists, and Share.
  *
  * Each range is fetched once and kept, so switching back is instant; a range
  * not seen yet shows the layout as a skeleton while it loads.
@@ -181,7 +182,7 @@ function StatsBody({
       </div>
 
       {/* Headline tiles */}
-      <dl className="grid grid-cols-3 gap-2.5 md:col-span-12 md:gap-4">
+      <dl className="grid grid-cols-2 gap-2.5 md:col-span-12 md:grid-cols-4 md:gap-4">
         <Tile label="Songs rated" value={String(total)} />
         <Tile
           label="Average rating"
@@ -193,10 +194,14 @@ function StatsBody({
           }
         />
         <Tile label="Artists" value={String(stats.artists)} />
+        <Tile label="Genres" value={String(stats.genreCount)} />
       </dl>
 
+      {/* Desktop: genres on the left over two rows, the two charts stacked right. */}
+      <TopGenresCard genres={stats.genres} className="md:col-span-7 md:row-span-2 md:self-start" />
+
       {/* Ratings spread */}
-      <Card className="md:col-span-6 md:self-start">
+      <Card className="md:col-span-5 md:self-start">
         <SectionHeader
           level={3}
           title="Ratings spread"
@@ -216,7 +221,7 @@ function StatsBody({
       </Card>
 
       {/* By decade */}
-      <Card className="md:col-span-6 md:self-start">
+      <Card className="md:col-span-5 md:self-start">
         <SectionHeader level={3} title="By decade" subtitle="When the rated songs came out" className="mb-3" />
         {stats.decades.length === 0 ? (
           <p className="py-6 text-center text-secondary text-muted-foreground">No release dates for these songs yet.</p>
@@ -363,8 +368,8 @@ function StatsSkeleton() {
     <div className="contents" aria-busy="true" role="status">
       <span className="sr-only">Loading stats…</span>
       <Skeleton tone="page" className="h-[70px] rounded-card md:col-span-7" />
-      <div className="grid grid-cols-3 gap-2.5 md:col-span-12 md:gap-4">
-        {[0, 1, 2].map((i) => (
+      <div className="grid grid-cols-2 gap-2.5 md:col-span-12 md:grid-cols-4 md:gap-4">
+        {[0, 1, 2, 3].map((i) => (
           <Skeleton key={i} tone="page" className="h-[78px] rounded-card" />
         ))}
       </div>

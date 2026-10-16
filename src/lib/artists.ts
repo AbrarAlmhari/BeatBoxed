@@ -37,7 +37,12 @@ export type ArtistDetail = {
   spotifyId: string | null
   name: string
   imageUrl: string | null
+  /** Spotify's genres: always empty for this app's credentials; unused. */
   genres: string[]
+  /** Genre buckets (at most 2) from Wikidata or MusicBrainz, via 0031. */
+  genreBuckets: string[]
+  /** Null until the genres have been looked up once. */
+  genresFetchedAt: string | null
   bio: string | null
   bioUrl: string | null
   bioFetchedAt: string | null
@@ -112,8 +117,8 @@ export async function getArtistDetail(id: string): Promise<ArtistDetail | null> 
   const { data, error } = await client
     .from('artists')
     // `*` so this works before and after 0025, which adds the bio and sync
-    // columns.
-    .select('*')
+    // columns; genre_buckets is 0031's computed field.
+    .select('*, genre_buckets')
     .eq('id', id)
     .maybeSingle()
   if (error) {
@@ -160,6 +165,8 @@ export async function getArtistDetail(id: string): Promise<ArtistDetail | null> 
     name: data.name,
     imageUrl: data.image_url,
     genres: (data.genres as string[] | null) ?? [],
+    genreBuckets: (row.genre_buckets as string[] | null) ?? [],
+    genresFetchedAt: (row.genres_fetched_at as string) ?? null,
     bio: (row.bio as string) ?? null,
     bioUrl: (row.bio_url as string) ?? null,
     bioFetchedAt: (row.bio_fetched_at as string) ?? null,

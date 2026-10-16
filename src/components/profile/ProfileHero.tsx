@@ -3,6 +3,8 @@ import { Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Pencil, Settings } from 'lucide-react'
 import { UserFollowButton } from '@/components/people/UserFollowButton'
 import { PageGlow } from '@/components/ui/PageGlow'
+import { Chip } from '@/components/ui/Chip'
+import { genreLabel } from '@/lib/genres'
 import { ProfileMenu } from './ProfileMenu'
 import type { ProfileList } from './ProfileListSheet'
 import type { FollowState, ProfileDetail } from '@/lib/types'
@@ -25,6 +27,8 @@ export function ProfileHero({
   onOpenList,
   onShowReviews,
   onEdit,
+  topGenres,
+  onGenreClick,
 }: {
   profile: ProfileDetail
   isOwn: boolean
@@ -38,6 +42,9 @@ export function ProfileHero({
   /** Ratings and reviews switch to the Reviews tab, reviews to Written. */
   onShowReviews: (written: boolean) => void
   onEdit: () => void
+  /** Their top genres (all time), shown once they have 5+ ratings. */
+  topGenres?: string[]
+  onGenreClick?: () => void
 }) {
   const navigate = useNavigate()
   const name = profile.displayName || profile.username || 'Listener'
@@ -109,6 +116,15 @@ export function ProfileHero({
           </div>
           {profile.username && (
             <p className="truncate text-secondary text-muted-foreground">@{profile.username}</p>
+          )}
+          {topGenres && topGenres.length > 0 && (
+            <ul aria-label="Top genres" className="mt-1.5 flex flex-wrap gap-1.5">
+              {topGenres.map((g) => (
+                <li key={g}>
+                  <Chip onClick={onGenreClick}>{genreLabel(g)}</Chip>
+                </li>
+              ))}
+            </ul>
           )}
         </div>
       </div>

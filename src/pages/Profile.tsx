@@ -19,6 +19,7 @@ import { useAuth } from '@/lib/auth'
 import { useToast } from '@/lib/toast'
 import { getFollowStates, getProfileDetail } from '@/lib/catalog'
 import { getWrittenReviewCount, type ReviewFilter } from '@/lib/profile'
+import { STATS_MIN_RATINGS, getUserStats } from '@/lib/stats'
 import type { FollowState, ProfileDetail } from '@/lib/types'
 
 const FILTERS: ReviewFilter[] = ['all', 'written', 'ratings']
@@ -119,6 +120,24 @@ export default function Profile() {
 
   const locked = Boolean(profile?.isPrivate) && !isOwn && followState !== 'following'
 
+  // The header's top genres (all time): only once they have 5+ ratings, and
+  // only where their stats are visible at all.
+  const [topGenres, setTopGenres] = useState<string[]>([])
+  useEffect(() => {
+    setTopGenres([])
+    if (!profile || !followKnown || locked) return
+    let cancelled = false
+    getUserStats(profile.id, 'all')
+      .then((s) => {
+        if (cancelled || !s || s.total < STATS_MIN_RATINGS) return
+        setTopGenres(s.genres.filter((g) => g.genre !== 'Other').slice(0, 3).map((g) => g.genre))
+      })
+      .catch((err) => console.warn('[beatboxed] header genres failed:', err))
+    return () => {
+      cancelled = true
+    }
+  }, [profile, followKnown, locked])
+
   // Written reviews are counted through RLS, so only where they're visible;
   // a locked profile leaves the number out rather than showing 0.
   useEffect(() => {
@@ -189,6 +208,11 @@ export default function Profile() {
           tabsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
         }}
         onEdit={() => setEditing(true)}
+        topGenres={topGenres}
+        onGenreClick={() => {
+          go('stats')
+          tabsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        }}
       />
 
       {locked ? (

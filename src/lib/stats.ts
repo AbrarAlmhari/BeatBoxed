@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { genreLabel } from './genres'
 
 /**
  * The profile's Stats tab. One database call, get_user_stats(), returns the
@@ -30,6 +31,20 @@ export type StatsArtist = {
   average: number
 }
 
+export type StatsGenre = {
+  /** The bucket, e.g. 'Indie & Alternative'. */
+  genre: string
+  /** Its short label, e.g. 'Indie & Alt'. */
+  label: string
+  count: number
+  average: number
+  /** Up to three most rated artists in it. */
+  artists: string[]
+}
+
+/** Top genres shown; the rest fold into Other. */
+export const TOP_GENRES = 8
+
 export type UserStats = {
   total: number
   average: number | null
@@ -39,6 +54,10 @@ export type UserStats = {
   topArtists: StatsArtist[]
   /** Every decade from their earliest to the 2020s, zeros included. */
   decades: { decade: number; label: string; count: number }[]
+  /** Top genres from songs rated 3★+, then Other (always last). */
+  genres: StatsGenre[]
+  /** How many genres they rated something in (Other included). */
+  genreCount: number
 }
 
 type Raw = {
@@ -48,6 +67,7 @@ type Raw = {
   spread: number[]
   top_artists: { id: string; name: string; photo: string | null; count: number; average: number }[]
   decades: { decade: number; count: number }[]
+  genres?: { genre: string; count: number; average: number; artists: string[] | null }[]
 }
 
 /** "70s", "00s", "2020s" isn't needed: two digits read cleanly on a chart. */
@@ -71,8 +91,51 @@ function fillDecades(rows: Raw['decades']) {
   return out
 }
 
+/**
+ * The top genres, then everything else (and the database's Other) folded
+ * into one Other row, which always goes last.
+ */
+function foldGenres(rows: NonNullable<Raw['genres']>): StatsGenre[] {
+  const named = rows.filter((g) => g.genre !== 'Other')
+  const top = named.slice(0, TOP_GENRES)
+  const rest = [...named.slice(TOP_GENRES), ...rows.filter((g) => g.genre === 'Other')]
+  const out: StatsGenre[] = top.map((g) => ({
+    genre: g.genre,
+    label: genreLabel(g.genre),
+    count: g.count,
+    average: Number(g.average),
+    artists: g.artists ?? [],
+  }))
+  if (rest.length) {
+    const count = rest.reduce((n, g) => n + g.count, 0)
+    const sum = rest.reduce((n, g) => n + Number(g.average) * g.count, 0)
+    out.push({
+      genre: 'Other',
+      label: 'Other',
+      count,
+      average: Math.round((sum / count) * 100) / 100,
+      artists: [...new Set(rest.flatMap((g) => g.artists ?? []))].slice(0, 3),
+    })
+  }
+  return out
+}
+
+/** Kept briefly, so the header's genre chips and the Stats tab share one call. */
+const recent = new Map<string, { at: number; value: Promise<UserStats | null> }>()
+const RECENT_MS = 30_000
+
 /** null when the viewer isn't allowed to see this profile's stats. */
-export async function getUserStats(userId: string, range: StatsRange): Promise<UserStats | null> {
+export function getUserStats(userId: string, range: StatsRange): Promise<UserStats | null> {
+  const key = `${userId}:${range}`
+  const hit = recent.get(key)
+  if (hit && Date.now() - hit.at < RECENT_MS) return hit.value
+  const value = fetchUserStats(userId, range)
+  recent.set(key, { at: Date.now(), value })
+  value.catch(() => recent.delete(key))
+  return value
+}
+
+async function fetchUserStats(userId: string, range: StatsRange): Promise<UserStats | null> {
   const { data, error } = await client().rpc('get_user_stats', { p_user_id: userId, p_range: range })
   if (error) throw error
   if (!data) return null
@@ -84,6 +147,8 @@ export async function getUserStats(userId: string, range: StatsRange): Promise<U
     spread: [0, 1, 2, 3, 4].map((i) => raw.spread?.[i] ?? 0) as UserStats['spread'],
     topArtists: (raw.top_artists ?? []).map((a) => ({ ...a, average: Number(a.average) })),
     decades: fillDecades(raw.decades ?? []),
+    genres: foldGenres(raw.genres ?? []),
+    genreCount: (raw.genres ?? []).length,
   }
 }
 
@@ -153,6 +218,19 @@ export function beatieTake(stats: UserStats, range: StatsRange): TakePart[] {
       { text: top.name, strong: true },
       { text: `: ${top.count} of ${stats.total} ratings, averaging ${top.average.toFixed(1)}★.` }
     )
+  } else if (stats.genres.some((g) => g.genre !== 'Other')) {
+    const named = stats.genres.filter((g) => g.genre !== 'Other')
+    parts.push({ text: 'Mostly ' }, { text: named[0].label, strong: true })
+    if (named[1]) parts.push({ text: ' and ' }, { text: named[1].label, strong: true })
+    if (favDecade && decadeShare >= 0.4) {
+      parts.push(
+        { text: ', with a soft spot for the ' },
+        { text: DECADE_WORDS[favDecade.decade] ?? `${favDecade.decade}s`, strong: true },
+        { text: '.' }
+      )
+    } else {
+      parts.push({ text: '.' })
+    }
   } else if (favDecade && decadeShare >= 0.4) {
     parts.push(
       { text: 'Mostly songs from the ' },

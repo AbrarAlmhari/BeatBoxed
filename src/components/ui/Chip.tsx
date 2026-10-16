@@ -8,13 +8,14 @@ import { cn } from '@/lib/cn'
  * Tabs instead.
  */
 export function Chip({
-  active,
+  active = false,
   onClick,
   children,
   touchTarget = true,
 }: {
-  active: boolean
-  onClick: () => void
+  active?: boolean
+  /** Without one the chip is a plain label (an artist's genres), not a button. */
+  onClick?: () => void
   children: ReactNode
   /**
    * Extend the tap area to 44px tall without changing how the chip looks
@@ -23,6 +24,14 @@ export function Chip({
    */
   touchTarget?: boolean
 }) {
+  if (!onClick) {
+    return (
+      <span className="shrink-0 whitespace-nowrap rounded-chip border border-line-strong bg-surface-2 px-3 py-1 text-meta text-muted-foreground">
+        {children}
+      </span>
+    )
+  }
+
   return (
     <button
       type="button"

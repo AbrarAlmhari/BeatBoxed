@@ -4,6 +4,8 @@ import { Disc3, Play, Users } from 'lucide-react'
 import { FollowButton } from '@/components/ui/FollowButton'
 import { StarRating } from '@/components/ui/StarRating'
 import { TabPanel, Tabs } from '@/components/ui/Tabs'
+import { Chip } from '@/components/ui/Chip'
+import { fetchArtistGenres, genreLabel } from '@/lib/genres'
 import { MEDIA_GRID, SkeletonMediaGrid } from '@/components/ui/Skeleton'
 import { Card } from '@/components/ui/Card'
 import { EmptyState, emptySecondaryActionClass } from '@/components/ui/EmptyState'
@@ -73,6 +75,13 @@ export default function Artist() {
         // Looked up once per artist, ever. bio_fetched_at is stamped even on
         // a miss, so an artist with no Wikipedia article isn't re-queried on
         // every visit.
+        // Genres too: looked up the first time anyone opens the page.
+        if (!detail.genresFetchedAt) {
+          void fetchArtistGenres(detail.id).then(
+            (found) => found && !cancelled && setReloadKey((k) => k + 1)
+          )
+        }
+
         if (!detail.bioFetchedAt) {
           void syncArtistBio(detail.spotifyId).then(
             () => !cancelled && setReloadKey((k) => k + 1)
@@ -138,17 +147,14 @@ export default function Artist() {
             {artist.name}
           </h1>
 
-          {artist.genres.length > 0 && (
-            <div className="flex flex-wrap justify-center gap-2 sm:justify-start">
-              {artist.genres.map((g) => (
-                <span
-                  key={g}
-                  className="rounded-chip border border-line-strong bg-surface-2 px-2.5 py-1 text-meta text-muted-foreground"
-                >
-                  {g}
-                </span>
+          {artist.genreBuckets.length > 0 && (
+            <ul aria-label="Genres" className="flex flex-wrap justify-center gap-2 sm:justify-start">
+              {artist.genreBuckets.map((g) => (
+                <li key={g}>
+                  <Chip>{genreLabel(g)}</Chip>
+                </li>
               ))}
-            </div>
+            </ul>
           )}
 
           <p className="flex items-center gap-1.5 text-secondary text-muted-foreground">
