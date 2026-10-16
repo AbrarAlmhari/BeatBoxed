@@ -109,6 +109,22 @@ test.describe('artist genres', () => {
     await expect(page.getByRole('list', { name: 'Top genres' })).toHaveCount(0)
   })
 
+  test('ties go to identity buckets, then the broad four; South Asian is its own bucket', async () => {
+    const buckets = async (raw: string[]) =>
+      (await (
+        await adminFetch('/rest/v1/rpc/artist_genre_buckets', { method: 'POST', body: JSON.stringify({ p_raw: raw }) })
+      ).json()) as string[]
+    // One samba tag no longer beats pop in a tie.
+    expect(await buckets(['rock music', 'samba', 'disco', 'soul', 'pop music', 'funk', 'contemporary R&B'])).toEqual([
+      'R&B & Soul',
+      'Pop',
+    ])
+    // A K-pop group keeps K-Pop.
+    expect((await buckets(['K-pop', 'pop music', 'hip-hop']))[0]).toBe('K-Pop')
+    expect(await buckets(['indian film music'])).toEqual(['South Asian'])
+    expect((await buckets(['punjabi pop', 'pop music']))[0]).toBe('South Asian')
+  })
+
   test("the artist page shows its genres as chips; songs show no genre", async ({ page }) => {
     await login(page, fan.email)
     await page.goto(`/artist/${jazz.id}`)

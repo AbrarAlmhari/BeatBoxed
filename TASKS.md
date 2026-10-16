@@ -64,7 +64,6 @@ Things worth revisiting once the whole app exists, not mid-build. Add to this as
 - [ ] Likes privacy: `song_likes` and `review_likes` are readable by anyone at the database level (`USING (true)`). Restrict them with `can_view_profile` in their own migration, with count functions so like totals and the For You ranking still include every like. Until then the profile's Likes tab is hidden on locked private profiles in the page only.
 - [ ] Report profile: add a `profile_reports` table and a Report option in the profile ⋯ menu (only Share profile is there for now).
 - [ ] Written-review count on locked private profiles (a small count function), if we want it later. Today a locked profile shows ratings, followers, following and artists, but not "reviews".
-- [ ] Deploy the `artist-genres` Edge Function (`npx supabase functions deploy artist-genres`) so artists added after the backfill get their genres when their page first opens. Until then, re-running `scripts/backfill-artist-genres.mjs` covers them.
 - [ ] Extend the genre mapping from the `genre_unmapped` view (raw genres that fall through to Other), by inserting rows into `genre_map` or `genre_patterns`.
 - [ ] Search results (ArtistResultCard) still read Spotify's always-empty `artists.genres`; switch them to `genre_buckets` if we want genres there too.
 - [ ] _(add items here as they come up)_
