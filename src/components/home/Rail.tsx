@@ -29,10 +29,13 @@ export function Rail({
   title,
   songs,
   emptyMessage,
+  seeAllTo,
 }: {
   title: string
   songs: PlayerTrack[]
   emptyMessage: string
+  /** The rail's full list ("See all"), e.g. /explore/trending. */
+  seeAllTo?: string
 }) {
   const { current, isPlaying, loading, playQueue, toggle } = usePlayer()
   if (songs.length === 0) {
@@ -46,8 +49,7 @@ export function Rail({
   return (
     <RailShell
       title={title}
-      // There's no full list to open yet; the link is there for the layout.
-      action={{ onClick: () => {} }}
+      action={seeAllTo ? { to: seeAllTo, label: 'See all' } : undefined}
     >
       {/* Negative margin lets cards bleed to the screen edge while keeping the
           section heading aligned with the page gutter. */}

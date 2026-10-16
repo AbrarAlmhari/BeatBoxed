@@ -19,7 +19,7 @@ import { usePlayer } from '@/lib/player'
 import {
   getExploreRails,
   getFollowStates,
-  getRecentlyViewed,
+  getRecentlyViewedRail,
   popularSearches,
   searchCatalog,
   searchEverything,
@@ -133,7 +133,7 @@ export default function Explore() {
     if (!user || player.historyVersion === seenHistory.current) return
     seenHistory.current = player.historyVersion
     let cancelled = false
-    getRecentlyViewed(user.id)
+    getRecentlyViewedRail(user.id)
       .then((songs) => {
         if (!cancelled) setRails((r) => (r ? { ...r, recentlyViewed: songs } : r))
       })
@@ -304,11 +304,13 @@ export default function Explore() {
               <Rail
                 title="Trending"
                 songs={rails.trending}
+                seeAllTo="/explore/trending"
                 emptyMessage="No reviews yet. Be the first to rate a song."
               />
               <Rail
                 title="For You"
                 songs={rails.forYou}
+                seeAllTo="/explore/for-you"
                 emptyMessage="Follow a few artists and we'll pick songs for you."
               />
               {/* Hidden entirely with no history, rather than an empty row. */}
@@ -316,6 +318,7 @@ export default function Explore() {
                 <Rail
                   title="Recently viewed"
                   songs={rails.recentlyViewed}
+                  seeAllTo="/explore/recent"
                   emptyMessage=""
                 />
               )}
