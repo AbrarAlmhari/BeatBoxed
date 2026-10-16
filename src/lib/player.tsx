@@ -469,11 +469,19 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       album: 'Beatboxed — 30s preview',
       artwork: t.coverUrl ? [{ src: t.coverUrl, sizes: '512x512', type: 'image/jpeg' }] : [],
     })
-    navigator.mediaSession.setActionHandler('play', () => toggle())
-    navigator.mediaSession.setActionHandler('pause', () => toggle())
+    // Play only plays and pause only pauses: a pause sent while already
+    // paused must not start the music.
+    navigator.mediaSession.setActionHandler('play', () => {
+      const audio = audioRef.current
+      if (audio?.paused) void audio.play().catch(() => {})
+    })
+    navigator.mediaSession.setActionHandler('pause', () => {
+      const audio = audioRef.current
+      if (audio && !audio.paused) audio.pause()
+    })
     navigator.mediaSession.setActionHandler('nexttrack', () => next())
     navigator.mediaSession.setActionHandler('previoustrack', () => previous())
-  }, [state.current, toggle, next, previous])
+  }, [state.current, next, previous])
 
   // Logging out must not leave someone else's music playing.
   useEffect(() => {
