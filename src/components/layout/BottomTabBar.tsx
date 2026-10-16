@@ -16,6 +16,7 @@ export function BottomTabBar() {
             <NavLink
               to={to}
               end
+              data-tour={`nav-${label.toLowerCase()}`}
               className={({ isActive }) =>
                 cn(
                   'flex flex-col items-center gap-1 px-1 pb-2 pt-2.5 transition-colors duration-200 ease-soft',

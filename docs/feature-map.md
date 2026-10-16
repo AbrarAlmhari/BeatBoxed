@@ -44,3 +44,11 @@
 ## Page inventory (from mockups + meeting notes)
 
 Home · Explore/Search · Library · Profile · Other user's profile · Song page · Now Playing (artwork + lyrics tabs) · Beatie (Song page card + Home sheet) · Ratings & Reviews · Playlist detail · Followers / Following (requests + lists) · Notifications · Settings · Login / Create account.
+
+## Onboarding (docs/mockups/onboarding)
+
+- **Sign-up:** email and password (8+ characters), then "Check your email" with Resend and "Wrong email? Go back". The link signs them in on /welcome, on any device; logging in before confirming says so and offers Resend.
+- **/welcome:** seven steps (username, display name with photo and bio, 3–8 music tags, follow people, follow artists, like songs, a first review), then "All set" with Show me around or Skip. The step is saved, so leaving halfway resumes; finished accounts never see it again, and the app sends an unfinished one back to it.
+- **Profile:** the header shows only the tags the user chose ("Add your music tags" on your own profile without any). Genres worked out from reviews stay on the Stats tab. Edit profile has My music tags.
+- **Beatie tour:** six steps on Home (feed, composer, Ask Beatie, Explore, Library, Profile), finding each real element by its `data-tour` attribute. Replay from Settings.
+- **Existing users:** a one-time "Your music tags are back" card on Home.

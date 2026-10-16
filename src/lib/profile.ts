@@ -15,6 +15,9 @@ function client() {
 
 export const PROFILE_PAGE_SIZE = 20
 
+/** A bio's length, in setup and Edit profile alike. */
+export const BIO_MAX = 160
+
 /** written: has a headline or a body. ratings: stars only. */
 export type ReviewFilter = 'all' | 'written' | 'ratings'
 export type ReviewSortKey = 'recent' | 'highest' | 'liked'

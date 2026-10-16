@@ -40,6 +40,13 @@
 
   /* PageGlow's default pair: Primary and a soft pink. Pink isn't in the
      palette for anything else; it only ever appears faint, in a glow. */
+  /* Beatie's tour bubble: a light card on the dimmed page (the one place
+     the app uses a light surface). */
+  --color-paper: #ffffff;
+  --color-paper-foreground: #141419;
+  --color-paper-muted: #52525b;
+  --color-paper-line: #d4d4d8;
+
   --color-glow-1: #8b5cf6;
   --color-glow-2: #ec4899;
 

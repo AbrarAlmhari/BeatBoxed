@@ -8,6 +8,9 @@ import {
   useState,
   type ReactNode,
 } from 'react'
+import { X } from 'lucide-react'
+import { BeatieImage } from '@/components/beatie/BeatieImage'
+import { cn } from '@/lib/cn'
 
 /**
  * One short confirmation at a time, optionally with an Undo.
@@ -22,6 +25,10 @@ import {
 type Toast = {
   id: number
   message: string
+  /** A bold first phrase, e.g. "You're ready!". */
+  lead?: string
+  /** Beatie's mark at the start, and a close button (the tour's message). */
+  beatie?: boolean
   actionLabel?: string
   onAction?: () => void
 }
@@ -71,8 +78,21 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           aria-live="polite"
           className="pointer-events-none fixed inset-x-0 bottom-24 z-50 flex justify-center px-4 sm:bottom-6 lg:pl-64"
         >
-          <div className="pointer-events-auto flex max-w-md items-center gap-3 rounded-card bg-surface-2 px-4 py-3 shadow-card">
-            <p className="min-w-0 flex-1 truncate text-body">{toast.message}</p>
+          <div
+            className={cn(
+              'pointer-events-auto flex max-w-md items-center gap-3 rounded-card bg-surface-2 px-4 py-3 shadow-card',
+              toast.beatie && 'w-full border border-primary/50'
+            )}
+          >
+            {toast.beatie && (
+              <span className="grid size-11 shrink-0 place-items-center rounded-full border border-primary/40 bg-background">
+                <BeatieImage mood="mark" size={28} />
+              </span>
+            )}
+            <p className={cn('min-w-0 flex-1 text-body', !toast.beatie && 'truncate')}>
+              {toast.lead && <b>{toast.lead} </b>}
+              {toast.message}
+            </p>
             {toast.actionLabel && (
               <button
                 type="button"
@@ -83,6 +103,16 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 className="shrink-0 rounded-button px-2 py-1 text-button text-accent transition-colors duration-200 ease-soft hover:text-foreground"
               >
                 {toast.actionLabel}
+              </button>
+            )}
+            {toast.beatie && (
+              <button
+                type="button"
+                onClick={clear}
+                aria-label="Close"
+                className="-mr-2 grid size-11 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors duration-200 ease-soft hover:text-foreground"
+              >
+                <X className="size-5" strokeWidth={1.75} />
               </button>
             )}
           </div>

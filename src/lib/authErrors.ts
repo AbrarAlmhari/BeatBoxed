@@ -15,13 +15,13 @@ export function authErrorMessage(error: unknown): string {
     return "That email and password don't match an account. Check both and try again."
   }
   if (m.includes('email not confirmed')) {
-    return 'Confirm your email first — check your inbox for the link we sent.'
+    return 'Confirm your email first. Check your inbox for the link we sent.'
   }
   if (m.includes('user already registered') || m.includes('already been registered')) {
     return 'An account with this email already exists. Try logging in instead.'
   }
   if (m.includes('password should be at least')) {
-    return 'Password must be at least 6 characters.'
+    return 'Password must be at least 8 characters.'
   }
   if (m.includes('unable to validate email') || m.includes('invalid email')) {
     return 'That email address looks invalid.'

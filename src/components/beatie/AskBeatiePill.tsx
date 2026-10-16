@@ -78,6 +78,7 @@ export function AskBeatiePill({ onOpen }: { onOpen: () => void }) {
       <button
         type="button"
         aria-label="Ask Beatie"
+        data-tour="ask-beatie"
         onClick={onOpen}
         className="group flex min-h-11 min-w-11 items-center justify-center rounded-full focus-visible:outline-none"
       >

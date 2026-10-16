@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
-import { adminFetch, createTestUser, deleteTestUsers, env, login, pngBytes, tokenFor } from './helpers'
+import { adminFetch, createNewUser, createTestUser, deleteTestUsers, env, login, pngBytes, tokenFor } from './helpers'
 
 /**
  * Username rules (migration 0037): new and changed usernames are 4–20
@@ -49,15 +49,18 @@ test.describe('usernames', () => {
     await deleteTestUsers()
   })
 
-  test('sign-up shows the rule and checks as you type', async ({ page }) => {
+  test('picking a username (setup step 1) shows the rule and checks as you type', async ({ page }) => {
     const takenName = await usernameOf(taken.id)
-    await page.goto('/signup')
+    const fresh0 = await createNewUser('un-setup')
+    await login(page, fresh0.email)
+    await expect(page).toHaveURL(/\/welcome$/)
     const field = page.getByLabel('Username')
-    await expect(page.getByText('4–20 characters: letters, numbers, _ and .')).toBeVisible()
+    await expect(page.getByText(/4 to 20 characters\. Lowercase letters, numbers, _ and \. only/)).toBeVisible()
+    const continueButton = page.getByRole('button', { name: 'Continue', exact: true })
 
     await field.fill('ab')
     await expect(status(page)).toHaveText('At least 4 characters')
-    await expect(page.getByRole('button', { name: 'Create account' })).toBeDisabled()
+    await expect(continueButton).toBeDisabled()
 
     await field.fill('ab cd!')
     await expect(status(page)).toHaveText('Only letters, numbers, _ and .')
@@ -74,7 +77,7 @@ test.describe('usernames', () => {
     const fresh = `new_${Date.now().toString(36)}.ok`
     await field.fill(fresh)
     await expect(status(page)).toHaveText(`@${fresh} is available`)
-    await expect(page.getByRole('button', { name: 'Create account' })).toBeEnabled()
+    await expect(continueButton).toBeEnabled()
   })
 
   test('the database refuses a new short username, and lowercases a valid one', async () => {
@@ -106,7 +109,7 @@ test.describe('usernames', () => {
     await page.getByLabel('Bio').fill('Still here with my short name.')
     await page.locator('input[type="file"]').setInputFiles({ name: 'me.png', mimeType: 'image/png', buffer: pngBytes(64, 64) })
     await expect(page.getByRole('button', { name: 'Uploading…' })).toHaveCount(0, { timeout: 15_000 })
-    await page.getByRole('button', { name: 'Save changes' }).click()
+    await page.getByRole('button', { name: 'Save', exact: true }).click()
     await expect(page.getByText('Still here with my short name.')).toBeVisible()
     expect(await usernameOf(legacy.id)).toBe(shortName)
 
@@ -114,6 +117,6 @@ test.describe('usernames', () => {
     await page.getByRole('button', { name: 'Edit profile' }).click()
     await page.getByLabel('Username').fill('ab')
     await expect(status(page)).toHaveText('At least 4 characters')
-    await expect(page.getByRole('button', { name: 'Save changes' })).toBeDisabled()
+    await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeDisabled()
   })
 })

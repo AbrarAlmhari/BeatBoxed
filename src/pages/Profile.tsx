@@ -19,7 +19,6 @@ import { useAuth } from '@/lib/auth'
 import { useToast } from '@/lib/toast'
 import { getFollowStates, getProfileDetail } from '@/lib/catalog'
 import { getWrittenReviewCount, type ReviewFilter } from '@/lib/profile'
-import { STATS_MIN_RATINGS, getUserStats } from '@/lib/stats'
 import type { FollowState, ProfileDetail } from '@/lib/types'
 
 const FILTERS: ReviewFilter[] = ['all', 'written', 'ratings']
@@ -49,7 +48,8 @@ export default function Profile() {
   const [followState, setFollowState] = useState<FollowState>('none')
   const [followKnown, setFollowKnown] = useState(false)
   const [writtenCount, setWrittenCount] = useState<number | null>(null)
-  const [editing, setEditing] = useState(false)
+  /** Edit profile, opened at the top or at "My music tags". */
+  const [editing, setEditing] = useState<false | 'top' | 'tags'>(false)
   const [list, setList] = useState<ProfileList | null>(null)
   const [composing, setComposing] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
@@ -59,6 +59,23 @@ export default function Profile() {
   const tab: ProfileTab = PROFILE_TABS.some((t) => t.id === rawTab) ? (rawTab as ProfileTab) : 'reviews'
   const rawFilter = params.get('filter')
   const filter: ReviewFilter = FILTERS.includes(rawFilter as ReviewFilter) ? (rawFilter as ReviewFilter) : 'all'
+
+  const openEditor = useCallback((at: 'top' | 'tags' = 'top') => setEditing(at), [])
+
+  // ?edit=tags (the welcome card's "Pick my tags") opens it at the tags.
+  const editParam = params.get('edit')
+  useEffect(() => {
+    if (!isOwn || !profile || editParam !== 'tags') return
+    setEditing('tags')
+    setParams(
+      (prev) => {
+        const p = new URLSearchParams(prev)
+        p.delete('edit')
+        return p
+      },
+      { replace: true }
+    )
+  }, [isOwn, profile, editParam, setParams])
 
   /** Tab changes are history entries, so Back returns to the last tab. */
   const go = useCallback(
@@ -120,24 +137,6 @@ export default function Profile() {
 
   const locked = Boolean(profile?.isPrivate) && !isOwn && followState !== 'following'
 
-  // The header's top genres (all time): only once they have 5+ ratings, and
-  // only where their stats are visible at all.
-  const [topGenres, setTopGenres] = useState<string[]>([])
-  useEffect(() => {
-    setTopGenres([])
-    if (!profile || !followKnown || locked) return
-    let cancelled = false
-    getUserStats(profile.id, 'all')
-      .then((s) => {
-        if (cancelled || !s || s.total < STATS_MIN_RATINGS) return
-        setTopGenres(s.genres.filter((g) => g.genre !== 'Other').slice(0, 3).map((g) => g.genre))
-      })
-      .catch((err) => console.warn('[beatboxed] header genres failed:', err))
-    return () => {
-      cancelled = true
-    }
-  }, [profile, followKnown, locked])
-
   // Written reviews are counted through RLS, so only where they're visible;
   // a locked profile leaves the number out rather than showing 0.
   useEffect(() => {
@@ -171,6 +170,7 @@ export default function Profile() {
       <div className="pt-2">
         <ProfileEditor
           profile={profile}
+          focus={editing}
           onSaved={(next) => {
             setProfile(next)
             setEditing(false)
@@ -207,12 +207,8 @@ export default function Profile() {
           go('reviews', written ? 'written' : 'all')
           tabsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
         }}
-        onEdit={() => setEditing(true)}
-        topGenres={topGenres}
-        onGenreClick={() => {
-          go('stats')
-          tabsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-        }}
+        onEdit={() => openEditor('top')}
+        onEditTags={() => openEditor('tags')}
       />
 
       {locked ? (
