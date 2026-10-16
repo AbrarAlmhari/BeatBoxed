@@ -30,6 +30,25 @@ test.describe('explore rails', () => {
     await expect(page.getByRole('heading', { name: 'Continue Listening' })).toHaveCount(0)
   })
 
+  test('one dropped request does not blank the rails', async ({ page }) => {
+    const me = await createTestUser('ex-flaky')
+    await login(page, me.email)
+
+    // The first Trending request fails; the retry and the other rails carry on.
+    let dropped = false
+    await page.route(/\/rest\/v1\/songs\?select=.*order=popularity\.desc\.nullslast%2Ccached_at\.desc/, (route) => {
+      if (dropped) return route.continue()
+      dropped = true
+      return route.abort('failed')
+    })
+
+    await page.goto('/explore')
+    await expect(rail(page, 'Trending').locator('a[href^="/song/"]').first()).toBeVisible()
+    await expect(rail(page, 'For You').locator('a[href^="/song/"]').first()).toBeVisible()
+    await expect(page.getByText("Couldn't load songs to browse.")).toHaveCount(0)
+    expect(dropped).toBe(true)
+  })
+
   test('the genre tiles and genre chips are gone', async ({ page }) => {
     const me = await createTestUser('ex-genres')
     await login(page, me.email)
