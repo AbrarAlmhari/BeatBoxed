@@ -5,6 +5,7 @@ import { BottomTabBar } from './BottomTabBar'
 import { TopBar } from './TopBar'
 import { cn } from '@/lib/cn'
 import { MiniPlayer } from '@/components/player/MiniPlayer'
+import { BeatieTour } from '@/components/onboarding/BeatieTour'
 import { PlayerProvider, usePlayer } from '@/lib/player'
 import { FollowsProvider } from '@/lib/follows'
 import { ToastProvider } from '@/lib/toast'
@@ -57,6 +58,8 @@ function ShellBody() {
       </div>
 
       <MiniPlayer />
+      {/* Opened from Home (after setup, the welcome card) or Settings. */}
+      <BeatieTour />
       <BottomTabBar />
     </div>
   )

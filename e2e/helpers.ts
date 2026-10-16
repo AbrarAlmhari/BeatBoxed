@@ -36,7 +36,23 @@ async function admin(path: string, init: RequestInit = {}) {
 export const TEST_DOMAIN = '@beatboxed.test'
 export const TEST_PASSWORD = 'TestPw123456'
 
+/**
+ * A test account that has already been through setup, like every account
+ * that existed before onboarding: it goes straight to the app, with the
+ * one-time welcome card closed. createNewUser is the brand-new kind.
+ */
 export async function createTestUser(local: string) {
+  const user = await createNewUser(local)
+  const now = new Date().toISOString()
+  await admin(`/rest/v1/profiles?id=eq.${user.id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ setup_completed_at: now, welcome_card_dismissed_at: now }),
+  })
+  return user
+}
+
+/** A brand-new account, as after signing up: setup (/welcome) not done yet. */
+export async function createNewUser(local: string) {
   const email = `${local}${TEST_DOMAIN}`
   await deleteTestUsers(email)
   const res = await admin('/auth/v1/admin/users', {

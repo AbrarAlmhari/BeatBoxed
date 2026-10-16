@@ -7,6 +7,8 @@ import SignUp from '@/pages/SignUp'
 import Home from '@/pages/Home'
 import Explore from '@/pages/Explore'
 import RailList from '@/pages/RailList'
+import Welcome from '@/pages/Welcome'
+import { OnboardingRoot, RequireSetup } from '@/lib/onboardingContext'
 import LibraryPage from '@/pages/LibraryPage'
 import Profile from '@/pages/Profile'
 import Song from '@/pages/Song'
@@ -32,6 +34,12 @@ export default function App() {
           <Route path="/signup" element={<SignUp />} />
 
           <Route element={<RequireAuth />}>
+            {/* Setup and tour state for the signed-in user, read once. */}
+            <Route element={<OnboardingRoot />}>
+            {/* First-time setup: outside the shell, so no navigation. */}
+            <Route path="/welcome" element={<Welcome />} />
+            {/* Anyone who hasn't finished setup goes to /welcome first. */}
+            <Route element={<RequireSetup />}>
             {/* Inside RequireAuth so logging out tears the player down with it. */}
             <Route element={<AppShell />}>
               <Route index element={<Home />} />
@@ -62,6 +70,8 @@ export default function App() {
               <Route path="notifications/requests" element={<FollowRequests />} />
               <Route path="now-playing" element={<NowPlaying />} />
               <Route path="*" element={<NotFound />} />
+            </Route>
+            </Route>
             </Route>
           </Route>
         </Routes>

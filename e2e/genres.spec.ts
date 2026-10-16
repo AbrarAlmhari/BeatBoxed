@@ -92,21 +92,16 @@ test.describe('artist genres', () => {
     await expect(row).toHaveAttribute('aria-expanded', 'false')
   })
 
-  test('the header shows top genres only with 5+ ratings, and a chip opens Stats', async ({ page }) => {
+  test('the header shows only the tags people chose, never genres worked out from reviews', async ({ page }) => {
+    // The fan has 6 ratings with Jazz & Blues genres, but picked no tags.
     await login(page, fan.email)
     await page.goto(`/profile/${fan.id}`)
-    const chips = page.getByRole('list', { name: 'Top genres' })
-    await expect(chips.getByRole('button', { name: 'Jazz & Blues' })).toBeVisible()
-    await chips.getByRole('button', { name: 'Jazz & Blues' }).click()
-    await expect(page).toHaveURL(/tab=stats/)
-
-    // Three ratings: no chips.
-    const few = await createTestUser('genre-few')
-    await rate(few.id, jazz.tracks.map((t) => [t.id, 5] as [string, number]))
-    await page.goto(`/profile/${few.id}`)
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
-    await page.waitForTimeout(1500)
-    await expect(page.getByRole('list', { name: 'Top genres' })).toHaveCount(0)
+    await expect(page.getByRole('list', { name: 'Music tags' })).toHaveCount(0)
+    await expect(page.getByText('Jazz & Blues')).toHaveCount(0)
+    // The worked-out genres stay on the Stats tab.
+    await page.goto(`/profile/${fan.id}?tab=stats`)
+    await expect(page.getByRole('heading', { name: 'Top genres' })).toBeVisible()
   })
 
   test('ties go to identity buckets, then the broad four; South Asian is its own bucket', async () => {

@@ -3,8 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Pencil, Settings } from 'lucide-react'
 import { UserFollowButton } from '@/components/people/UserFollowButton'
 import { PageGlow } from '@/components/ui/PageGlow'
-import { Chip } from '@/components/ui/Chip'
-import { genreLabel } from '@/lib/genres'
+import { tagLabel } from '@/lib/tags'
 import { ProfileMenu } from './ProfileMenu'
 import type { ProfileList } from './ProfileListSheet'
 import type { FollowState, ProfileDetail } from '@/lib/types'
@@ -27,8 +26,7 @@ export function ProfileHero({
   onOpenList,
   onShowReviews,
   onEdit,
-  topGenres,
-  onGenreClick,
+  onEditTags,
 }: {
   profile: ProfileDetail
   isOwn: boolean
@@ -42,9 +40,8 @@ export function ProfileHero({
   /** Ratings and reviews switch to the Reviews tab, reviews to Written. */
   onShowReviews: (written: boolean) => void
   onEdit: () => void
-  /** Their top genres (all time), shown once they have 5+ ratings. */
-  topGenres?: string[]
-  onGenreClick?: () => void
+  /** Your own profile with no tags: opens Edit profile at the tags. */
+  onEditTags?: () => void
 }) {
   const navigate = useNavigate()
   const name = profile.displayName || profile.username || 'Listener'
@@ -117,15 +114,6 @@ export function ProfileHero({
           {profile.username && (
             <p className="truncate text-secondary text-muted-foreground">@{profile.username}</p>
           )}
-          {topGenres && topGenres.length > 0 && (
-            <ul aria-label="Top genres" className="mt-1.5 flex flex-wrap gap-1.5">
-              {topGenres.map((g) => (
-                <li key={g}>
-                  <Chip onClick={onGenreClick}>{genreLabel(g)}</Chip>
-                </li>
-              ))}
-            </ul>
-          )}
         </div>
       </div>
 
@@ -133,6 +121,31 @@ export function ProfileHero({
         <p dir="auto" className="line-clamp-2 max-w-prose text-body text-muted-foreground">
           {profile.bio}
         </p>
+      )}
+
+      {/* Only the tags they chose. Genres worked out from their reviews are
+          on the Stats tab, not here. */}
+      {profile.favoriteGenres.length > 0 ? (
+        <ul aria-label="Music tags" className="flex flex-wrap gap-2">
+          {profile.favoriteGenres.map((t) => (
+            <li key={t}>
+              <span className="inline-flex min-h-8 items-center rounded-chip bg-primary/20 px-3.5 text-button text-accent">
+                {tagLabel(t)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        isOwn &&
+        onEditTags && (
+          <button
+            type="button"
+            onClick={onEditTags}
+            className="-my-2 inline-flex min-h-11 w-fit items-center text-button text-accent transition-colors duration-200 ease-soft hover:text-foreground"
+          >
+            Add your music tags
+          </button>
+        )
       )}
 
       <CountsRow

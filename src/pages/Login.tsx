@@ -6,6 +6,7 @@ import { FormAlert } from '@/components/auth/FormAlert'
 import { SubmitButton } from '@/components/auth/SubmitButton'
 import { useAuth } from '@/lib/auth'
 import { authErrorMessage } from '@/lib/authErrors'
+import { ResendConfirmation } from '@/components/auth/ResendConfirmation'
 
 export default function Login() {
   const { signIn, session, loading } = useAuth()
@@ -16,6 +17,8 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
+  // Signed up but never clicked the link: say so, and offer to resend it.
+  const [unconfirmed, setUnconfirmed] = useState<string | null>(null)
 
   if (!loading && session) {
     const to = (location.state as { from?: string } | null)?.from ?? '/'
@@ -25,6 +28,7 @@ export default function Login() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     setError(null)
+    setUnconfirmed(null)
     setPending(true)
     try {
       await signIn(email, password)
@@ -32,7 +36,13 @@ export default function Login() {
         replace: true,
       })
     } catch (err) {
-      setError(authErrorMessage(err))
+      const code = (err as { code?: string } | null)?.code
+      const text = String((err as { message?: string } | null)?.message ?? '').toLowerCase()
+      if (code === 'email_not_confirmed' || text.includes('email not confirmed')) {
+        setUnconfirmed(email.trim())
+      } else {
+        setError(authErrorMessage(err))
+      }
       setPending(false)
     }
   }
@@ -55,6 +65,14 @@ export default function Login() {
     >
       <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
         {error && <FormAlert tone="error">{error}</FormAlert>}
+        {unconfirmed && (
+          <div className="flex flex-col gap-3">
+            <FormAlert tone="error">
+              Confirm your email first. We sent a link to {unconfirmed}; open it to finish signing up.
+            </FormAlert>
+            <ResendConfirmation email={unconfirmed} />
+          </div>
+        )}
 
         <TextField
           label="Email"

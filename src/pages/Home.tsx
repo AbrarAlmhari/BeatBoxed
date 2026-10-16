@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { PenLine } from 'lucide-react'
 import { FeedCard } from '@/components/feed/FeedCard'
 import { ReviewComposer } from '@/components/feed/ReviewComposer'
@@ -7,6 +7,8 @@ import { AskBeatieSheet } from '@/components/beatie/AskBeatieSheet'
 import { AskBeatiePill, BeatieHello, useBeatieHello } from '@/components/beatie/AskBeatiePill'
 import { BeatieImage } from '@/components/beatie/BeatieImage'
 import { PersonCard } from '@/components/people/PersonCard'
+import { WelcomeCard } from '@/components/onboarding/WelcomeCard'
+import { useOnboarding } from '@/lib/onboardingContext'
 import { Card, cardClass } from '@/components/ui/Card'
 import { EmptyState, emptyActionClass, emptySecondaryActionClass } from '@/components/ui/EmptyState'
 import { PageGlow } from '@/components/ui/PageGlow'
@@ -66,6 +68,29 @@ export default function Home() {
   const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
   const tab: FeedTab = params.get('tab') === 'following' ? 'following' : 'for-you'
+  const location = useLocation()
+  const { tourOpen, setTourOpen } = useOnboarding()
+
+  // /?tour=1 (setup's "Show me around", Settings' "Replay tour") starts the tour.
+  useEffect(() => {
+    if (params.get('tour') !== '1') return
+    setTourOpen(true)
+    setParams(
+      (prev) => {
+        const p = new URLSearchParams(prev)
+        p.delete('tour')
+        return p
+      },
+      { replace: true }
+    )
+  }, [params, setParams, setTourOpen])
+
+  // Skipping the tour at the end of setup lands here: say so once.
+  useEffect(() => {
+    if (!(location.state as { tourEnded?: boolean } | null)?.tourEnded) return
+    toast.show({ beatie: true, lead: "You're ready!", message: 'Replay the tour anytime from Settings.' })
+    navigate(location.pathname + location.search, { replace: true, state: null })
+  }, [location, navigate, toast])
 
   const [tabs, setTabs] = useState<Record<FeedTab, TabState>>({
     'for-you': EMPTY,
@@ -221,14 +246,17 @@ export default function Home() {
             }}
           />
         </div>
-        <BeatieHello hello={hello} />
+        {!tourOpen && <BeatieHello hello={hello} />}
       </div>
+
+      <WelcomeCard />
 
       {/* The way in to writing: looks like a field, opens the composer. */}
       <button
         type="button"
         onClick={() => setComposing(true)}
         aria-label="Write a review: what song is on your mind?"
+        data-tour="composer"
         className={cn(cardClass({ interactive: true }), 'flex items-center gap-3 text-left')}
       >
         {avatarUrl ? (
@@ -243,6 +271,7 @@ export default function Home() {
       </button>
 
       <section
+        data-tour="feed"
         role="tabpanel"
         id={`feed-panel-${tab}`}
         aria-labelledby={`feed-tab-${tab}`}
@@ -275,13 +304,11 @@ export default function Home() {
           )
         ) : (
           <>
-            {visible.map((r) => (
-              <FeedCard
-                key={r.id}
-                review={r}
-                highlight={r.id === highlightId}
-                onDeleted={handleDeleted}
-              />
+            {visible.map((r, i) => (
+              // The first card is the tour's "This is your feed".
+              <div key={r.id} data-tour={i === 0 ? 'feed-review' : undefined}>
+                <FeedCard review={r} highlight={r.id === highlightId} onDeleted={handleDeleted} />
+              </div>
             ))}
 
             <div ref={sentinel} aria-hidden className="h-px" />

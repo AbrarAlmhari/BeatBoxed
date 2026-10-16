@@ -7,29 +7,19 @@ import { FormAlert } from '@/components/auth/FormAlert'
 import { SubmitButton } from '@/components/auth/SubmitButton'
 import { useAuth } from '@/lib/auth'
 import { authErrorMessage } from '@/lib/authErrors'
-import { UsernameField } from '@/components/auth/UsernameField'
-import {
-  USERNAME_MESSAGES,
-  normalizeUsername,
-  usernameProblem,
-  usernameSubmittable,
-  useUsernameStatus,
-} from '@/lib/username'
+import { ResendConfirmation } from '@/components/auth/ResendConfirmation'
+
+/** As the sign-up mockup says. */
+const PASSWORD_MIN = 8
 
 export default function SignUp() {
   const { signUp, session, loading } = useAuth()
 
-  const [displayName, setDisplayName] = useState('')
-  const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
   const [sentTo, setSentTo] = useState<string | null>(null)
-
-  // The rule (4–20 characters, letters, numbers, _ and .) and uniqueness
-  // are checked as you type, and again by the database (migration 0037).
-  const usernameStatus = useUsernameStatus(username)
 
   if (!loading && session) return <Navigate to="/" replace />
 
@@ -37,28 +27,15 @@ export default function SignUp() {
     e.preventDefault()
     setError(null)
 
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters.')
-      return
-    }
-    const problem = usernameProblem(normalizeUsername(username))
-    if (problem) {
-      setError(`Username: ${USERNAME_MESSAGES[problem].toLowerCase()}.`)
-      return
-    }
-    if (!usernameSubmittable(usernameStatus)) {
-      setError('That username is taken. Pick another.')
+    if (password.length < PASSWORD_MIN) {
+      setError(`Password must be at least ${PASSWORD_MIN} characters.`)
       return
     }
 
     setPending(true)
     try {
-      const { needsEmailConfirmation } = await signUp({
-        email,
-        password,
-        username: normalizeUsername(username),
-        displayName,
-      })
+      // Username, display name and the rest come next, in setup.
+      const { needsEmailConfirmation } = await signUp({ email, password })
       // Email confirmation is on for this project, so there's no session yet —
       // the profiles row is created by the on_auth_user_created trigger.
       if (needsEmailConfirmation) {
@@ -75,24 +52,32 @@ export default function SignUp() {
     return (
       <AuthLayout
         title="Check your email"
-        subtitle={`We sent a confirmation link to ${sentTo}.`}
+        subtitle="One more step before we set up your profile."
         footer={
-          <Link
-            to="/login"
-            className="text-accent transition-colors duration-200 hover:text-foreground"
+          <button
+            type="button"
+            onClick={() => setSentTo(null)}
+            className="inline-flex min-h-11 items-center text-accent transition-colors duration-200 hover:text-foreground"
           >
-            Back to log in
-          </Link>
+            Wrong email? Go back
+          </button>
         }
       >
-        <div className="flex flex-col items-center gap-4 py-2 text-center">
-          <span className="grid size-12 place-items-center rounded-full bg-success/10">
-            <MailCheck className="size-6 text-success" strokeWidth={1.75} />
+        <div className="flex flex-col items-center gap-4 py-1 text-center">
+          <span className="grid size-14 place-items-center rounded-full bg-primary/15">
+            <MailCheck className="size-7 text-accent" strokeWidth={1.75} />
           </span>
-          <p className="text-body text-muted-foreground">
-            Click the link to activate your account, then come back and log in.
-            It can take a minute to arrive — check spam too.
+          <p className="text-body text-foreground">
+            We sent a confirmation link to <b className="break-all">{sentTo}</b>.
           </p>
+          <p className="text-secondary text-muted-foreground">
+            Open it on this phone or any other device and you'll go straight to setting up your profile. It can take a
+            minute to arrive; check spam too.
+          </p>
+          <ResendConfirmation email={sentTo} className="w-full" />
+          <Link to="/login" className="inline-flex min-h-11 items-center text-secondary text-muted-foreground hover:text-foreground">
+            Already confirmed? Log in
+          </Link>
         </div>
       </AuthLayout>
     )
@@ -101,7 +86,7 @@ export default function SignUp() {
   return (
     <AuthLayout
       title="Create your account"
-      subtitle="Rate, review, and build your library."
+      subtitle="Rate songs, write reviews, and see what your friends are listening to."
       footer={
         <>
           Already have an account?{' '}
@@ -116,18 +101,6 @@ export default function SignUp() {
     >
       <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
         {error && <FormAlert tone="error">{error}</FormAlert>}
-
-        <TextField
-          label="Display name"
-          name="displayName"
-          autoComplete="name"
-          placeholder="Sara A."
-          required
-          value={displayName}
-          onChange={(e) => setDisplayName(e.target.value)}
-        />
-
-        <UsernameField value={username} onChange={setUsername} status={usernameStatus} disabled={pending} />
 
         <TextField
           label="Email"
@@ -147,16 +120,15 @@ export default function SignUp() {
           autoComplete="new-password"
           placeholder="••••••••"
           required
-          minLength={6}
-          hint="At least 6 characters."
+          minLength={PASSWORD_MIN}
+          hint={`At least ${PASSWORD_MIN} characters`}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
 
         <div className="mt-1">
           <SubmitButton
-            pending={pending || usernameStatus.state === 'checking'}
-            disabled={!usernameSubmittable(usernameStatus)}
+            pending={pending}
           >
             {pending ? 'Creating account…' : 'Create account'}
           </SubmitButton>

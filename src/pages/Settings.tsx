@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { LogOut } from 'lucide-react'
 import { Toggle } from '@/components/ui/Toggle'
+import { BeatieImage } from '@/components/beatie/BeatieImage'
 import { Card } from '@/components/ui/Card'
 import { SectionHeader } from '@/components/ui/SectionHeader'
 import { Skeleton } from '@/components/ui/Skeleton'
@@ -209,6 +210,23 @@ export default function Settings() {
           }}
         />
       )}
+
+      <Section title="Getting started">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex min-w-0 flex-col gap-0.5">
+            <span className="text-body text-foreground">Beatie's tour</span>
+            <span className="text-meta text-muted-foreground">A quick look around Home, step by step.</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => navigate('/?tour=1')}
+            className="flex min-h-11 w-fit items-center gap-2 rounded-button border border-line-strong bg-surface-2 px-4 text-button text-foreground transition-colors duration-200 ease-soft hover:bg-white/10"
+          >
+            <BeatieImage mood="mark" size={20} />
+            Replay tour
+          </button>
+        </div>
+      </Section>
 
       <Section title="Account">
         <div className="flex flex-col gap-4">

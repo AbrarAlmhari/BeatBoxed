@@ -15,12 +15,15 @@ export function UsernameField({
   status,
   disabled,
   autoFocus,
+  rule = USERNAME_RULE,
 }: {
   value: string
   onChange: (next: string) => void
   status: UsernameStatus
   disabled?: boolean
   autoFocus?: boolean
+  /** The line under the field; the rule itself unless a page words it its own way. */
+  rule?: string
 }) {
   const id = useId()
   const name = value.trim()
@@ -60,7 +63,7 @@ export function UsernameField({
         />
       </div>
       <p id={`${id}-rule`} className="text-meta text-muted-foreground">
-        {USERNAME_RULE}
+        {rule}
       </p>
       <p
         id={`${id}-status`}

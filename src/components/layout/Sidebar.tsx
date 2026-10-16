@@ -27,6 +27,7 @@ export function Sidebar() {
           <NavLink
             key={to}
             to={to}
+            data-tour={`nav-${label.toLowerCase()}`}
             end
             title={label}
             className={({ isActive }) =>
