@@ -48,7 +48,7 @@ export function PlaylistForm({
   const [error, setError] = useState<string | null>(null)
 
   const field =
-    'w-full rounded-button bg-surface-2 px-3 py-2 text-body text-foreground outline-none ring-1 ring-white/5 transition-shadow duration-200 ease-soft placeholder:text-muted-foreground focus:ring-primary/60'
+    'w-full rounded-button bg-surface-2 px-3 py-2 text-body text-foreground outline-none ring-1 ring-line-strong transition-shadow duration-200 ease-soft placeholder:text-muted-foreground focus:ring-primary/60'
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
@@ -115,7 +115,7 @@ export function PlaylistForm({
         <button
           type="submit"
           disabled={saving}
-          className="flex items-center gap-1.5 rounded-button bg-primary px-3 py-1.5 text-button text-white transition-all duration-200 ease-soft hover:bg-primary/90 active:scale-[0.97] disabled:opacity-60"
+          className="flex items-center gap-1.5 min-h-11 rounded-button bg-primary px-3 text-button text-white transition-all duration-200 ease-soft hover:bg-primary/90 active:scale-[0.97] disabled:opacity-60"
         >
           {saving && <Loader2 className="size-3.5 animate-spin" aria-hidden />}
           {submitLabel}
@@ -123,7 +123,7 @@ export function PlaylistForm({
         <button
           type="button"
           onClick={onCancel}
-          className="rounded-button px-3 py-1.5 text-button text-muted-foreground transition-colors duration-200 ease-soft hover:text-foreground"
+          className="min-h-11 rounded-button px-3 text-button text-muted-foreground transition-colors duration-200 ease-soft hover:text-foreground"
         >
           Cancel
         </button>

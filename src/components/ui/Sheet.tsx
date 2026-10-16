@@ -1,5 +1,6 @@
 import { useEffect, useRef, type ReactNode } from 'react'
 import { cn } from '@/lib/cn'
+import { SHEET_HANDLE } from './Modal'
 
 /**
  * A small surface anchored to the control that opened it: a bottom sheet on
@@ -9,7 +10,7 @@ import { cn } from '@/lib/cn'
  * for a two-step inline choice, and that stays the pattern for destructive
  * yes/no questions. It can't hold a scrollable list of playlists, which is
  * why this exists. Everything here is built from the same tokens — surface,
- * rounded-card, ease-soft — so it reads as the same system rather than a new
+ * rounded-sheet, ease-soft — so it reads as the same system rather than a new
  * one.
  */
 export function Sheet({
@@ -60,14 +61,15 @@ export function Sheet({
         aria-label={title}
         tabIndex={-1}
         className={cn(
-          'z-50 flex flex-col gap-1 bg-surface shadow-card outline-none',
+          'z-50 flex flex-col gap-1 border border-line bg-surface shadow-raised outline-none',
           // Phone: bottom sheet, full width, rounded top corners only.
-          'fixed inset-x-0 bottom-0 max-h-[70vh] overflow-y-auto rounded-t-card p-4 pb-[max(1rem,env(safe-area-inset-bottom))]',
+          'fixed inset-x-0 bottom-0 max-h-[70vh] overflow-y-auto rounded-t-sheet border-b-0 p-4 pt-0 pb-[max(1rem,env(safe-area-inset-bottom))]',
           // Desktop: popover anchored under the trigger.
-          'sm:absolute sm:inset-x-auto sm:bottom-auto sm:right-0 sm:top-full sm:mt-2 sm:max-h-80 sm:w-72 sm:rounded-card sm:p-2 sm:pb-2',
+          'sm:absolute sm:inset-x-auto sm:bottom-auto sm:right-0 sm:top-full sm:mt-2 sm:max-h-80 sm:w-72 sm:rounded-card sm:border-b sm:p-2 sm:pb-2',
           className
         )}
       >
+        <span aria-hidden className={cn(SHEET_HANDLE, 'mb-2')} />
         <p className="px-1 pb-2 text-card-title sm:hidden">{title}</p>
         {children}
       </div>

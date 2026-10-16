@@ -21,7 +21,7 @@ export function Toggle({
   onChange: (next: boolean) => void
 }) {
   return (
-    <label className="flex cursor-pointer items-start justify-between gap-4 py-2.5">
+    <label className="flex min-h-12 cursor-pointer items-start justify-between gap-4 py-2.5">
       <span className="flex min-w-0 flex-col gap-0.5">
         <span className="text-body text-foreground">{label}</span>
         {hint && <span className="text-meta text-muted-foreground">{hint}</span>}

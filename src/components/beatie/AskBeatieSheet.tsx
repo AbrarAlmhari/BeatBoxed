@@ -52,7 +52,7 @@ export function AskBeatieSheet({ open, onClose }: { open: boolean; onClose: () =
             type="button"
             onClick={() => setStep(1)}
             aria-label="Pick another song"
-            className="-ml-2 grid size-9 place-items-center rounded-full text-muted-foreground hover:bg-white/5 hover:text-foreground"
+            className="-ml-3 grid size-11 place-items-center rounded-full text-muted-foreground hover:bg-white/5 hover:text-foreground"
           >
             <ArrowLeft className="size-5" strokeWidth={1.75} />
           </button>
@@ -65,7 +65,7 @@ export function AskBeatieSheet({ open, onClose }: { open: boolean; onClose: () =
           type="button"
           onClick={onClose}
           aria-label="Close"
-          className="-mr-2 grid size-9 place-items-center rounded-full text-muted-foreground hover:bg-white/5 hover:text-foreground"
+          className="-mr-3 grid size-11 place-items-center rounded-full text-muted-foreground hover:bg-white/5 hover:text-foreground"
         >
           <X className="size-5" strokeWidth={1.75} />
         </button>
@@ -99,7 +99,7 @@ export function AskBeatieSheet({ open, onClose }: { open: boolean; onClose: () =
               <Link
                 to={`/song/${song.id}`}
                 onClick={onClose}
-                className="shrink-0 rounded-button px-2 py-1.5 text-meta text-accent transition-colors duration-200 ease-soft hover:text-foreground"
+                className="min-h-11 shrink-0 rounded-button px-2 text-meta text-accent transition-colors duration-200 ease-soft hover:text-foreground"
               >
                 Open song page
               </Link>

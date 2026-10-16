@@ -145,7 +145,7 @@ export function SongPicker({
         {label}
       </label>
       {/* One bordered control: the input, and the list hanging off it. */}
-      <div className="overflow-hidden rounded-card border border-white/10 bg-surface-2 transition-colors duration-200 ease-soft focus-within:border-primary/70">
+      <div className="overflow-hidden rounded-card border border-line-strong bg-surface-2 transition-colors duration-200 ease-soft focus-within:border-primary/70">
         <div className="relative">
           <Search
             className="pointer-events-none absolute left-3.5 top-1/2 size-[18px] -translate-y-1/2 text-muted-foreground"

@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { Disc3, Loader2, Pause, Play, SkipBack, SkipForward, X } from 'lucide-react'
 import { usePlayer } from '@/lib/player'
 import { cn } from '@/lib/cn'
@@ -7,6 +7,8 @@ import { cn } from '@/lib/cn'
  * Slim bar once something is playing. Sits above the bottom nav on phones and
  * along the bottom on desktop. AppShell adds matching bottom padding so the
  * page never hides behind it.
+ *
+ * Hidden while Now Playing is open: that page has every control already.
  */
 export function MiniPlayer() {
   const {
@@ -22,8 +24,9 @@ export function MiniPlayer() {
     previous,
     stop,
   } = usePlayer()
+  const { pathname } = useLocation()
 
-  if (!current) return null
+  if (!current || pathname === '/now-playing') return null
   const pct = duration > 0 ? (position / duration) * 100 : 0
 
   return (
@@ -32,10 +35,10 @@ export function MiniPlayer() {
       // player" needs a handle of its own for assistive tech and tests.
       role="region"
       aria-label="Mini player"
-      className="fixed inset-x-0 bottom-[68px] z-30 border-t border-white/5 bg-surface/95 backdrop-blur-xl md:bottom-0 md:left-20 lg:left-60"
+      className="glass-bar fixed inset-x-0 bottom-[68px] z-30 border-t border-line md:bottom-0 md:left-20 lg:left-60"
       style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
     >
-      <div className="h-0.5 w-full bg-white/5">
+      <div className="h-0.5 w-full bg-line">
         <div
           className="h-full bg-primary transition-[width] duration-200 ease-linear"
           style={{ width: `${pct}%` }}
@@ -50,7 +53,7 @@ export function MiniPlayer() {
           <Link
             to="/now-playing"
             aria-label="Now playing"
-            className="size-10 shrink-0 overflow-hidden rounded-[8px]"
+            className="size-11 shrink-0 overflow-hidden rounded-thumb"
           >
             {current.coverUrl ? (
               <img src={current.coverUrl} alt="" className="size-full object-cover" />
@@ -100,7 +103,7 @@ export function MiniPlayer() {
           type="button"
           onClick={previous}
           aria-label="Previous"
-          className="hidden size-10 shrink-0 place-items-center rounded-full text-muted-foreground transition-all duration-200 ease-soft hover:bg-white/5 hover:text-foreground active:scale-95 min-[380px]:grid"
+          className="hidden size-11 shrink-0 place-items-center rounded-full text-muted-foreground transition-all duration-200 ease-soft hover:bg-white/5 hover:text-foreground active:scale-95 min-[380px]:grid"
         >
           <SkipBack className="size-5" strokeWidth={2} />
         </button>
@@ -111,7 +114,7 @@ export function MiniPlayer() {
           disabled={loading || unavailable}
           aria-label={isPlaying ? 'Pause' : 'Play'}
           className={cn(
-            'grid size-10 shrink-0 place-items-center rounded-full text-foreground transition-all duration-200 ease-soft hover:bg-white/5 active:scale-95',
+            'grid size-11 shrink-0 place-items-center rounded-full text-foreground transition-all duration-200 ease-soft hover:bg-white/5 active:scale-95',
             (loading || unavailable) && 'opacity-40'
           )}
         >
@@ -128,7 +131,7 @@ export function MiniPlayer() {
           type="button"
           onClick={next}
           aria-label="Next"
-          className="grid size-10 shrink-0 place-items-center rounded-full text-muted-foreground transition-all duration-200 ease-soft hover:bg-white/5 hover:text-foreground active:scale-95"
+          className="grid size-11 shrink-0 place-items-center rounded-full text-muted-foreground transition-all duration-200 ease-soft hover:bg-white/5 hover:text-foreground active:scale-95"
         >
           <SkipForward className="size-5" strokeWidth={2} />
         </button>
@@ -137,12 +140,13 @@ export function MiniPlayer() {
             this component renders nothing without a current track. Separated
             by a hairline so it doesn't read as another transport control —
             it's the one button here that ends the session. */}
+        <span aria-hidden className="h-6 w-px shrink-0 bg-line-strong" />
         <button
           type="button"
           onClick={stop}
           aria-label="Close player"
           title="Stop and close the player"
-          className="ms-1 grid size-10 shrink-0 place-items-center rounded-full border-s border-white/5 ps-1 text-muted-foreground transition-all duration-200 ease-soft hover:bg-white/5 hover:text-foreground active:scale-95"
+          className="grid size-11 shrink-0 place-items-center rounded-full text-muted-foreground transition-all duration-200 ease-soft hover:bg-white/5 hover:text-foreground active:scale-95"
         >
           <X className="size-5" strokeWidth={2} />
         </button>

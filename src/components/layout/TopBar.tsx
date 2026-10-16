@@ -19,6 +19,15 @@ function shouldShowBack(pathname: string) {
   return !NAV_ITEMS.some((item) => item.to === pathname)
 }
 
+/**
+ * A profile page (/profile or /profile/:userId, not its sub-lists) draws
+ * its own top bar on phones — back and "⋯" over the header's glow — so this
+ * one steps aside there below md.
+ */
+function isProfilePage(pathname: string) {
+  return pathname === '/profile' || /^\/profile\/[^/]+\/?$/.test(pathname)
+}
+
 export function TopBar() {
   const { user } = useAuth()
   const location = useLocation()
@@ -40,9 +49,16 @@ export function TopBar() {
   }, [user, location.pathname])
 
   const showBack = shouldShowBack(location.pathname)
+  const profilePage = isProfilePage(location.pathname)
 
   return (
-    <header className="sticky top-0 z-20 -mx-4 mb-2 flex items-center gap-3 border-b border-white/5 bg-background/80 px-4 py-3 backdrop-blur-xl sm:-mx-6 sm:px-6 md:border-b-0 md:bg-transparent md:backdrop-blur-none lg:-mx-8 lg:px-8">
+    <header
+      className={cn(
+        'sticky top-0 z-20 -mx-4 mb-2 items-center',
+        profilePage ? 'hidden md:flex' : 'flex',
+        'glass-bar gap-3 border-b border-line px-4 py-3 sm:-mx-6 sm:px-6 md:border-b-0 md:bg-transparent md:backdrop-blur-none lg:-mx-8 lg:px-8'
+      )}
+    >
       {showBack ? (
         <BackButton className="-ml-2" />
       ) : (
@@ -61,7 +77,7 @@ export function TopBar() {
         aria-label={badge > 0 ? `Notifications, ${badge} new` : 'Notifications'}
         className={({ isActive }) =>
           cn(
-            'relative grid size-10 shrink-0 place-items-center rounded-full transition-all duration-200 ease-soft hover:bg-white/5 hover:text-foreground active:scale-95',
+            'relative grid size-11 shrink-0 place-items-center rounded-full transition-all duration-200 ease-soft hover:bg-white/5 hover:text-foreground active:scale-95',
             // Stays active on /notifications/requests too, so the bell doesn't
             // go dim once you step into the requests list.
             isActive ? 'bg-primary/15 text-foreground' : 'text-muted-foreground'

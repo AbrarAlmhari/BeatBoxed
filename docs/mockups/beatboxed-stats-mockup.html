@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BeatBoxed Stats</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#050508; --surface:#0D0D12; --card:#15151C; --raised:#20202A; --line:rgba(255,255,255,0.07);
+  --text:#FFFFFF; --text-2:#C9C9D1; --muted:#A1A1AA; --faint:#71717A;
+  --accent:#8B5CF6; --accent-hi:#A78BFA; --accent-soft:rgba(139,92,246,0.16); --accent-line:rgba(139,92,246,0.55);
+  --bar-dim:rgba(139,92,246,0.45); --gold:#F5B94A;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;padding:32px 16px 80px}
+button{font:inherit;color:inherit}
+.page-head{max-width:1240px;margin:0 auto 28px}
+.page-head h1{margin:0 0 6px;font-size:24px;letter-spacing:-0.02em}
+.page-head p{margin:0;color:var(--muted);font-size:14px;line-height:1.55;max-width:820px}
+.row{max-width:1240px;margin:0 auto 40px;display:flex;gap:32px;flex-wrap:wrap;justify-content:center}
+.cap{display:flex;flex-direction:column;gap:10px}
+.cap h2{margin:0;font-size:13px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--accent-hi)}
+.cap p{margin:0;font-size:13px;color:var(--muted);max-width:390px;line-height:1.5}
+
+/* frames */
+.frame{container-type:inline-size;background:var(--surface);border:1px solid rgba(255,255,255,0.08);border-radius:28px;overflow:hidden;position:relative;box-shadow:0 30px 70px -35px rgba(0,0,0,.9)}
+.phone{width:390px;max-width:100%;height:844px;display:flex;flex-direction:column}
+.desktop{width:1180px;max-width:100%;border-radius:18px;display:flex;min-height:900px}
+.scroller{flex:1;overflow-y:auto;scrollbar-width:none}
+.scroller::-webkit-scrollbar{display:none}
+
+/* desktop sidebar */
+.side{width:76px;border-right:1px solid var(--line);display:flex;flex-direction:column;align-items:center;gap:14px;padding:20px 0;flex-shrink:0}
+.side .logo{width:40px;height:40px;border-radius:12px;background:radial-gradient(circle at 35% 30%,#a78bfa,#5b21b6);margin-bottom:12px}
+.side a{width:48px;height:48px;border-radius:14px;display:grid;place-items:center;color:var(--muted)}
+.side a.on{background:var(--accent-soft);color:var(--text)}
+
+/* profile header */
+.hero{position:relative;padding:22px 18px 0}
+.hero::before{content:"";position:absolute;inset:-80px -40px auto;height:320px;background:radial-gradient(60% 60% at 30% 40%,rgba(139,92,246,.35),transparent 70%),radial-gradient(40% 50% at 85% 20%,rgba(236,72,153,.14),transparent 70%);pointer-events:none}
+.hero > *{position:relative}
+.topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+.iconbtn{width:44px;height:44px;border-radius:999px;display:grid;place-items:center;background:rgba(255,255,255,.06);border:none;cursor:pointer}
+.who{display:flex;gap:14px;align-items:center}
+.avatar{width:72px;height:72px;border-radius:999px;background:conic-gradient(from 200deg,#8B5CF6,#EC4899,#F5B94A,#8B5CF6);padding:3px;flex-shrink:0}
+.avatar span{display:grid;place-items:center;width:100%;height:100%;border-radius:999px;background:#2a2140;font-size:26px;font-weight:700}
+.who h3{margin:0;font-size:20px;letter-spacing:-0.01em}
+.who .handle{color:var(--muted);font-size:14px;margin-top:2px}
+.counts{display:flex;gap:14px;margin:16px 0 14px;font-size:12.5px;white-space:nowrap;color:var(--muted)}
+.counts b{color:var(--text);font-size:15px;margin-right:4px}
+.edit{height:40px;padding:0 16px;border-radius:12px;background:var(--raised);border:1px solid var(--line);font-size:14px;font-weight:600;cursor:pointer}
+.tabs{display:flex;gap:4px;margin-top:18px;border-bottom:1px solid var(--line);position:sticky;top:0;background:linear-gradient(var(--surface),var(--surface));z-index:5;padding:0 18px;margin-left:-18px;margin-right:-18px}
+.tabs button{flex:1;height:46px;background:none;border:none;color:var(--muted);font-size:14px;font-weight:600;border-bottom:2px solid transparent;cursor:pointer}
+.tabs button.on{color:var(--text);border-bottom-color:var(--accent)}
+
+/* stats body */
+.stats{padding:18px 18px 110px;display:grid;grid-template-columns:minmax(0,1fr);gap:14px}
+.stats > *{min-width:0}
+.range{display:flex;gap:6px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:4px;position:sticky;top:10px;z-index:4;backdrop-filter:blur(8px);box-shadow:0 8px 20px -10px rgba(0,0,0,.8)}
+.range button{flex:1;height:38px;border-radius:10px;border:none;background:none;color:var(--muted);font-size:13px;font-weight:600;cursor:pointer}
+.range button[aria-pressed="true"]{background:var(--accent-soft);color:var(--text);box-shadow:inset 0 0 0 1px var(--accent-line)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px}
+.card h4{margin:0;font-size:15px;font-weight:700}
+.card .sub{margin:3px 0 0;font-size:12px;color:var(--muted)}
+.cardhead{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:14px}
+.link{font-size:13px;font-weight:600;color:var(--accent-hi);background:none;border:none;cursor:pointer;min-height:44px;padding:0 4px}
+
+/* headline tiles */
+.tiles{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px}
+.tile .v{font-size:26px;font-weight:800;letter-spacing:-0.02em;font-variant-numeric:tabular-nums}
+.tile .v small{font-size:15px;color:var(--gold);margin-left:2px}
+.tile .k{font-size:12px;color:var(--muted);margin-top:2px}
+
+/* beatie summary */
+.beatie-say{display:flex;gap:12px;align-items:center;padding:14px 16px;border-radius:18px;background:linear-gradient(110deg,rgba(139,92,246,.22),rgba(139,92,246,.05));border:1px solid var(--accent-line)}
+.beatie-say .b{width:44px;height:44px;flex-shrink:0}
+.beatie-say p{margin:0;font-size:14px;line-height:1.45}
+.beatie-say p small{display:block;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--accent-hi);margin-bottom:2px}
+
+/* genre rows */
+.genres{display:flex;flex-direction:column;gap:2px}
+.grow{display:grid;grid-template-columns:104px 1fr auto;align-items:center;gap:10px;min-height:44px;padding:0 6px;margin:0 -6px;border-radius:10px;background:none;border:none;text-align:left;cursor:pointer;width:calc(100% + 12px)}
+.grow:hover,.grow:focus-visible{background:rgba(255,255,255,.04)}
+.grow:focus-visible,.vbar:focus-visible,.artist:focus-visible,button:focus-visible{outline:2px solid var(--accent-hi);outline-offset:2px}
+.gname{font-size:13px;font-weight:600;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.track{display:block;height:12px;border-radius:0 4px 4px 0;background:rgba(255,255,255,.04);position:relative;overflow:hidden}
+.fill{display:block;height:100%;border-radius:0 4px 4px 0;background:var(--bar-dim);width:0;transition:width .7s cubic-bezier(.2,.8,.2,1)}
+.grow.top .fill{background:var(--accent)}
+.gval{font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;min-width:58px;text-align:right}
+.gval span{color:var(--muted);font-weight:500;margin-left:6px;font-size:12px}
+.gdetail{grid-column:1/-1;display:none;gap:6px;flex-wrap:wrap;padding:2px 0 10px 114px}
+.grow[aria-expanded="true"] + .gdetail{display:flex}
+.chip{font-size:12px;padding:5px 10px;border-radius:999px;background:var(--raised);color:var(--text-2)}
+.note{font-size:11.5px;color:var(--faint);margin-top:10px;display:flex;gap:6px;align-items:center}
+
+/* vertical bars */
+.vchart{display:grid;align-items:end;gap:8px;height:160px;padding-top:22px;position:relative}
+.vbar{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;gap:6px;background:none;border:none;cursor:pointer;padding:0;position:relative;min-width:0}
+.vbar .col{display:block;width:100%;max-width:44px;border-radius:4px 4px 0 0;background:var(--bar-dim);height:0;transition:height .7s cubic-bezier(.2,.8,.2,1)}
+.vbar.top .col{background:var(--accent)}
+.vbar .num{font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--text-2)}
+.vbar.top .num{color:var(--text)}
+.xlabels{display:grid;gap:8px;margin-top:8px;border-top:1px solid var(--line);padding-top:8px}
+.xlabels span{text-align:center;font-size:12px;color:var(--muted);font-weight:600}
+.xlabels .stars{color:var(--gold);letter-spacing:-1px}
+.avgline{position:absolute;left:0;right:0;border-top:1.5px dashed rgba(245,185,74,.6);pointer-events:none}
+.avgline span{position:absolute;right:0;top:-20px;font-size:11px;font-weight:600;color:var(--gold);background:var(--card);padding:0 4px}
+
+/* tooltip */
+.tip{position:absolute;z-index:20;pointer-events:none;background:#2A2A36;border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:8px 10px;font-size:12px;line-height:1.4;box-shadow:0 10px 24px -10px rgba(0,0,0,.8);opacity:0;transform:translate(-50%,-100%);transition:opacity .12s;white-space:nowrap}
+.tip b{display:block;font-size:13px}
+.tip.show{opacity:1}
+
+/* top artists */
+.artists{display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;margin:0 -16px;padding:2px 16px 4px;scrollbar-width:none}
+.artists::-webkit-scrollbar{display:none}
+.artist{scroll-snap-align:start;flex:0 0 126px;background:var(--raised);border:1px solid var(--line);border-radius:16px;padding:12px;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;cursor:pointer}
+.artist .ph{width:72px;height:72px;border-radius:999px;display:grid;place-items:center;font-weight:800;font-size:22px;position:relative}
+.artist .rank{position:absolute;left:-4px;top:-4px;width:24px;height:24px;border-radius:999px;background:var(--surface);border:2px solid var(--accent);font-size:11px;display:grid;place-items:center}
+.artist b{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.artist small{font-size:11.5px;color:var(--muted);white-space:nowrap}
+.artist small i{font-style:normal;color:var(--gold)}
+
+.share{height:52px;border-radius:14px;border:none;background:var(--accent);color:#fff;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 10px 30px -12px rgba(139,92,246,.8)}
+
+/* empty state */
+.empty{display:flex;flex-direction:column;align-items:center;text-align:center;gap:12px;padding:36px 22px}
+.empty .b{width:120px;height:120px}
+.empty h4{margin:0;font-size:18px}
+.empty p{margin:0;color:var(--muted);font-size:14px;line-height:1.5;max-width:280px}
+.progress{width:220px;height:8px;border-radius:999px;background:var(--raised);overflow:hidden}
+.progress i{display:block;height:100%;width:40%;background:var(--accent);border-radius:999px}
+.ghost{opacity:.35;filter:grayscale(.4);pointer-events:none}
+
+/* bottom nav */
+nav.bottom{position:absolute;left:0;right:0;bottom:0;height:68px;display:grid;grid-template-columns:repeat(4,1fr);background:rgba(13,13,18,.96);border-top:1px solid var(--line);z-index:10;backdrop-filter:blur(8px)}
+nav.bottom a{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:11px;color:var(--muted);text-decoration:none;font-weight:500}
+nav.bottom a.on{color:var(--text)}
+nav.bottom a.on span{background:var(--accent-soft);border-radius:999px;padding:3px 14px}
+
+/* sr-only table */
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* desktop layout via container query */
+@container (min-width: 760px){
+  .hero{padding:32px 40px 0}
+  .tabs{padding:0 40px;margin-left:-40px;margin-right:-40px}
+  .tabs button{flex:0 0 auto;padding:0 22px}
+  .stats{padding:24px 40px 48px;grid-template-columns:repeat(12,minmax(0,1fr));gap:16px}
+  .stats > *{grid-column:span 12}
+  .range{grid-column:span 5;position:static;align-self:center}
+  .card{align-self:start}
+  .beatie-say{grid-column:span 7}
+  .tiles{grid-template-columns:repeat(4,1fr)}
+  .c-genres{grid-column:span 7;grid-row:span 2}
+  .c-ratings{grid-column:span 5}
+  .c-decades{grid-column:span 5}
+  .c-artists{grid-column:span 12}
+  .artists{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));overflow:visible}
+  .share{grid-column:9 / 13}
+  .topbar .iconbtn.back{visibility:hidden}
+}
+@media (prefers-reduced-motion: reduce){ .fill,.vbar .col{transition:none} }
+</style>
+</head>
+<body>
+<div class="page-head">
+  <h1>Stats on the profile: mockup</h1>
+  <p>How the Stats tab could look on a phone and on desktop, plus the empty state. Everything is clickable: switch the time range, tap a genre to see its artists, and hover or tap any bar for details. Numbers are sample data.</p>
+</div>
+
+<div class="row">
+  <div class="cap"><h2>Phone · full stats</h2><p>The time range stays pinned while you scroll. Every tap target is at least 44px. Beatie sums up your taste at the top.</p>
+    <div class="frame phone" id="phone"></div></div>
+  <div class="cap"><h2>Phone · empty state</h2><p>Under 5 ratings, Beatie explains what unlocks the stats and shows the progress, with a faded preview behind.</p>
+    <div class="frame phone" id="phoneEmpty"></div></div>
+</div>
+<div class="row">
+  <div class="cap"><h2>Desktop</h2><p>Same pieces in a two-column grid: genres next to the ratings spread, artists next to decades.</p>
+    <div class="frame desktop" id="desktop"></div></div>
+</div>
+
+<div class="tip" id="tip" role="status" aria-live="polite"></div>
+
+<script>
+const BEATIE = `<svg viewBox="40 40 432 432" width="100%" height="100%" aria-hidden="true"><defs><linearGradient id="sh" x1=".2" y1="0" x2=".8" y2="1"><stop offset="0" stop-color="#EEE6FF"/><stop offset=".55" stop-color="#C3ADF5"/><stop offset="1" stop-color="#9273DF"/></linearGradient><radialGradient id="vi" cx=".45" cy=".35" r=".75"><stop offset="0" stop-color="#241640"/><stop offset="1" stop-color="#0A0616"/></radialGradient><linearGradient id="cu" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#9C80E8"/><stop offset="1" stop-color="#4E3796"/></linearGradient></defs><path d="M256 150V112" stroke="#B9A2F2" stroke-width="9" stroke-linecap="round"/><path d="M256 48C258 70 264 76 288 80C264 84 258 90 256 112C254 90 248 84 224 80C248 76 254 70 256 48Z" fill="#F2ECFF"/><path d="M96 292C96 150 176 122 256 122C336 122 416 150 416 292" stroke="#7A5CC9" stroke-width="24" stroke-linecap="round" fill="none"/><ellipse cx="256" cy="290" rx="150" ry="138" fill="url(#sh)"/><path d="M152 222C178 182 222 162 262 160" stroke="#fff" stroke-opacity=".75" stroke-width="12" stroke-linecap="round" fill="none"/><ellipse cx="256" cy="300" rx="114" ry="90" fill="url(#vi)"/><path d="M187 300Q211 270 235 300M277 300Q301 270 325 300" stroke="#E6DAFF" stroke-width="13" stroke-linecap="round" fill="none"/><path d="M236 322Q256 342 276 322" stroke="#E6DAFF" stroke-width="9" stroke-linecap="round" fill="none"/><rect x="62" y="232" width="70" height="124" rx="35" fill="url(#cu)"/><rect x="76" y="250" width="42" height="88" rx="21" fill="#2A1B52"/><rect x="380" y="232" width="70" height="124" rx="35" fill="url(#cu)"/><rect x="394" y="250" width="42" height="88" rx="21" fill="#2A1B52"/></svg>`;
+const BEATIE_THINK = BEATIE.replace('M187 300Q211 270 235 300M277 300Q301 270 325 300','M197 292a14 18 0 1 0 28 0a14 18 0 1 0-28 0M281 296L321 290').replace('M236 322Q256 342 276 322','M244 330Q258 324 270 330');
+
+// Sample data per range. Entities keep their order and colour across ranges.
+const DATA = {
+  all:  {label:"All time", ratings:128, avg:3.9, artists:42, reviews:34,
+         genres:[["Arabic",31,4.3,["Amr Diab","Fairuz","Nancy Ajram"]],["Pop",24,3.8,["The Weeknd","Dua Lipa","Taylor Swift"]],["Indie & Alt",18,4.2,["Radiohead","Arctic Monkeys","Mitski"]],["R&B & Soul",12,4.0,["SZA","Frank Ocean","Daniel Caesar"]],["Hip-Hop",9,3.6,["Kendrick Lamar","Drake"]],["Electronic",6,3.5,["Daft Punk","Disclosure"]],["Khaleeji",4,4.5,["Mohammed Abdu","Rashed Al Majed"]],["Other",5,3.4,["Various"]]],
+         spread:[4,9,22,51,42], decades:[["70s",2],["80s",6],["90s",11],["00s",24],["10s",49],["20s",36]],
+         top:[["Amr Diab",14,4.4,"#7C3AED"],["Fairuz",11,4.7,"#BE185D"],["The Weeknd",9,4.1,"#B91C1C"],["Radiohead",8,4.5,"#0F766E"],["Nancy Ajram",7,3.9,"#C2410C"]],
+         say:"Mostly <b>Arabic</b> and <b>pop</b>, with a soft spot for the <b>2010s</b>. You're generous: most of your ratings are 4★ or higher."},
+  year: {label:"This year", ratings:61, avg:4.0, artists:27, reviews:15,
+         genres:[["Arabic",16,4.4,["Amr Diab","Fairuz"]],["Pop",11,3.9,["The Weeknd","Dua Lipa"]],["Indie & Alt",10,4.3,["Mitski","Radiohead"]],["R&B & Soul",8,4.1,["SZA","Frank Ocean"]],["Hip-Hop",4,3.5,["Kendrick Lamar"]],["Electronic",2,3.5,["Disclosure"]],["Khaleeji",3,4.7,["Mohammed Abdu"]],["Other",2,3.0,["Various"]]],
+         spread:[1,4,10,24,22], decades:[["70s",1],["80s",2],["90s",4],["00s",9],["10s",21],["20s",24]],
+         top:[["Amr Diab",8,4.5,"#7C3AED"],["Mitski",6,4.3,"#0369A1"],["Fairuz",5,4.8,"#BE185D"],["SZA",5,4.2,"#A16207"],["The Weeknd",4,4.0,"#B91C1C"]],
+         say:"This year you leaned into <b>Arabic</b> and <b>indie</b>, and you're rating more new music from the <b>2020s</b>."},
+  d30:  {label:"Last 30 days", ratings:14, avg:4.1, artists:9, reviews:4,
+         genres:[["Arabic",5,4.6,["Amr Diab"]],["Pop",2,3.5,["Dua Lipa"]],["Indie & Alt",3,4.3,["Mitski"]],["R&B & Soul",2,4.0,["SZA"]],["Hip-Hop",1,3.0,["Drake"]],["Electronic",0,0,[]],["Khaleeji",1,5.0,["Mohammed Abdu"]],["Other",0,0,[]]],
+         spread:[0,1,2,6,5], decades:[["70s",0],["80s",0],["90s",1],["00s",2],["10s",4],["20s",7]],
+         top:[["Amr Diab",4,4.6,"#7C3AED"],["Mitski",3,4.3,"#0369A1"],["SZA",2,4.0,"#A16207"],["Dua Lipa",2,3.5,"#9D174D"],["Fairuz",1,5.0,"#BE185D"]],
+         say:"A busy month for <b>Amr Diab</b>. You've rated 4 of his songs, averaging 4.6★."}
+};
+
+const icon = {
+  back:`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>`,
+  more:`<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>`,
+  share:`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v13"/></svg>`,
+  info:`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.01"/></svg>`
+};
+const nav = `<nav class="bottom" aria-label="Primary">
+  <a href="#"><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5V21h-6v-6H9v6H3z"/></svg></span>Home</a>
+  <a href="#"><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="12" cy="12" r="9"/><path d="m16 8-2 6-6 2 2-6z"/></svg></span>Explore</a>
+  <a href="#"><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M5 4v16M10 4v16M15 5l4 15"/></svg></span>Library</a>
+  <a class="on" href="#"><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8B5CF6" stroke-width="2.2"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg></span>Profile</a>
+</nav>`;
+const sidebar = `<aside class="side"><div class="logo"></div>
+  <a href="#" aria-label="Home"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5V21h-6v-6H9v6H3z"/></svg></a>
+  <a href="#" aria-label="Explore"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="12" cy="12" r="9"/><path d="m16 8-2 6-6 2 2-6z"/></svg></a>
+  <a href="#" aria-label="Library"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M5 4v16M10 4v16M15 5l4 15"/></svg></a>
+  <a href="#" class="on" aria-label="Profile"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8B5CF6" stroke-width="2.2"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg></a></aside>`;
+
+const header = (counts) => `
+<div class="hero">
+  <div class="topbar"><button class="iconbtn back" aria-label="Back">${icon.back}</button><button class="iconbtn" aria-label="More options">${icon.more}</button></div>
+  <div class="who"><div class="avatar"><span>Q</span></div><div><h3>Queen</h3><div class="handle">@queen</div></div></div>
+  <div class="counts"><span><b>${counts.ratings}</b>ratings</span><span><b>${counts.reviews}</b>reviews</span><span><b>86</b>followers</span><span><b>71</b>following</span></div>
+  <button class="edit">Edit profile</button>
+  <div class="tabs" role="tablist"><button role="tab">Reviews</button><button role="tab">Playlists</button><button role="tab" class="on" aria-selected="true">Stats</button><button role="tab">Likes</button></div>
+</div>`;
+
+function statsBody(id){
+  return `<section class="stats" aria-label="Music stats">
+    <div class="range" role="group" aria-label="Time range">
+      <button aria-pressed="true" data-r="all">All time</button><button aria-pressed="false" data-r="year">This year</button><button aria-pressed="false" data-r="d30">30 days</button>
+    </div>
+    <div class="beatie-say"><div class="b">${BEATIE}</div><p data-k="say"></p></div>
+    <div class="tiles" data-k="tiles"></div>
+    <div class="card c-genres">
+      <div class="cardhead"><div><h4>Top genres</h4><p class="sub">Songs you rated 3★ or higher · tap a genre</p></div></div>
+      <div class="genres" data-k="genres"></div>
+      <div class="note">${icon.info} Genres come from each artist's Wikidata page.</div>
+    </div>
+    <div class="card c-ratings">
+      <div class="cardhead"><div><h4>Ratings spread</h4><p class="sub" data-k="ratingsSub"></p></div></div>
+      <div class="vchart" data-k="spread" style="grid-template-columns:repeat(5,1fr)"></div>
+      <div class="xlabels" style="grid-template-columns:repeat(5,1fr)">${[1,2,3,4,5].map(n=>`<span class="stars">${'★'.repeat(n)}</span>`).join('')}</div>
+    </div>
+    <div class="card c-decades">
+      <div class="cardhead"><div><h4>By decade</h4><p class="sub">When the songs you rated came out</p></div></div>
+      <div class="vchart" data-k="decades" style="grid-template-columns:repeat(6,1fr)"></div>
+      <div class="xlabels" data-k="decadeLabels" style="grid-template-columns:repeat(6,1fr)"></div>
+    </div>
+    <div class="card c-artists">
+      <div class="cardhead"><div><h4>Most rated artists</h4><p class="sub">Tap to open the artist page</p></div><button class="link">See all</button></div>
+      <div class="artists" data-k="artists"></div>
+    </div>
+    <button class="share">${icon.share} Share my stats</button>
+  </section>`;
+}
+
+function render(root, key){
+  const d = DATA[key];
+  const q = k => root.querySelector(`[data-k="${k}"]`);
+  q('say').innerHTML = `<small>Beatie's take</small>${d.say}`;
+  q('tiles').innerHTML = [
+    [d.ratings,'Songs rated'],[`${d.avg.toFixed(1)}<small>★</small>`,'Average rating'],[d.artists,'Artists'],[d.genres.filter(g=>g[1]>0).length,'Genres']
+  ].map(([v,k])=>`<div class="tile"><div class="v">${v}</div><div class="k">${k}</div></div>`).join('');
+  root.querySelectorAll('.counts b')[0].textContent = DATA.all.ratings;
+
+  const gmax = Math.max(...d.genres.map(g=>g[1]));
+  const sorted = d.genres.map((g,i)=>({g,i})).filter(o=>o.g[1]>0).sort((a,b)=> (a.g[0]==='Other') - (b.g[0]==='Other') || b.g[1]-a.g[1]);
+  q('genres').innerHTML = sorted.map(({g},n)=>`
+    <button class="grow ${n===0?'top':''}" aria-expanded="false" aria-label="${g[0]}: ${g[1]} songs, average ${g[2].toFixed(1)} stars. Show artists.">
+      <span class="gname">${g[0]}</span><span class="track"><span class="fill" data-w="${(g[1]/gmax*100).toFixed(1)}"></span></span>
+      <span class="gval">${g[1]}<span>${g[2].toFixed(1)}★</span></span></button>
+    <div class="gdetail">${g[3].map(a=>`<span class="chip">${a}</span>`).join('')}</div>`).join('');
+
+  const smax = Math.max(...d.spread), stop = d.spread.indexOf(smax), total = d.spread.reduce((a,b)=>a+b,0);
+  q('ratingsSub').textContent = `${total} ratings · average ${d.avg.toFixed(1)}★`;
+  q('spread').innerHTML = d.spread.map((v,i)=>`
+    <button class="vbar ${i===stop?'top':''}" data-tip="<b>${i+1}★ · ${v} songs</b>${total?Math.round(v/total*100):0}% of your ratings" aria-label="${i+1} stars: ${v} songs">
+      <span class="num">${v}</span><span class="col" data-h="${smax?(v/smax*100).toFixed(1):0}"></span></button>`).join('')
+    + `<div class="avgline" style="display:none"></div>`;
+
+  const dmax = Math.max(...d.decades.map(x=>x[1])), dtop = d.decades.findIndex(x=>x[1]===dmax);
+  q('decades').innerHTML = d.decades.map(([k,v],i)=>`
+    <button class="vbar ${i===dtop?'top':''}" data-tip="<b>${k} · ${v} songs</b>Released in the ${k}" aria-label="${k}: ${v} songs">
+      <span class="num">${v}</span><span class="col" data-h="${dmax?(v/dmax*100).toFixed(1):0}"></span></button>`).join('');
+  q('decadeLabels').innerHTML = d.decades.map(x=>`<span>${x[0]}</span>`).join('');
+
+  q('artists').innerHTML = d.top.map(([n,c,a,col],i)=>`
+    <button class="artist" aria-label="${n}, ${c} songs rated, average ${a} stars">
+      <span class="ph" style="background:linear-gradient(140deg,${col},#1b1530)"><span class="rank">${i+1}</span>${n.split(' ').map(w=>w[0]).join('').slice(0,2)}</span>
+      <b>${n}</b><small>${c} songs · <i>${a.toFixed(1)}★</i></small></button>`).join('');
+
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    root.querySelectorAll('.fill').forEach(f=>f.style.width=f.dataset.w+'%');
+    root.querySelectorAll('.vbar .col').forEach(c=>c.style.height=Math.max(3, c.dataset.h/100*112)+'px');
+  }));
+}
+
+function wire(root){
+  root.querySelectorAll('.range button').forEach(b=>b.addEventListener('click',()=>{
+    root.querySelectorAll('.range button').forEach(x=>x.setAttribute('aria-pressed', x===b));
+    render(root, b.dataset.r);
+  }));
+  root.addEventListener('click', e=>{
+    const g = e.target.closest('.grow');
+    if (g){ g.setAttribute('aria-expanded', g.getAttribute('aria-expanded')!=='true'); }
+  });
+  const tip = document.getElementById('tip');
+  const show = el => { const r = el.querySelector('.col').getBoundingClientRect(); tip.innerHTML = el.dataset.tip;
+    tip.style.left = (r.left + r.width/2 + scrollX)+'px'; tip.style.top = (r.top + scrollY - 28)+'px'; tip.classList.add('show'); };
+  const hide = () => tip.classList.remove('show');
+  root.addEventListener('mouseover', e=>{ const v=e.target.closest('.vbar'); if(v) show(v); });
+  root.addEventListener('mouseout', e=>{ if(e.target.closest('.vbar')) hide(); });
+  root.addEventListener('focusin', e=>{ const v=e.target.closest('.vbar'); if(v) show(v); });
+  root.addEventListener('focusout', hide);
+  root.addEventListener('click', e=>{ const v=e.target.closest('.vbar'); if(v){ show(v); clearTimeout(root._t); root._t=setTimeout(hide,1800);} });
+}
+
+// Phone
+const phone = document.getElementById('phone');
+phone.innerHTML = `<div class="scroller">${header(DATA.all)}${statsBody()}</div>${nav}`;
+render(phone,'all'); wire(phone);
+
+// Desktop
+const desk = document.getElementById('desktop');
+desk.innerHTML = `${sidebar}<div class="scroller">${header(DATA.all)}${statsBody()}</div>`;
+render(desk,'all'); wire(desk);
+
+// Empty state
+const empty = document.getElementById('phoneEmpty');
+empty.innerHTML = `<div class="scroller">${header({ratings:2,reviews:0})}
+  <section class="stats">
+    <div class="card empty">
+      <div class="b">${BEATIE_THINK}</div>
+      <h4>Your stats are warming up</h4>
+      <p>Rate 3 more songs and Beatie will show your top genres, artists and favourite decade.</p>
+      <div class="progress" role="progressbar" aria-valuenow="2" aria-valuemin="0" aria-valuemax="5" aria-label="2 of 5 ratings"><i></i></div>
+      <small style="color:var(--muted);font-size:12px">2 of 5 ratings</small>
+      <button class="share" style="width:100%;margin-top:6px">Find songs to rate</button>
+    </div>
+    <div class="card ghost" aria-hidden="true">
+      <div class="cardhead"><div><h4>Top genres</h4><p class="sub">Preview</p></div></div>
+      ${[90,70,55,40].map((w,i)=>`<div class="grow ${i===0?'top':''}" style="cursor:default"><span class="gname">· · ·</span><span class="track"><span class="fill" style="width:${w}%"></span></span><span class="gval">–</span></div>`).join('')}
+    </div>
+  </section></div>${nav}`;
+empty.querySelector('.counts b').textContent = 2;
+</script>
+</body>
+</html>

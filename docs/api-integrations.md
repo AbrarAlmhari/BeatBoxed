@@ -76,6 +76,16 @@ Google retires model names: `gemini-2.5-flash` started answering 404 ("no longer
 
 **Lyrics language** (for showing the Translate button) is detected in the browser without AI: by alphabet for Arabic and Hindi, and by how many very common English words a Latin-script text has.
 
+## Artist genres — Wikidata, then MusicBrainz (no keys)
+
+Each artist's genres come from **Wikidata's "genre" (P136)** on the item whose **Spotify artist ID (P1902)** matches, the same match the bio uses: by ID, never by name, so a band called "Low" can't pick up someone else's genres. English labels only. When Wikidata has none, **MusicBrainz**: the artist linked to `https://open.spotify.com/artist/<id>` (`/ws/2/url?resource=…&inc=artist-rels`), then that artist's genres (`/ws/2/artist/<mbid>?inc=genres+tags`), or its tags with at least 2 votes when it has no genres. Neither needs a key.
+
+- **Rate limits.** MusicBrainz allows **1 request a second** and asks for a User-Agent naming the app and a contact; both the backfill and the function send `Beatboxed/1.0 (class project; https://github.com/AbrarAlmhari/BeatBoxed)` and wait 1.1s between calls. The Wikidata query service is asked 50 artists at a time with a pause between batches.
+- **Stored per artist:** `genres_raw` (as the source gave them), `genres_source` (`wikidata` / `musicbrainz` / `none`) and `genres_fetched_at`. A miss is stamped `none`, so it isn't asked again.
+- **Grouping** into the 16 buckets (Pop, Rock, Indie & Alternative, Hip-Hop & Rap, R&B & Soul, Electronic & Dance, Metal, Jazz & Blues, Classical, Country & Folk, Latin, K-Pop, Arabic, Khaleeji, South Asian, Other) happens in the database, from `genre_map` (exact names) and `genre_patterns` (LIKE patterns by priority), so editing those tables re-groups every artist at once. Unmatched names land in Other and are listed, with how many artists have each, in the `genre_unmapped` view: that's the list to extend the mapping from.
+- **Back catalogue:** `node scripts/backfill-artist-genres.mjs` (only artists with at least one song; stop and re-run freely, it picks up where it left off; `--limit 50` for a trial). It prints a summary and the top unmapped genres.
+- **New artists:** the artist page calls the `artist-genres` Edge Function the first time it's opened for an artist whose genres were never looked up. The function is deployed; redeploy it with `npx supabase functions deploy artist-genres` after changing it. If it can't run, the page just shows no genres for that artist.
+
 ## Environment variables
 
 See `.env.example` at the repo root. Real keys go in `.env.local` (gitignored), never committed.

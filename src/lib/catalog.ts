@@ -330,24 +330,26 @@ async function fetchForYou(
 
   // Same artist first, then same genre — a second track by an artist you
   // reviewed is a safer recommendation than any song sharing its genre.
-  const byArtist = seedArtistIds.size
-    ? await client
-        .from('songs')
-        .select(SONG_SELECT)
-        .in('artist_id', [...seedArtistIds])
-        .order('popularity', { ascending: false, nullsFirst: false })
-        .limit(limit * 3)
-    : { data: [], error: null }
+  // Both asked at once rather than one after the other.
+  const [byArtist, byGenre] = await Promise.all([
+    seedArtistIds.size
+      ? client
+          .from('songs')
+          .select(SONG_SELECT)
+          .in('artist_id', [...seedArtistIds])
+          .order('popularity', { ascending: false, nullsFirst: false })
+          .limit(limit * 3)
+      : Promise.resolve({ data: [], error: null }),
+    seedGenres.size
+      ? client
+          .from('songs')
+          .select(SONG_SELECT)
+          .in('genre', [...seedGenres])
+          .order('popularity', { ascending: false, nullsFirst: false })
+          .limit(limit * 3)
+      : Promise.resolve({ data: [], error: null }),
+  ])
   if (byArtist.error) throw byArtist.error
-
-  const byGenre = seedGenres.size
-    ? await client
-        .from('songs')
-        .select(SONG_SELECT)
-        .in('genre', [...seedGenres])
-        .order('popularity', { ascending: false, nullsFirst: false })
-        .limit(limit * 3)
-    : { data: [], error: null }
   if (byGenre.error) throw byGenre.error
 
   const seen = new Set(seedSongIds) // don't recommend what they already know
@@ -398,27 +400,40 @@ async function fetchForYou(
   return decorate(picked)
 }
 
-export async function getExploreRails(userId?: string): Promise<ExploreRails> {
-  const trending = await fetchTrending()
-
-  // The rail is a convenience, so it fails quietly: a problem reading
-  // history hides one row rather than replacing the whole page with an error.
-  let recentlyViewed: SongCardModel[] = []
-  if (userId) {
-    try {
-      recentlyViewed = await getRecentlyViewed(userId)
-    } catch (err) {
-      console.warn('[beatboxed] could not load recently viewed:', err)
-    }
+/**
+ * One retry after a short pause, for the rails: a single dropped or slow
+ * request used to blank the whole browse view until someone tapped Retry.
+ */
+async function withRetry<T>(load: () => Promise<T>, pauseMs = 700): Promise<T> {
+  try {
+    return await load()
+  } catch (err) {
+    console.warn('[beatboxed] retrying after:', err)
+    await new Promise((r) => setTimeout(r, pauseMs))
+    return load()
   }
+}
 
-  let forYou: SongCardModel[] = []
-  if (userId) forYou = await fetchForYou(userId)
+/**
+ * The three rails load side by side, not one after another, and each can
+ * fail on its own: only Trending failing (after a retry) shows the error.
+ * Recently viewed fails quietly to an empty row; For You falls back to
+ * Trending, the same as when there's nothing to personalise from yet.
+ */
+export async function getExploreRails(userId?: string): Promise<ExploreRails> {
+  const [trending, recent, personal] = await Promise.allSettled([
+    withRetry(() => fetchTrending()),
+    userId ? withRetry(() => getRecentlyViewed(userId)) : Promise.resolve([]),
+    userId ? withRetry(() => fetchForYou(userId)) : Promise.resolve([]),
+  ])
+  if (trending.status === 'rejected') throw trending.reason
 
-  // Nothing to personalise from yet — Trending is the honest fallback.
-  if (forYou.length === 0) forYou = trending
+  if (recent.status === 'rejected') console.warn('[beatboxed] could not load recently viewed:', recent.reason)
+  if (personal.status === 'rejected') console.warn('[beatboxed] could not load For You:', personal.reason)
 
-  return { recentlyViewed, trending, forYou }
+  const recentlyViewed = recent.status === 'fulfilled' ? recent.value : []
+  const forYou = personal.status === 'fulfilled' && personal.value.length > 0 ? personal.value : trending.value
+  return { recentlyViewed, trending: trending.value, forYou }
 }
 
 /**

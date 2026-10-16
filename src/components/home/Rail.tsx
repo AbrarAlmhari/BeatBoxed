@@ -1,5 +1,8 @@
-import type { ReactNode } from 'react'
+import type { ComponentProps, ReactNode } from 'react'
 import { MediaCard } from '@/components/ui/MediaCard'
+import { EmptyState } from '@/components/ui/EmptyState'
+import { SectionHeader } from '@/components/ui/SectionHeader'
+import { SkeletonMediaCard } from '@/components/ui/Skeleton'
 import { usePlayer, type PlayerTrack } from '@/lib/player'
 
 /** Card width steps up with viewport so rails never feel cramped on phones. */
@@ -11,15 +14,12 @@ function RailShell({
   children,
 }: {
   title: string
-  action?: ReactNode
+  action?: ComponentProps<typeof SectionHeader>['seeAll']
   children: ReactNode
 }) {
   return (
     <section className="flex flex-col gap-4">
-      <div className="flex items-baseline justify-between gap-4">
-        <h2 className="text-section-title">{title}</h2>
-        {action}
-      </div>
+      <SectionHeader title={title} seeAll={action} />
       {children}
     </section>
   )
@@ -38,9 +38,7 @@ export function Rail({
   if (songs.length === 0) {
     return (
       <RailShell title={title}>
-        <div className="rounded-card bg-surface px-5 py-8 text-center">
-          <p className="text-body text-muted-foreground">{emptyMessage}</p>
-        </div>
+        <EmptyState face={null} compact title={emptyMessage} />
       </RailShell>
     )
   }
@@ -48,14 +46,8 @@ export function Rail({
   return (
     <RailShell
       title={title}
-      action={
-        <button
-          type="button"
-          className="shrink-0 rounded-button px-2 py-1 text-button text-muted-foreground transition-colors duration-200 ease-soft hover:text-accent"
-        >
-          See all
-        </button>
-      }
+      // There's no full list to open yet; the link is there for the layout.
+      action={{ onClick: () => {} }}
     >
       {/* Negative margin lets cards bleed to the screen edge while keeping the
           section heading aligned with the page gutter. */}
@@ -94,13 +86,7 @@ export function RailSkeleton({ title }: { title: string }) {
       >
         {Array.from({ length: 6 }, (_, i) => (
           <li key={i} className={`${CARD_WIDTH} shrink-0`}>
-            <div className="flex flex-col gap-3 rounded-card bg-surface p-3">
-              <div className="aspect-square w-full animate-pulse rounded-[10px] bg-surface-2" />
-              <div className="flex flex-col gap-2 pb-1">
-                <div className="h-3.5 w-3/4 animate-pulse rounded bg-surface-2" />
-                <div className="h-3 w-1/2 animate-pulse rounded bg-surface-2" />
-              </div>
-            </div>
+            <SkeletonMediaCard />
           </li>
         ))}
       </ul>

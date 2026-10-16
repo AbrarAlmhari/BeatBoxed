@@ -30,7 +30,8 @@ export function UserFollowButton({
   /** Best guess for the optimistic state; the database has the final say. */
   isPrivate?: boolean
   onChange?: (next: FollowState, previous: FollowState) => void
-  size?: 'sm' | 'md'
+  /** lg: at least 44px tall, for the profile header. */
+  size?: 'sm' | 'md' | 'lg'
 }) {
   const { user } = useAuth()
   const navigate = useNavigate()
@@ -45,7 +46,12 @@ export function UserFollowButton({
     setCurrent(state)
   }, [state])
 
-  const pad = size === 'sm' ? 'px-2.5 py-1 text-meta' : 'px-3 py-1.5 text-button'
+  const pad =
+    size === 'sm'
+      ? 'tap-44 px-2.5 py-1 text-meta'
+      : size === 'lg'
+        ? 'min-h-11 px-4 text-button'
+        : 'tap-44 px-3 py-1.5 text-button'
 
   /** Stops the tap from triggering the surrounding card link. */
   function swallow(e: React.MouseEvent) {

@@ -38,9 +38,10 @@ async function clearFollows(users: User[]) {
 }
 
 const profileButton = (page: Page, name: string) =>
-  page.locator('header').getByRole('button', { name, exact: true })
+  // On a locked private profile the follow button is in the lock card.
+  page.getByRole('main').getByRole('button', { name, exact: true })
 
-const LOCKED = 'This account is private. Follow them to request access to their reviews and playlists.'
+const LOCKED = 'This account is private. Follow to see their reviews, playlists and stats.'
 
 test.describe('user follows', () => {
   let pub: User
@@ -85,7 +86,7 @@ test.describe('user follows', () => {
 
     // The follower count moved, and the owner was told.
     await page.reload()
-    await expect(page.getByRole('link', { name: /Followers\s*1/ })).toBeVisible()
+    await expect(page.getByRole('button', { name: '1 follower', exact: true })).toBeVisible()
     await expect
       .poll(async () =>
         (await notificationsOf(pub.id)).some(
@@ -334,7 +335,7 @@ test.describe('make account public warning', () => {
     await page.goto(`/profile/${owner.id}`)
     await expect(page.getByText(LOCKED)).toHaveCount(0)
     await expect(page.getByText(review)).toBeVisible()
-    await expect(page.locator('header').getByRole('button', { name: 'Following', exact: true })).toBeVisible()
+    await expect(page.getByRole('main').getByRole('button', { name: 'Following', exact: true })).toBeVisible()
   })
 
   test('"Cancel" keeps the account private and the requests pending', async ({ page }) => {

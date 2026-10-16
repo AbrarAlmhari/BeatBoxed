@@ -6,7 +6,7 @@ import { tintFor } from './tint'
 export function ArtistResultCard({ artist }: { artist: ArtistCardModel }) {
   const t = tintFor(artist.id)
   return (
-    <div className="flex w-full items-center gap-4 rounded-card bg-surface p-3 text-left shadow-card transition-colors duration-250 ease-soft hover:bg-surface-2">
+    <div className="flex w-full items-center gap-4 rounded-card border border-line bg-surface p-3 text-left shadow-card transition-colors duration-250 ease-soft hover:bg-surface-2">
       <span className="size-14 shrink-0 overflow-hidden rounded-full">
         {artist.imageUrl ? (
           <img

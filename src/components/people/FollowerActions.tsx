@@ -5,8 +5,8 @@ import { acceptFollowRequest, removeFollower } from '@/lib/catalog'
 import { cn } from '@/lib/cn'
 
 const base =
-  'flex shrink-0 items-center gap-1.5 rounded-button px-2.5 py-1 text-meta transition-colors duration-200 ease-soft active:scale-[0.97] disabled:opacity-60'
-const neutral = cn(base, 'border border-white/10 bg-surface-2 text-muted-foreground hover:text-foreground')
+  'tap-44 relative flex shrink-0 items-center gap-1.5 rounded-button px-2.5 py-1 text-meta transition-colors duration-200 ease-soft active:scale-[0.97] disabled:opacity-60'
+const neutral = cn(base, 'border border-line-strong bg-surface-2 text-muted-foreground hover:text-foreground')
 
 /**
  * Accept or decline someone's request to follow the viewer. Separate from
@@ -113,7 +113,7 @@ export function RemoveFollowerButton({
             swallow(e)
             setConfirming(false)
           }}
-          className="shrink-0 rounded-button px-2.5 py-1 text-meta text-muted-foreground hover:text-foreground"
+          className="tap-44 relative shrink-0 rounded-button px-2.5 py-1 text-meta text-muted-foreground hover:text-foreground"
         >
           Keep
         </button>

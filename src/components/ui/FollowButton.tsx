@@ -76,13 +76,13 @@ export function FollowButton({
       }
       title={writeFailed ? "That didn't save. Tap to try again." : undefined}
       className={cn(
-        'flex shrink-0 items-center gap-1.5 rounded-button border transition-colors duration-200 ease-soft active:scale-[0.97]',
+        'tap-44 relative flex shrink-0 items-center gap-1.5 rounded-button border transition-colors duration-200 ease-soft active:scale-[0.97]',
         pad,
         writeFailed
           ? 'border-danger/60 bg-danger/10 text-danger'
           : following
             ? 'border-primary/60 bg-primary/15 text-foreground'
-            : 'border-white/10 bg-surface-2 text-muted-foreground hover:text-foreground'
+            : 'border-line-strong bg-surface-2 text-muted-foreground hover:text-foreground'
       )}
     >
       {/* Only the initial load spins. A write in flight shows nothing: the

@@ -26,7 +26,7 @@ export function PersonCard({
   return (
     <Link
       to={`/profile/${person.id}`}
-      className="flex items-center gap-3 rounded-card bg-surface p-3 shadow-card transition-colors duration-200 ease-soft hover:bg-surface-2"
+      className="flex items-center gap-3 rounded-card border border-line bg-surface p-3 shadow-card transition-colors duration-200 ease-soft hover:bg-surface-2"
     >
       {person.avatarUrl ? (
         <img

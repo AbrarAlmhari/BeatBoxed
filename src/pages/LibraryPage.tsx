@@ -1,6 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Plus } from 'lucide-react'
-import { Chip } from '@/components/ui/Chip'
+import { Card } from '@/components/ui/Card'
+import { EmptyState } from '@/components/ui/EmptyState'
+import { PageGlow } from '@/components/ui/PageGlow'
+import { SkeletonMediaGrid } from '@/components/ui/Skeleton'
+import { TabPanel, Tabs } from '@/components/ui/Tabs'
 import { PlaylistGrid, PlaylistGridSkeleton } from '@/components/playlist/PlaylistGrid'
 import { PlaylistForm } from '@/components/playlist/PlaylistForm'
 import {
@@ -66,36 +70,21 @@ export default function LibraryPage() {
   }, [tab, user, artists])
 
   return (
-    <div className="flex flex-col gap-8 pt-2">
+    <div className="relative isolate flex flex-col gap-6 pt-2">
+      <PageGlow strength="soft" />
       <h1 className="text-page-title">Library</h1>
 
-      <div
-        className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
-        role="tablist"
-      >
-        {TABS.map((t) => (
-          <Chip key={t.id} active={tab === t.id} onClick={() => setTab(t.id)}>
-            {t.label}
-          </Chip>
-        ))}
-      </div>
+      <Tabs tabs={TABS} value={tab} onChange={setTab} label="Library" idPrefix="library" sticky />
+
+      <TabPanel idPrefix="library" value={tab}>
 
       {tab === 'liked' && (
         <section>
           {liked === null ? (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5">
-              {Array.from({ length: 10 }, (_, i) => (
-                <div key={i} className="flex flex-col gap-3 rounded-card bg-surface p-3">
-                  <div className="aspect-square w-full animate-pulse rounded-[10px] bg-surface-2" />
-                  <div className="flex flex-col gap-2 pb-1">
-                    <div className="h-3.5 w-3/4 animate-pulse rounded bg-surface-2" />
-                    <div className="h-3 w-1/2 animate-pulse rounded bg-surface-2" />
-                  </div>
-                </div>
-              ))}
-            </div>
+            <SkeletonMediaGrid count={10} />
           ) : liked.length === 0 ? (
-            <EmptyPanel
+            <EmptyState
+              face="happy-sticker"
               title="No liked songs yet"
               detail="Open a song and tap Like to keep it here."
             />
@@ -129,7 +118,7 @@ export default function LibraryPage() {
       {tab === 'playlists' && (
         <section className="flex flex-col gap-5">
           {creating ? (
-            <div className="rounded-card bg-surface p-4 shadow-card sm:max-w-md">
+            <Card className="sm:max-w-md">
               <PlaylistForm
                 submitLabel="Create playlist"
                 onCancel={() => setCreating(false)}
@@ -148,12 +137,12 @@ export default function LibraryPage() {
                   setCreating(false)
                 }}
               />
-            </div>
+            </Card>
           ) : (
             <button
               type="button"
               onClick={() => setCreating(true)}
-              className="flex w-fit items-center gap-2 rounded-button bg-primary px-4 py-2 text-button text-white transition-all duration-200 ease-soft hover:bg-primary/90 active:scale-[0.97]"
+              className="flex min-h-11 w-fit items-center gap-2 rounded-button bg-primary px-4 text-button text-white transition-all duration-200 ease-soft hover:bg-primary/90 active:scale-[0.97]"
             >
               <Plus className="size-4" strokeWidth={2} aria-hidden />
               New playlist
@@ -163,7 +152,8 @@ export default function LibraryPage() {
           {playlists === null ? (
             <PlaylistGridSkeleton />
           ) : playlists.length === 0 ? (
-            <EmptyPanel
+            <EmptyState
+              face="happy-sticker"
               title="No playlists yet"
               detail="Make one above, then add songs from any song page."
             />
@@ -176,9 +166,10 @@ export default function LibraryPage() {
       {tab === 'artists' && (
         <section>
           {artists === null ? (
-            <div className="h-28 animate-pulse rounded-card bg-surface" />
+            <SkeletonMediaGrid count={4} />
           ) : artists.length === 0 ? (
-            <EmptyPanel
+            <EmptyState
+              face="sleepy-sticker"
               title="No artists followed"
               detail="Follow an artist from a song page or from search."
             />
@@ -193,15 +184,7 @@ export default function LibraryPage() {
           )}
         </section>
       )}
-    </div>
-  )
-}
-
-function EmptyPanel({ title, detail }: { title: string; detail: string }) {
-  return (
-    <div className="flex flex-col items-center gap-2 rounded-card bg-surface px-6 py-12 text-center">
-      <p className="text-card-title">{title}</p>
-      <p className="max-w-sm text-body text-muted-foreground">{detail}</p>
+      </TabPanel>
     </div>
   )
 }

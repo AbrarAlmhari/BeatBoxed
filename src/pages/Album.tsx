@@ -3,6 +3,11 @@ import { Link, useParams } from 'react-router-dom'
 import { Disc3, Pause, Play } from 'lucide-react'
 import { AddToPlaylistButton } from '@/components/playlist/AddToPlaylistButton'
 import { StarRating } from '@/components/ui/StarRating'
+import { Card } from '@/components/ui/Card'
+import { EmptyState, emptySecondaryActionClass } from '@/components/ui/EmptyState'
+import { PageGlow } from '@/components/ui/PageGlow'
+import { Skeleton } from '@/components/ui/Skeleton'
+import { COVER_FALLBACK, useCoverColors } from '@/lib/coverColors'
 import { usePlayer } from '@/lib/player'
 import { cn } from '@/lib/cn'
 import { formatDuration, formatTotalDuration } from '@/lib/playlists'
@@ -77,20 +82,23 @@ export default function Album() {
     }
   }, [id, load, reloadKey])
 
+  // Hooks before the early returns: the glow follows the cover once known.
+  const coverColors = useCoverColors(album?.coverUrl)
+
   if (loading && !album) return <AlbumSkeleton />
 
   if (failed || !album) {
     return (
-      <div className="flex flex-col items-center gap-3 rounded-card bg-surface px-6 py-16 text-center">
-        <p className="text-card-title">Couldn't load this album</p>
-        <button
-          type="button"
-          onClick={() => setReloadKey((k) => k + 1)}
-          className="mt-1 rounded-button bg-surface-2 px-3.5 py-2 text-button text-muted-foreground transition-colors duration-200 ease-soft hover:text-foreground"
-        >
-          Retry
-        </button>
-      </div>
+      <EmptyState
+        face="sad"
+        tone="error"
+        title="Couldn't load this album"
+        action={
+          <button type="button" onClick={() => setReloadKey((k) => k + 1)} className={emptySecondaryActionClass}>
+            Retry
+          </button>
+        }
+      />
     )
   }
 
@@ -103,10 +111,11 @@ export default function Album() {
   const multiDisc = new Set(tracks.map((t) => t.discNumber ?? 1)).size > 1
 
   return (
-    <div className="flex flex-col gap-8 pt-2">
-      <header className="flex flex-col gap-5 sm:flex-row sm:items-end">
-        <div className="w-40 shrink-0 self-center sm:self-auto">
-          <div className="relative aspect-square w-full overflow-hidden rounded-[10px] bg-surface-2">
+    <div className="relative isolate flex flex-col gap-8 pt-2">
+      <header className="relative flex flex-col gap-5 pb-2 sm:flex-row sm:items-end">
+        <PageGlow strength="hero" colors={coverColors ?? COVER_FALLBACK} />
+        <div className="w-48 shrink-0 self-center sm:w-52 sm:self-auto">
+          <div className="relative aspect-square w-full overflow-hidden rounded-card bg-surface-2 shadow-card">
             {album.coverUrl ? (
               <img src={album.coverUrl} alt="" className="absolute inset-0 size-full object-cover" />
             ) : (
@@ -150,7 +159,7 @@ export default function Album() {
                   ? player.toggle()
                   : player.playQueue(tracks, 0)
               }
-              className="flex items-center gap-2 rounded-button bg-primary px-4 py-2 text-button text-white transition-all duration-200 ease-soft hover:bg-primary/90 active:scale-[0.97] disabled:opacity-50"
+              className="flex min-h-11 items-center gap-2 rounded-button bg-primary px-5 text-button text-white transition-all duration-200 ease-soft hover:bg-primary/90 active:scale-[0.97] disabled:opacity-50"
             >
               {playingThis && player.isPlaying ? (
                 <>
@@ -171,25 +180,20 @@ export default function Album() {
       {tracks.length === 0 ? (
         fetchingTracks ? (
           // Loading rows rather than an empty list while the first fetch runs.
-          <ol className="flex flex-col gap-1" aria-label="Loading tracks">
+          <Card as="ol" padding="sm" shadow={false} className="flex flex-col gap-0.5" aria-label="Loading tracks">
             {Array.from({ length: 6 }, (_, i) => (
               <li key={i} className="flex items-center gap-3 px-2 py-2">
-                <span className="h-4 w-5 animate-pulse rounded bg-surface" />
-                <span className="size-11 shrink-0 animate-pulse rounded-[8px] bg-surface" />
-                <span className="h-4 flex-1 animate-pulse rounded bg-surface" />
+                <Skeleton className="h-4 w-5" />
+                <Skeleton className="size-11 shrink-0 rounded-thumb" />
+                <Skeleton className="h-4 flex-1" />
               </li>
             ))}
-          </ol>
+          </Card>
         ) : (
-          <div className="rounded-card bg-surface px-6 py-12 text-center">
-            <p className="text-card-title">No tracks cached</p>
-            <p className="mt-2 text-body text-muted-foreground">
-              We couldn't load this album's track list.
-            </p>
-          </div>
+          <EmptyState face="sad" title="No tracks cached" detail="We couldn't load this album's track list." />
         )
       ) : (
-        <ol className="flex flex-col gap-1">
+        <Card as="ol" padding="sm" className="flex flex-col gap-0.5">
           {tracks.map((track, i) => {
             const isCurrent = player.current?.id === track.id
             const disc = track.discNumber ?? 1
@@ -208,8 +212,8 @@ export default function Album() {
 
                 <div
                   className={cn(
-                    'group flex items-center gap-3 rounded-card px-2 py-2 transition-colors duration-200 ease-soft hover:bg-surface',
-                    isCurrent && 'bg-surface'
+'group flex items-center gap-3 rounded-inset px-2 py-2 transition-colors duration-200 ease-soft hover:bg-surface-2',
+                    isCurrent && 'bg-surface-2'
                   )}
                 >
                   <span className="w-6 shrink-0 text-end text-meta text-muted-foreground">
@@ -226,7 +230,7 @@ export default function Album() {
                         ? `Pause ${track.title}`
                         : `Play ${track.title}`
                     }
-                    className="relative size-11 shrink-0 overflow-hidden rounded-[8px] bg-surface-2"
+                    className="relative size-11 shrink-0 overflow-hidden rounded-thumb bg-surface-2"
                   >
                     {track.coverUrl && (
                       <img
@@ -286,7 +290,7 @@ export default function Album() {
               </li>
             )
           })}
-        </ol>
+        </Card>
       )}
     </div>
   )
@@ -294,15 +298,24 @@ export default function Album() {
 
 function AlbumSkeleton() {
   return (
-    <div className="flex flex-col gap-8 pt-2">
-      <div className="flex gap-5">
-        <div className="size-40 animate-pulse rounded-[10px] bg-surface" />
-        <div className="flex flex-1 flex-col gap-3 py-2">
-          <div className="h-8 w-2/3 animate-pulse rounded bg-surface" />
-          <div className="h-4 w-1/2 animate-pulse rounded bg-surface" />
+    <div className="flex flex-col gap-8 pt-2" aria-busy="true">
+      <div className="flex flex-col gap-5 sm:flex-row sm:items-end">
+        <Skeleton tone="page" className="size-48 shrink-0 self-center rounded-cover sm:size-52 sm:self-auto" />
+        <div className="flex flex-1 flex-col items-center gap-3 py-2 sm:items-start">
+          <Skeleton tone="page" className="h-8 w-2/3" />
+          <Skeleton tone="page" className="h-4 w-1/2" />
+          <Skeleton tone="page" className="h-11 w-28 rounded-button" />
         </div>
       </div>
-      <div className="h-64 animate-pulse rounded-card bg-surface" />
+      <Card padding="sm" shadow={false} className="flex flex-col gap-1">
+        {Array.from({ length: 5 }, (_, i) => (
+          <div key={i} className="flex items-center gap-3 px-2 py-2">
+            <Skeleton className="h-4 w-5" />
+            <Skeleton className="size-11 shrink-0 rounded-thumb" />
+            <Skeleton className="h-4 flex-1" />
+          </div>
+        ))}
+      </Card>
     </div>
   )
 }

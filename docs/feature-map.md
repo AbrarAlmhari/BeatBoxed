@@ -11,7 +11,12 @@
 3. Explore / Search — by song, artist, and lyrics; filter chips
 4. Song page — About / Beatie / Lyrics / Reviews sections
 5. Rating & review system — 5-star scale + written reviews (the app's signature feature)
-6. User profile — customization, stats (reviews/followers/following), reviews tab, playlists tab
+6. User profile (redesigned, Part A of 3) — a glowing header with the avatar in a gradient ring, name and @username, and one counts row (ratings · reviews · followers · following · artists; the last three open their lists in a sheet). Then an underlined, sticky tab bar: Reviews · Playlists · Stats · Likes, with the tab in the URL (`/profile/:id?tab=likes`).
+   - **Reviews:** All / Written / Ratings only, sorted Recent / Highest rated / Most liked. Written reviews are feed-style cards; ratings with no text are compact rows. 20 at a time.
+   - **Playlists:** square tiles (2 columns on phones, 4 on desktop); your own starts with "+ New playlist".
+   - **Stats (Part B):** a time range (All time · This year · 30 days, pinned under the tabs on phones), Beatie's take (a sentence from about eight templates, no AI call), tiles (songs rated, average, artists), the ratings spread and ratings by decade as bar charts (tooltips, screen-reader tables), the five most rated artists (with See all), and Share my stats (copies `/profile/:id?tab=stats`). Under 5 ratings in a range it shows a warm-up state with progress. Data: `get_user_stats()`.
+   - **Genres (Part C):** Top genres on the Stats tab (horizontal bars, songs rated 3★+, top 8 then Other, tap a row for its top 3 artists) and a Genres tile; Beatie's take can lead with them. The profile header shows the top three genres as chips once someone has 5+ ratings (tap opens Stats). Genres belong to artists (Wikidata, then MusicBrainz), shown as chips on the artist page; songs no longer show a genre anywhere. **Likes:** liked songs (unlike with Undo on your own) and liked reviews.
+   - A private profile shows its header and counts to non-followers, with a lock card instead of the tabs. The genre chips under the name are gone for now (Part C works genres out from ratings); `favorite_genres` is kept.
 7. Library — liked songs, playlists, followed artists
 8. Playlist creation and detail view
 9. Settings — theme, translation language, log out

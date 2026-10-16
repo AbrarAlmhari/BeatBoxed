@@ -28,6 +28,8 @@ export function AppShell() {
 function ShellBody() {
   const { pathname } = useLocation()
   const { current } = usePlayer()
+  // The mini player steps aside on Now Playing, so its space does too.
+  const miniPlayerShown = Boolean(current) && pathname !== '/now-playing'
 
   useEffect(() => {
     window.scrollTo({ top: 0 })
@@ -35,12 +37,7 @@ function ShellBody() {
 
   return (
     <div className="min-h-dvh bg-background">
-      {/* Single soft wash behind everything — atmospheric, not a neon glow. */}
-      <div
-        aria-hidden
-        className="pointer-events-none fixed inset-x-0 top-0 h-[420px] bg-[radial-gradient(70%_100%_at_50%_0%,rgba(139,92,246,0.10),transparent_70%)]"
-      />
-
+      {/* No app-wide wash: each page brings its own PageGlow (or none). */}
       <Sidebar />
 
       <div className="relative md:pl-20 lg:pl-60">
@@ -48,7 +45,7 @@ function ShellBody() {
           className={cn(
             'mx-auto w-full max-w-[1400px] px-4 pt-0 sm:px-6 lg:px-8',
             // Clear the bottom nav, and the mini player when it's showing.
-            current ? 'pb-44 md:pb-28' : 'pb-28 md:pb-12'
+            miniPlayerShown ? 'pb-44 md:pb-28' : 'pb-28 md:pb-12'
           )}
         >
           <TopBar />

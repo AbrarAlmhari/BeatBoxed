@@ -106,8 +106,8 @@ export function AddToPlaylistButton({
 
   const trigger =
     variant === 'subtle'
-      ? 'grid size-10 place-items-center rounded-full text-muted-foreground transition-all duration-200 ease-soft hover:bg-white/5 hover:text-foreground active:scale-95'
-      : 'flex shrink-0 items-center gap-1.5 rounded-button border border-white/10 bg-surface-2 px-3 py-1.5 text-button text-muted-foreground transition-colors duration-200 ease-soft hover:text-foreground'
+      ? 'grid size-11 place-items-center rounded-full text-muted-foreground transition-all duration-200 ease-soft hover:bg-white/5 hover:text-foreground active:scale-95'
+      : 'flex min-h-11 shrink-0 items-center gap-1.5 rounded-button border border-line-strong bg-surface-2 px-3.5 text-button text-muted-foreground transition-colors duration-200 ease-soft hover:text-foreground'
 
   return (
     // relative so the desktop popover anchors to this button.

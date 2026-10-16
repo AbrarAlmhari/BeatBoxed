@@ -122,7 +122,7 @@ export function MakePublicDialog({
             // Not before the count is known: the user must see what they're
             // agreeing to.
             disabled={summary === null}
-            className="rounded-button bg-primary px-4 py-2.5 text-button text-white transition-all duration-200 ease-soft hover:bg-accent active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-primary"
+            className="min-h-11 rounded-button bg-primary px-4 text-button text-white transition-all duration-200 ease-soft hover:bg-accent active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-primary"
           >
             {count > 0 ? 'Make public and accept all' : 'Make public'}
           </button>
@@ -130,7 +130,7 @@ export function MakePublicDialog({
             <button
               type="button"
               onClick={onReviewRequests}
-              className="rounded-button bg-surface-2 px-4 py-2.5 text-button text-foreground transition-colors duration-200 ease-soft hover:bg-white/10"
+              className="min-h-11 rounded-button bg-surface-2 px-4 text-button text-foreground transition-colors duration-200 ease-soft hover:bg-white/10"
             >
               Review requests first
             </button>
@@ -138,7 +138,7 @@ export function MakePublicDialog({
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-button px-4 py-2.5 text-button text-muted-foreground transition-colors duration-200 ease-soft hover:text-foreground sm:mr-auto"
+            className="min-h-11 rounded-button px-4 text-button text-muted-foreground transition-colors duration-200 ease-soft hover:text-foreground sm:mr-auto"
           >
             Cancel
           </button>

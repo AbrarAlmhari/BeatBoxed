@@ -1,9 +1,12 @@
 import type { ReactNode } from 'react'
 import { Loader2 } from 'lucide-react'
+import { EmptyState } from '@/components/ui/EmptyState'
+import { SkeletonList } from '@/components/ui/Skeleton'
 
 /** Shared chrome for the three full-list pages. */
 export function ListPageShell({
   title,
+  hideTitle = false,
   toolbar,
   loading,
   isEmpty,
@@ -15,6 +18,8 @@ export function ListPageShell({
   children,
 }: {
   title: string
+  /** Inside a sheet or dialog that already shows the title. */
+  hideTitle?: boolean
   toolbar?: ReactNode
   loading: boolean
   isEmpty: boolean
@@ -27,22 +32,21 @@ export function ListPageShell({
 }) {
   return (
     <div className="flex flex-col gap-6 pt-2">
-      <h1 dir="auto" className="text-page-title">
-        {title}
-      </h1>
+      {!hideTitle && (
+        <h1 dir="auto" className="text-page-title">
+          {title}
+        </h1>
+      )}
 
       {toolbar}
 
       {loading ? (
-        <div className="flex items-center gap-2 px-1 text-body text-muted-foreground">
-          <Loader2 className="size-4 animate-spin" strokeWidth={2} aria-hidden />
-          Loading…
+        <div role="status">
+          <span className="sr-only">Loading…</span>
+          <SkeletonList rows={4} cover="size-11 rounded-full" />
         </div>
       ) : isEmpty ? (
-        <div className="flex flex-col items-center gap-2 rounded-card bg-surface px-6 py-14 text-center">
-          <p className="text-card-title">{emptyTitle}</p>
-          <p className="max-w-sm text-body text-muted-foreground">{emptyDetail}</p>
-        </div>
+        <EmptyState face="sleepy-sticker" title={emptyTitle} detail={emptyDetail} />
       ) : (
         <>
           {children}
@@ -51,7 +55,7 @@ export function ListPageShell({
               type="button"
               onClick={onLoadMore}
               disabled={loadingMore}
-              className="flex items-center justify-center gap-2 rounded-button bg-surface px-4 py-3 text-button text-muted-foreground shadow-card transition-all duration-200 ease-soft hover:bg-surface-2 hover:text-foreground active:scale-[0.99] disabled:opacity-60"
+              className="flex min-h-11 items-center justify-center gap-2 rounded-button border border-line bg-surface px-4 py-3 text-button text-muted-foreground shadow-card transition-all duration-200 ease-soft hover:bg-surface-2 hover:text-foreground active:scale-[0.99] disabled:opacity-60"
             >
               {loadingMore && (
                 <Loader2 className="size-4 animate-spin" strokeWidth={2} aria-hidden />

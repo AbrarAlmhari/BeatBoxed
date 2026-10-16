@@ -43,7 +43,7 @@ export function ReviewCard({
     <article
       ref={ref}
       className={cn(
-        'flex scroll-mt-36 flex-col gap-3 rounded-card bg-surface p-4 shadow-card transition-colors duration-500 ease-soft',
+        'flex scroll-mt-36 flex-col gap-3 rounded-card border border-line bg-surface p-4 shadow-card transition-colors duration-500 ease-soft',
         flash && 'ring-2 ring-primary/60'
       )}
     >
@@ -152,7 +152,7 @@ export function ReviewActions({
           aria-pressed={liked}
           aria-label={liked ? 'Unlike this review' : 'Like this review'}
           className={cn(
-            'flex items-center gap-1.5 rounded-button px-2 py-1 text-meta transition-colors duration-200 ease-soft',
+            'flex min-h-11 items-center gap-1.5 rounded-button px-2 text-meta transition-colors duration-200 ease-soft',
             liked
               ? 'text-primary'
               : 'text-muted-foreground hover:text-foreground'
@@ -169,7 +169,7 @@ export function ReviewActions({
           type="button"
           onClick={() => setCommentsOpen((v) => !v)}
           aria-expanded={commentsOpen}
-          className="flex items-center gap-1.5 rounded-button px-2 py-1 text-meta text-muted-foreground transition-colors duration-200 ease-soft hover:text-foreground"
+          className="flex min-h-11 items-center gap-1.5 rounded-button px-2 text-meta text-muted-foreground transition-colors duration-200 ease-soft hover:text-foreground"
         >
           <MessageCircle className="size-4" strokeWidth={1.75} />
           {commentCount === 0

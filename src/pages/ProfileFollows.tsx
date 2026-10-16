@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { Lock } from 'lucide-react'
+import { Card } from '@/components/ui/Card'
 import { PersonCard } from '@/components/people/PersonCard'
 import { RemoveFollowerButton } from '@/components/people/FollowerActions'
 import { ListPageShell, FilterBox } from '@/components/profile/ListPageShell'
@@ -16,11 +17,23 @@ import type { FollowState, PersonCardModel } from '@/lib/types'
 
 const PAGE = 30
 
-/** /profile/:userId/followers and /profile/:userId/following. */
-export default function ProfileFollows({ kind }: { kind: FollowListKind }) {
-  const { userId } = useParams()
+/**
+ * /profile/:userId/followers and /profile/:userId/following, and the same
+ * list inside the profile's sheet (`userId` given, `embedded` drops the
+ * page title the sheet already shows).
+ */
+export default function ProfileFollows({
+  kind,
+  userId: forUser,
+  embedded = false,
+}: {
+  kind: FollowListKind
+  userId?: string
+  embedded?: boolean
+}) {
+  const { userId: fromRoute } = useParams()
   const { user } = useAuth()
-  const targetId = userId ?? user?.id ?? ''
+  const targetId = forUser ?? fromRoute ?? user?.id ?? ''
   const isOwn = Boolean(user && targetId === user.id)
 
   const [name, setName] = useState<string | null>(null)
@@ -112,11 +125,15 @@ export default function ProfileFollows({ kind }: { kind: FollowListKind }) {
   if (!loading && !isOwn && (locked || !visible)) {
     return (
       <div className="flex flex-col gap-6 pt-2">
-        <h1 dir="auto" className="text-page-title">
-          {title}
-        </h1>
-        <div className="flex flex-col items-center gap-3 rounded-card bg-surface px-6 py-14 text-center">
-          <Lock className="size-7 text-muted-foreground" strokeWidth={1.5} aria-hidden />
+        {!embedded && (
+          <h1 dir="auto" className="text-page-title">
+            {title}
+          </h1>
+        )}
+        <Card padding="lg" className="flex flex-col items-center gap-3 text-center">
+          <span className="grid size-12 place-items-center rounded-full bg-primary/15">
+            <Lock className="size-5 text-accent" strokeWidth={2} aria-hidden />
+          </span>
           <p className="text-card-title">
             {locked
               ? 'This account is private'
@@ -127,7 +144,7 @@ export default function ProfileFollows({ kind }: { kind: FollowListKind }) {
               Follow them to request access.
             </p>
           )}
-        </div>
+        </Card>
       </div>
     )
   }
@@ -135,6 +152,7 @@ export default function ProfileFollows({ kind }: { kind: FollowListKind }) {
   return (
     <ListPageShell
       title={title}
+      hideTitle={embedded}
       toolbar={
         people.length > 0 ? (
           <FilterBox
