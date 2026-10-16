@@ -25,7 +25,10 @@ import {
 const NOTIFICATION_ROWS: { key: NotificationPrefKey; label: string; hint?: string }[] = [
   { key: 'review_liked', label: 'Likes on your reviews' },
   { key: 'review_commented', label: 'Comments on your reviews' },
-  { key: 'thread_reply', label: 'Replies in threads you’ve commented in' },
+  { key: 'comment_reply', label: 'Replies to your comments' },
+  { key: 'mention', label: 'Mentions' },
+  { key: 'comment_liked', label: 'Likes on your comments and replies' },
+  { key: 'thread_reply', label: 'Replies in threads you’re in', hint: 'At most once an hour per thread.' },
   { key: 'new_follower', label: 'New followers' },
   {
     key: 'follow_requests',

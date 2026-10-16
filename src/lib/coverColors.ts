@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type CSSProperties } from 'react'
 
 /**
  * The two main colours of a cover or artist photo, for the page's glow.
@@ -158,3 +158,20 @@ function contrast(a: RGB, b: RGB) {
 }
 
 const toCss = ([r, g, b]: RGB) => `rgb(${Math.round(r)} ${Math.round(g)} ${Math.round(b)})`
+
+/**
+ * A review card's soft glow from its song's cover: the first colour from the
+ * top-left corner, the second from the top-right, both gone by the middle so
+ * the text below sits on the plain card. Faint enough that muted text keeps
+ * its contrast (each colour is already darkened for that, see above).
+ */
+export function cardGlowStyle(colors: CoverColors | null): CSSProperties | undefined {
+  if (!colors) return undefined
+  const [a, b] = colors
+  return {
+    backgroundImage: [
+      `radial-gradient(110% 60% at 0% 0%, color-mix(in srgb, ${a} 30%, transparent), transparent 70%)`,
+      `radial-gradient(90% 55% at 100% 0%, color-mix(in srgb, ${b} 22%, transparent), transparent 70%)`,
+    ].join(', '),
+  }
+}

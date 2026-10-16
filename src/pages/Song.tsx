@@ -60,10 +60,12 @@ export default function Song() {
   const player = usePlayer()
   const navigate = useNavigate()
   const location = useLocation()
-  // Notification deep links land here: /song/:id?review=…&comment=…
+  // Notification deep links land here: /song/:id?review=…&comment=…, plus
+  // &reply=1 from a notification's Reply button (the box opens ready).
   const [searchParams] = useSearchParams()
   const targetReviewId = searchParams.get('review')
   const targetCommentId = searchParams.get('comment')
+  const replyToTarget = searchParams.get('reply') === '1'
 
   const [song, setSong] = useState<SongDetail | null>(null)
   const [loading, setLoading] = useState(true)
@@ -541,6 +543,13 @@ export default function Song() {
           onStatsChange={refreshStats}
           targetReviewId={targetReviewId}
           targetCommentId={targetCommentId}
+          replyToTarget={replyToTarget}
+          song={{
+            id: song.id,
+            title: song.title,
+            artistName: song.artist?.name ?? '',
+            coverUrl: song.album?.coverUrl ?? null,
+          }}
         />
       </section>
     </div>

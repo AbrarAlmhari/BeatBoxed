@@ -1,10 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { Heart, MessageCircle } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { StarRating } from '@/components/ui/StarRating'
-import { ReviewComments } from './ReviewComments'
-import { useAuth } from '@/lib/auth'
-import { setReviewLike } from '@/lib/catalog'
+import { ReviewConversation } from '@/components/conversations/ReviewConversation'
+import { cardGlowStyle, useCoverColors } from '@/lib/coverColors'
 import { cn } from '@/lib/cn'
 import type { ReviewWithAuthor } from '@/lib/types'
 
@@ -18,23 +16,34 @@ export function ReviewCard({
   review,
   highlight = false,
   openComments = false,
+  highlightCommentId = null,
+  replyToCommentId = null,
+  song,
 }: {
   review: ReviewWithAuthor
   /** Arrived here from a notification — scroll to it and flash it once. */
   highlight?: boolean
   openComments?: boolean
+  /** The comment a notification is about. */
+  highlightCommentId?: string | null
+  /** A notification's Reply: the box opens replying to this comment. */
+  replyToCommentId?: string | null
+  /** The song page's song, for the glow and the comments sheet. */
+  song?: { id: string; title: string; artistName: string; coverUrl: string | null }
 }) {
   const ref = useRef<HTMLElement>(null)
   const [flash, setFlash] = useState(false)
+  const colors = useCoverColors(song?.coverUrl)
 
   useEffect(() => {
     if (!highlight) return
-    ref.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    // With a comment to show, that comment is what scrolls into view.
+    if (!highlightCommentId) ref.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
     setFlash(true)
     // Brief, then back to normal — a permanent highlight reads as a state.
     const t = setTimeout(() => setFlash(false), 2000)
     return () => clearTimeout(t)
-  }, [highlight])
+  }, [highlight, highlightCommentId])
 
   const name = review.author?.displayName || review.author?.username || 'Someone'
   const initial = name.trim().charAt(0).toUpperCase() || '?'
@@ -42,8 +51,10 @@ export function ReviewCard({
   return (
     <article
       ref={ref}
+      data-review-id={review.id}
+      style={cardGlowStyle(colors)}
       className={cn(
-        'flex scroll-mt-36 flex-col gap-3 rounded-card border border-line bg-surface p-4 shadow-card transition-colors duration-500 ease-soft',
+        'flex scroll-mt-36 flex-col gap-3 rounded-card border border-line bg-surface p-4 shadow-card transition-colors duration-500 ease-soft sm:p-5',
         flash && 'ring-2 ring-primary/60'
       )}
     >
@@ -51,9 +62,9 @@ export function ReviewCard({
         <Link to={`/profile/${review.userId}`} className="shrink-0">
           {review.author?.avatarUrl ? (
             <img
-            src={review.author.avatarUrl}
-            alt=""
-            loading="lazy"
+              src={review.author.avatarUrl}
+              alt=""
+              loading="lazy"
               className="size-10 rounded-full object-cover"
             />
           ) : (
@@ -63,7 +74,7 @@ export function ReviewCard({
           )}
         </Link>
 
-        <div className="flex min-w-0 flex-col gap-1.5">
+        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <Link
               to={`/profile/${review.userId}`}
@@ -92,98 +103,13 @@ export function ReviewCard({
         </div>
       </div>
 
-      <ReviewActions review={review} openComments={openComments} className="pl-13" />
+      <ReviewConversation
+        review={review}
+        song={song ?? null}
+        openComments={openComments}
+        highlightCommentId={highlightCommentId}
+        replyToCommentId={replyToCommentId}
+      />
     </article>
-  )
-}
-
-/**
- * Like and comment, shared by the song page's ReviewCard and the feed's
- * FeedCard so both behave identically.
- *
- * Like and comment counts are owned locally after first interaction so the
- * card stays responsive without re-fetching the list it sits in.
- */
-export function ReviewActions({
-  review,
-  openComments = false,
-  className,
-}: {
-  review: ReviewWithAuthor
-  openComments?: boolean
-  className?: string
-}) {
-  const { user } = useAuth()
-  const navigate = useNavigate()
-  const location = useLocation()
-
-  const [liked, setLiked] = useState(review.likedByMe)
-  const [likeCount, setLikeCount] = useState(review.likeCount)
-  const [commentCount, setCommentCount] = useState(review.commentCount)
-  const [commentsOpen, setCommentsOpen] = useState(openComments)
-
-  function requireLogin() {
-    navigate('/login', { state: { from: location.pathname } })
-  }
-
-  async function toggleLike() {
-    if (!user) return requireLogin()
-
-    const nextLiked = !liked
-    setLiked(nextLiked)
-    setLikeCount((c) => c + (nextLiked ? 1 : -1))
-
-    try {
-      await setReviewLike(review.id, user.id, nextLiked)
-    } catch (err) {
-      console.error('[beatboxed] like failed:', err)
-      setLiked(!nextLiked)
-      setLikeCount((c) => c + (nextLiked ? -1 : 1))
-    }
-  }
-
-  return (
-    <>
-      {/* Secondary actions: quieter than the rating and body above them. */}
-      <div className={cn('flex items-center gap-1', className)}>
-        <button
-          type="button"
-          onClick={toggleLike}
-          aria-pressed={liked}
-          aria-label={liked ? 'Unlike this review' : 'Like this review'}
-          className={cn(
-            'flex min-h-11 items-center gap-1.5 rounded-button px-2 text-meta transition-colors duration-200 ease-soft',
-            liked
-              ? 'text-primary'
-              : 'text-muted-foreground hover:text-foreground'
-          )}
-        >
-          <Heart
-            className={cn('size-4', liked && 'fill-primary')}
-            strokeWidth={1.75}
-          />
-          {likeCount > 0 && likeCount}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setCommentsOpen((v) => !v)}
-          aria-expanded={commentsOpen}
-          className="flex min-h-11 items-center gap-1.5 rounded-button px-2 text-meta text-muted-foreground transition-colors duration-200 ease-soft hover:text-foreground"
-        >
-          <MessageCircle className="size-4" strokeWidth={1.75} />
-          {commentCount === 0
-            ? 'Comment'
-            : `${commentCount} ${commentCount === 1 ? 'comment' : 'comments'}`}
-        </button>
-      </div>
-
-      {commentsOpen && (
-        <ReviewComments
-          reviewId={review.id}
-          onCountChange={(delta) => setCommentCount((c) => Math.max(0, c + delta))}
-        />
-      )}
-    </>
   )
 }

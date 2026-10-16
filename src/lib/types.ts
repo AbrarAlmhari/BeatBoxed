@@ -123,20 +123,6 @@ export type LyricsResult =
   | { status: 'found'; lines: string[]; synced: boolean }
   | { status: 'empty' }
 
-export type ReviewComment = {
-  id: string
-  reviewId: string
-  userId: string
-  body: string
-  createdAt: string
-  edited: boolean
-  author: {
-    username: string | null
-    displayName: string | null
-    avatarUrl: string | null
-  } | null
-}
-
 export type ProfileDetail = {
   id: string
   username: string | null
@@ -208,6 +194,8 @@ export type NotificationRow = {
   payload: Record<string, unknown>
   read: boolean
   createdAt: string
+  /** Rows sharing one show as a single line (likes on the same thing). */
+  groupKey?: string | null
 }
 
 export type Announcement = {

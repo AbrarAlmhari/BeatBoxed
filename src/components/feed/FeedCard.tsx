@@ -4,13 +4,14 @@ import { Loader2, MoreHorizontal, Pause, Play } from 'lucide-react'
 import { StarRating } from '@/components/ui/StarRating'
 import { Sheet } from '@/components/ui/Sheet'
 import { Modal } from '@/components/ui/Modal'
-import { ReviewActions } from '@/components/song/ReviewCard'
+import { ReviewConversation } from '@/components/conversations/ReviewConversation'
 import { Artwork } from './Artwork'
 import { useAuth } from '@/lib/auth'
 import { usePlayer } from '@/lib/player'
 import { useToast } from '@/lib/toast'
 import { deleteReview } from '@/lib/catalog'
 import { REPORT_REASONS, reportReview, type FeedReview } from '@/lib/feed'
+import { cardGlowStyle, useCoverColors } from '@/lib/coverColors'
 import { cn } from '@/lib/cn'
 
 /** "just now", "5m", "3h", "2d", then a date. */
@@ -27,8 +28,8 @@ export function timeAgo(iso: string, now = Date.now()) {
 
 /**
  * One review in the feed: the song it's about on top, then who wrote it and
- * what they said. Like and comment are the song page's own (ReviewActions),
- * so they behave the same in both places.
+ * what they said. Likes and the conversation are ReviewConversation, shared
+ * with the song page, so they behave the same everywhere.
  */
 export function FeedCard({
   review,
@@ -66,14 +67,16 @@ export function FeedCard({
   const isPlaying = isCurrent && player.isPlaying
   const name = review.author?.displayName || review.author?.username || 'Someone'
   const isOwn = user?.id === review.userId
+  const colors = useCoverColors(song.coverUrl)
 
   return (
     <article
       ref={ref}
       data-review-id={review.id}
       data-highlighted={flash || undefined}
+      style={cardGlowStyle(colors)}
       className={cn(
-        'flex flex-col gap-4 rounded-card border border-line bg-surface p-4 shadow-card transition-shadow duration-500 ease-soft',
+        'flex flex-col gap-4 rounded-card border border-line bg-surface p-4 shadow-card transition-shadow duration-500 ease-soft sm:p-5',
         flash && 'ring-2 ring-primary/70'
       )}
     >
@@ -192,7 +195,10 @@ export function FeedCard({
         </div>
       )}
 
-      <ReviewActions review={review} className="-ml-2" />
+      <ReviewConversation
+        review={review}
+        song={{ id: song.id, title: song.title, artistName: song.artistName, coverUrl: song.coverUrl }}
+      />
     </article>
   )
 }
@@ -212,13 +218,15 @@ function ClampedBody({ text, href }: { text: string; href: string }) {
   }, [text, open])
 
   return (
-    <div className="flex flex-col items-start gap-1">
+    <div className="flex flex-col items-stretch gap-1">
       <Link
         ref={ref}
         to={href}
         dir="auto"
         className={cn(
-          'whitespace-pre-line text-body text-muted-foreground transition-colors duration-200 ease-soft hover:text-foreground',
+          // A full-width block, so Arabic lines up on the right like any
+          // right-to-left paragraph.
+          'block w-full whitespace-pre-line text-body text-muted-foreground transition-colors duration-200 ease-soft hover:text-foreground',
           !open && 'line-clamp-4'
         )}
       >
