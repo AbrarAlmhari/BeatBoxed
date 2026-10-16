@@ -190,7 +190,7 @@ test('deleting: with replies it leaves "Comment deleted"; without, it disappears
   await login(page, toji.email)
   let scope = await openThread(page, songs[4].id, review)
   const card = page.locator(`article[data-review-id="${review}"]`)
-  await expect(card.getByRole('button', { name: '3 comments' })).toBeVisible()
+  await expect(card.getByRole('button', { name: '3 comments', exact: true })).toBeVisible()
 
   for (const text of ['hot take incoming', 'a lonely comment']) {
     const row = commentRow(scope, text)
@@ -201,7 +201,7 @@ test('deleting: with replies it leaves "Comment deleted"; without, it disappears
   await expect(scope.getByText('Comment deleted')).toBeVisible()
   await expect(scope.getByText('go on then')).toBeVisible()
   scope = await openThread(page, songs[4].id, review)
-  await expect(card.getByRole('button', { name: '1 comment' })).toBeVisible()
+  await expect(card.getByRole('button', { name: '1 comment', exact: true })).toBeVisible()
 })
 
 test('mention suggestions: thread first, then you follow, then follows you; arrows and Enter pick; no match says so', async ({ page }) => {
