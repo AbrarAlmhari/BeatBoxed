@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { BackButton } from '@/components/ui/BackButton'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { SkeletonList } from '@/components/ui/Skeleton'
 import { PersonAvatar } from '@/components/conversations/PersonAvatar'
@@ -52,10 +51,8 @@ export default function MutedAccounts() {
 
   return (
     <div className="flex max-w-2xl flex-col gap-4 pt-2">
-      <div className="flex items-center gap-2">
-        <BackButton className="-ml-2" />
-        <h1 className="text-page-title">Muted accounts</h1>
-      </div>
+      {/* The app's top bar has the back arrow. */}
+      <h1 className="text-page-title">Muted accounts</h1>
       <p className="text-body text-muted-foreground">
         You don't see their reviews, comments or notifications. They aren't told, and follows stay as they are.
       </p>
