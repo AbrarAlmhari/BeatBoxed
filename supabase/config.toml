@@ -9,3 +9,9 @@ project_id = "beatboxed"
 # without touching code. It has to be listed here to be deployed with the
 # function; index.ts reads it at startup.
 static_files = ["./functions/beatie/personality.md"]
+
+[functions.song-vibes]
+# Called by the song-vibes-label cron job (0048), which has no user to sign
+# in as. The function checks the cron job's Vault secret instead and does
+# nothing without it.
+verify_jwt = false
