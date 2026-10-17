@@ -1,32 +1,40 @@
 import { useState } from 'react'
-import { MoreHorizontal, Share2 } from 'lucide-react'
+import { BellOff, BellRing, MoreHorizontal, Share2 } from 'lucide-react'
 import { Sheet } from '@/components/ui/Sheet'
+import { MuteConfirm, type MuteTarget } from '@/components/mutes/MuteConfirm'
+import { useAuth } from '@/lib/auth'
+import { unmute, useMutedIds } from '@/lib/mutes'
 import { useToast } from '@/lib/toast'
 import { cn } from '@/lib/cn'
 
 /**
- * The profile's "⋯": Share profile. (Report profile needs a table of its
- * own and is listed in TASKS.md.) Uses the phone's share sheet where there
- * is one, and copies the link otherwise.
+ * The profile's "⋯": Share profile, and on someone else's profile Mute or
+ * Unmute. (Report profile needs a table of its own and is listed in
+ * TASKS.md.) Share uses the phone's share sheet where there is one, and
+ * copies the link otherwise.
  */
 export function ProfileMenu({
-  profileId,
-  name,
+  person,
+  isOwn,
   className,
 }: {
-  profileId: string
-  name: string
+  person: MuteTarget
+  isOwn: boolean
   className?: string
 }) {
+  const { user } = useAuth()
   const toast = useToast()
+  const muted = useMutedIds(user?.id).has(person.id)
   const [open, setOpen] = useState(false)
-  const url = `${window.location.origin}/profile/${profileId}`
+  const [confirming, setConfirming] = useState<MuteTarget | null>(null)
+  const url = `${window.location.origin}/profile/${person.id}`
+  const handle = person.username ? `@${person.username}` : person.name
 
   async function share() {
     setOpen(false)
     try {
       if (navigator.share) {
-        await navigator.share({ title: `${name} on BeatBoxed`, url })
+        await navigator.share({ title: `${person.name} on BeatBoxed`, url })
         return
       }
     } catch (err) {
@@ -41,6 +49,20 @@ export function ProfileMenu({
     }
   }
 
+  async function doUnmute() {
+    setOpen(false)
+    if (!user) return
+    try {
+      await unmute(user.id, person.id)
+      toast.show({ message: `Unmuted ${handle}.` })
+    } catch (err) {
+      console.error('[beatboxed] unmute failed:', err)
+      toast.show({ message: "Couldn't unmute. Try again." })
+    }
+  }
+
+  const item = 'flex min-h-11 w-full items-center gap-3 rounded-button px-3 text-left text-body hover:bg-white/5'
+
   return (
     <div className={cn('relative', className)}>
       <button
@@ -54,15 +76,31 @@ export function ProfileMenu({
         <MoreHorizontal className="size-5" strokeWidth={2} />
       </button>
       <Sheet open={open} onClose={() => setOpen(false)} title="Profile options" className="sm:w-56">
-        <button
-          type="button"
-          onClick={() => void share()}
-          className="flex min-h-11 w-full items-center gap-3 rounded-button px-3 text-left text-body hover:bg-white/5"
-        >
+        <button type="button" onClick={() => void share()} className={item}>
           <Share2 className="size-4 text-muted-foreground" strokeWidth={1.75} aria-hidden />
           Share profile
         </button>
+        {!isOwn &&
+          (muted ? (
+            <button type="button" onClick={() => void doUnmute()} className={item}>
+              <BellRing className="size-4 text-muted-foreground" strokeWidth={1.75} aria-hidden />
+              Unmute {handle}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false)
+                setConfirming(person)
+              }}
+              className={item}
+            >
+              <BellOff className="size-4 text-muted-foreground" strokeWidth={1.75} aria-hidden />
+              Mute {handle}
+            </button>
+          ))}
       </Sheet>
+      <MuteConfirm target={confirming} onClose={() => setConfirming(null)} />
     </div>
   )
 }

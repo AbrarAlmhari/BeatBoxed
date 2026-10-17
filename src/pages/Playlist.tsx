@@ -1,17 +1,23 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
+  Bookmark,
   ChevronDown,
   ChevronUp,
   GripVertical,
+  Heart,
   ImagePlus,
   Loader2,
+  Lock,
   Pause,
   Pencil,
   Play,
+  Shuffle,
   Trash2,
+  Unlock,
   X,
 } from 'lucide-react'
+import { PersonAvatar } from '@/components/conversations/PersonAvatar'
 import { PlaylistCover } from '@/components/playlist/PlaylistCover'
 import { PlaylistForm } from '@/components/playlist/PlaylistForm'
 import { Card } from '@/components/ui/Card'
@@ -29,6 +35,12 @@ import {
   formatDuration,
   formatTotalDuration,
   getPlaylist,
+  getPlaylistSocial,
+  markSavedPlaylistOpened,
+  setPlaylistLike,
+  setPlaylistPrivate,
+  setPlaylistSave,
+  type PlaylistSocial,
   removeSongFromPlaylist,
   setPlaylistOrder,
   updatePlaylist,
@@ -56,6 +68,7 @@ export default function Playlist() {
   const dragFrom = useRef<number | null>(null)
   const coverInput = useRef<HTMLInputElement>(null)
   const [uploadingCover, setUploadingCover] = useState(false)
+  const [social, setSocial] = useState<PlaylistSocial | null>(null)
 
   const load = useCallback(async () => {
     const detail = await getPlaylist(id)
@@ -90,6 +103,80 @@ export default function Playlist() {
 
   const isOwner = Boolean(user && playlist && user.id === playlist.ownerId)
   const songs = playlist?.songs ?? []
+
+  // Likes and saves, in one request. Opening a playlist you saved clears
+  // its "N new songs" in the Library.
+  const playlistId = playlist?.id
+  useEffect(() => {
+    if (!playlistId) return
+    let live = true
+    getPlaylistSocial(playlistId)
+      .then((next) => {
+        if (!live) return
+        setSocial(next)
+        if (next.savedByMe) void markSavedPlaylistOpened(playlistId).catch(() => {})
+      })
+      .catch((err) => console.warn('[beatboxed] playlist likes failed:', err))
+    return () => {
+      live = false
+    }
+  }, [playlistId])
+
+  async function toggleLike() {
+    if (!user || !playlist || !social) return
+    const next = !social.likedByMe
+    const apply = (liked: boolean) =>
+      setSocial((s) => s && { ...s, likedByMe: liked, likeCount: s.likeCount + (liked ? 1 : -1) })
+    apply(next)
+    try {
+      await setPlaylistLike(playlist.id, user.id, next)
+    } catch (err) {
+      console.error('[beatboxed] playlist like failed:', err)
+      apply(!next)
+      toast.show({ message: "Couldn't save that like. Try again." })
+    }
+  }
+
+  async function toggleSave() {
+    if (!user || !playlist || !social) return
+    const next = !social.savedByMe
+    const apply = (saved: boolean) =>
+      setSocial((s) => s && { ...s, savedByMe: saved, saveCount: s.saveCount + (saved ? 1 : -1) })
+    apply(next)
+    try {
+      await setPlaylistSave(playlist.id, user.id, next)
+      if (next) {
+        toast.show({
+          icon: <Bookmark className="size-5 fill-current" strokeWidth={1.75} aria-hidden />,
+          message: 'Saved to your Library',
+          actionLabel: 'View',
+          onAction: () => navigate('/library?tab=saved'),
+        })
+      } else {
+        toast.show({ message: 'Removed from your Library' })
+      }
+    } catch (err) {
+      console.error('[beatboxed] playlist save failed:', err)
+      apply(!next)
+      toast.show({ message: "Couldn't save that. Try again." })
+    }
+  }
+
+  async function togglePrivate() {
+    if (!user || !playlist) return
+    const next = !playlist.isPrivate
+    setPlaylist({ ...playlist, isPrivate: next })
+    try {
+      await setPlaylistPrivate(playlist.id, user.id, next)
+      toast.show({
+        message: next ? 'Only you can see this playlist now.' : 'This playlist is visible on your profile again.',
+      })
+    } catch (err) {
+      console.error('[beatboxed] playlist privacy failed:', err)
+      setPlaylist({ ...playlist, isPrivate: !next })
+      toast.show({ message: "Couldn't change that. Try again." })
+    }
+  }
 
   /**
    * Writes a new order optimistically. The list is the user's own and the
@@ -174,8 +261,14 @@ export default function Playlist() {
 
   // Hooks before the early returns. The glow follows the playlist's own
   // cover, or the first song's when it has none (the grid's first tile).
-  const glowSource = playlist?.coverUrl ?? playlist?.songs.find((s) => s.coverUrl)?.coverUrl
-  const coverColors = useCoverColors(glowSource)
+  // A custom cover glows on its own; the mosaic glows from its first two
+  // tiles, one colour each.
+  const tileCovers = (playlist?.songs ?? []).map((s) => s.coverUrl).filter((c): c is string => Boolean(c))
+  const glowSource = playlist?.coverUrl ?? tileCovers[0]
+  const firstColors = useCoverColors(glowSource)
+  const secondColors = useCoverColors(playlist?.coverUrl ? null : tileCovers[1])
+  const coverColors: [string, string] | null =
+    firstColors && secondColors ? [firstColors[0], secondColors[0]] : firstColors
 
   if (loading) {
     return (
@@ -213,6 +306,15 @@ export default function Playlist() {
     .filter((c): c is string => Boolean(c))
     .slice(0, 4)
   const playingThis = songs.some((s) => s.id === player.current?.id)
+
+  function shuffle() {
+    const order = [...songs]
+    for (let i = order.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[order[i], order[j]] = [order[j], order[i]]
+    }
+    player.playQueue(order, 0)
+  }
 
   return (
     <div className="relative isolate flex flex-col gap-8 pt-2">
@@ -295,26 +397,103 @@ export default function Playlist() {
             />
           ) : (
             <>
-              <h1 dir="auto" className="text-page-title">
+              <h1 dir="auto" className="text-center text-page-title sm:text-left">
                 {playlist.title}
               </h1>
               {playlist.description && (
-                <p dir="auto" className="text-body text-muted-foreground">
+                <p dir="auto" className="text-center text-body text-muted-foreground sm:text-left">
                   {playlist.description}
                 </p>
               )}
-              <p className="text-secondary text-muted-foreground">
-                <Link
-                  to={`/profile/${playlist.ownerId}`}
-                  className="text-accent transition-colors duration-200 ease-soft hover:text-foreground"
-                >
-                  {playlist.ownerName}
-                </Link>
-                {' · '}
-                {songs.length} {songs.length === 1 ? 'song' : 'songs'}
-                {total && ` · ${total}`}
-              </p>
+              <div className="flex flex-col items-center gap-1 sm:items-start">
+                <p className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-body text-muted-foreground">
+                  <Link
+                    to={`/profile/${playlist.ownerId}`}
+                    className="flex items-center gap-2 font-semibold text-foreground transition-colors duration-200 ease-soft hover:text-accent"
+                  >
+                    <PersonAvatar name={playlist.ownerName} url={playlist.ownerAvatarUrl} className="size-7 text-meta" />
+                    {playlist.ownerName}
+                  </Link>
+                  <span>
+                    · {songs.length} {songs.length === 1 ? 'song' : 'songs'}
+                    {total && ` · ${total}`}
+                  </span>
+                  {isOwner && playlist.isPrivate && (
+                    <span className="flex items-center gap-1 rounded-chip bg-surface-2 px-2.5 py-0.5 text-meta text-muted-foreground">
+                      <Lock className="size-3" strokeWidth={2} aria-hidden />
+                      Private
+                    </span>
+                  )}
+                </p>
+                {social && (
+                  <p className="text-secondary text-muted-foreground">
+                    Liked by {social.likeCount} · Saved by {social.saveCount}
+                  </p>
+                )}
+              </div>
 
+              {!isOwner && (
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => void toggleLike()}
+                    disabled={!social}
+                    aria-pressed={social?.likedByMe ?? false}
+                    aria-label={social?.likedByMe ? 'Unlike this playlist' : 'Like this playlist'}
+                    className={cn(
+                      'flex min-h-12 items-center gap-2 rounded-chip px-5 text-button transition-colors duration-200 ease-soft disabled:opacity-60',
+                      social?.likedByMe ? 'bg-like/15 text-like' : 'bg-surface-2 text-foreground hover:bg-white/10'
+                    )}
+                  >
+                    <Heart className={cn('size-5', social?.likedByMe && 'fill-like')} strokeWidth={1.75} aria-hidden />
+                    {social?.likeCount ?? 0}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void toggleSave()}
+                    disabled={!social}
+                    aria-pressed={social?.savedByMe ?? false}
+                    className={cn(
+                      'flex min-h-12 items-center gap-2 rounded-chip border-2 px-5 text-button transition-colors duration-200 ease-soft disabled:opacity-60',
+                      social?.savedByMe
+                        ? 'border-primary/80 bg-primary/20 text-foreground'
+                        : 'border-transparent bg-surface-2 text-foreground hover:bg-white/10'
+                    )}
+                  >
+                    <Bookmark
+                      className={cn('size-5', social?.savedByMe && 'fill-accent text-accent')}
+                      strokeWidth={1.75}
+                      aria-hidden
+                    />
+                    {social?.savedByMe ? 'Saved' : 'Save'}
+                  </button>
+                  <span className="flex-1" />
+                  <button
+                    type="button"
+                    onClick={shuffle}
+                    disabled={songs.length === 0}
+                    aria-label="Shuffle"
+                    className="grid size-12 place-items-center rounded-full bg-surface-2 text-foreground transition-colors duration-200 ease-soft hover:bg-white/10 disabled:opacity-50"
+                  >
+                    <Shuffle className="size-5" strokeWidth={1.75} />
+                  </button>
+                  <button
+                    type="button"
+                    disabled={songs.length === 0}
+                    onClick={() => (playingThis && player.isPlaying ? player.toggle() : player.playQueue(songs, 0))}
+                    aria-label={playingThis && player.isPlaying ? 'Pause' : 'Play'}
+                    className="grid size-14 place-items-center rounded-full bg-primary text-white shadow-[0_8px_28px_rgb(139_92_246/0.45)] transition-all duration-200 ease-soft hover:bg-accent active:scale-95 disabled:opacity-50"
+                  >
+                    {playingThis && player.isPlaying ? (
+                      <Pause className="size-6 fill-current" strokeWidth={0} />
+                    ) : (
+                      <Play className="ml-0.5 size-6 fill-current" strokeWidth={0} />
+                    )}
+                  </button>
+                </div>
+              )}
+
+              {isOwner && (
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
@@ -341,6 +520,19 @@ export default function Playlist() {
 
                 {isOwner && (
                   <>
+                    <button
+                      type="button"
+                      onClick={() => void togglePrivate()}
+                      aria-pressed={playlist.isPrivate}
+                      className="flex min-h-11 items-center gap-1.5 rounded-button border border-line-strong bg-surface-2 px-3.5 text-button text-muted-foreground transition-colors duration-200 ease-soft hover:text-foreground"
+                    >
+                      {playlist.isPrivate ? (
+                        <Unlock className="size-4" strokeWidth={1.75} aria-hidden />
+                      ) : (
+                        <Lock className="size-4" strokeWidth={1.75} aria-hidden />
+                      )}
+                      {playlist.isPrivate ? 'Make public' : 'Make private'}
+                    </button>
                     <button
                       type="button"
                       onClick={() => setEditing(true)}
@@ -399,6 +591,7 @@ export default function Playlist() {
                   </>
                 )}
               </div>
+              )}
             </>
           )}
         </div>

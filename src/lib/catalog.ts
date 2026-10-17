@@ -1571,7 +1571,7 @@ export async function getNotificationCenter(
 ): Promise<NotificationCenter> {
   const client = requireClient()
 
-  const [requests, notifs, announcements, reads, prefs] = await Promise.all([
+  const [requests, notifs, announcements, reads, prefs, mutes] = await Promise.all([
     getFollowRequests(viewerId),
     client
       .from('notifications')
@@ -1590,14 +1590,25 @@ export async function getNotificationCenter(
     // requests are read live from user_follows, and announcements are a
     // shared table with no per-user rows.
     getNotificationPrefs(viewerId),
+    // Muting stops new notifications in the database (0046); ones that
+    // arrived before the mute are left out here, page and bell alike.
+    client.from('user_mutes').select('muted_id').eq('muter_id', viewerId),
   ])
   if (notifs.error) throw notifs.error
+  const mutedIds = new Set(
+    mutes.error ? [] : ((mutes.data ?? []) as { muted_id: string }[]).map((m) => m.muted_id)
+  )
   if (announcements.error) throw announcements.error
   if (reads.error) throw reads.error
 
   const readIds = new Set((reads.data ?? []).map((r) => r.announcement_id))
 
-  const notifications: NotificationRow[] = (notifs.data ?? []).map((n) => ({
+  const notifications: NotificationRow[] = (notifs.data ?? [])
+    .filter((n) => {
+      const actor = (n.payload as Record<string, unknown> | null)?.actor_id
+      return !(typeof actor === 'string' && mutedIds.has(actor))
+    })
+    .map((n) => ({
     id: n.id,
     type: n.type,
     payload: (n.payload ?? {}) as Record<string, unknown>,
@@ -1631,7 +1642,17 @@ export async function getNotificationCenter(
     // worse than a quiet badge.
     (prefs.follow_requests ? requests.length : 0) +
     // Several likes on one thing are one row on the page, so one here too.
-    new Set(notifications.filter((n) => !n.read).map((n) => n.groupKey ?? n.id)).size +
+    new Set(
+      notifications
+        .filter((n) => !n.read)
+        .map(
+          (n) =>
+            n.groupKey ??
+            (n.type === 'playlist_liked' && typeof n.payload.playlist_id === 'string'
+              ? `playlist_liked:${n.payload.playlist_id}`
+              : n.id)
+        )
+    ).size +
     anns.filter((a) => !a.read).length
 
   return { requests, updates, badge }
@@ -1708,6 +1729,8 @@ export type NotificationContext = {
   comments: Map<string, { body: string; isReply: boolean; likedByMe: boolean }>
   artists: Map<string, { name: string; imageUrl: string | null }>
   albums: Map<string, { title: string; coverUrl: string | null }>
+  /** Playlist id -> title and a cover (its own, or its first song's). */
+  playlists: Map<string, { title: string; coverUrl: string | null }>
 }
 
 /**
@@ -1726,8 +1749,11 @@ export async function getNotificationContext(
   const commentIds = new Set<string>()
   const artistIds = new Set<string>()
   const albumIds = new Set<string>()
+  const playlistIds = new Set<string>()
 
   for (const n of notifications) {
+    const playlist = str(n.payload.playlist_id)
+    if (playlist) playlistIds.add(playlist)
     // On a release the actor is the artist, not a person, so it must not be
     // looked up in profiles — it would just miss.
     if (n.type === 'artist_release') {
@@ -1748,7 +1774,7 @@ export async function getNotificationContext(
     if (comment) commentIds.add(comment)
   }
 
-  const [songs, comments, liked, artists, albums] = await Promise.all([
+  const [songs, comments, liked, artists, albums, playlists] = await Promise.all([
     songIds.size
       ? client.from('songs').select('id, title, albums(cover_url)').in('id', [...songIds])
       : Promise.resolve({ data: [], error: null }),
@@ -1768,7 +1794,30 @@ export async function getNotificationContext(
     albumIds.size
       ? client.from('albums').select('id, title, cover_url').in('id', [...albumIds])
       : Promise.resolve({ data: [], error: null }),
+    playlistIds.size
+      ? client
+          .from('playlists')
+          .select('id, title, cover_url, playlist_songs(position, songs(albums(cover_url)))')
+          .in('id', [...playlistIds])
+      : Promise.resolve({ data: [], error: null }),
   ])
+
+  const playlistMap = new Map<string, { title: string; coverUrl: string | null }>()
+  if (!playlists.error) {
+    type P = {
+      id: string
+      title: string
+      cover_url: string | null
+      playlist_songs: { position: number; songs: Rel<{ albums: Rel<{ cover_url: string | null }> }> }[] | null
+    }
+    for (const pl of (playlists.data ?? []) as unknown as P[]) {
+      const first = [...(pl.playlist_songs ?? [])]
+        .sort((a, b) => a.position - b.position)
+        .map((e) => one(one(e.songs)?.albums ?? null)?.cover_url ?? null)
+        .find(Boolean)
+      playlistMap.set(pl.id, { title: pl.title, coverUrl: pl.cover_url ?? first ?? null })
+    }
+  }
 
   const songMap = new Map<string, { title: string; coverUrl: string | null }>()
   if (!songs.error) {
@@ -1811,6 +1860,7 @@ export async function getNotificationContext(
     comments: commentMap,
     artists: artistMap,
     albums: albumMap,
+    playlists: playlistMap,
   }
 }
 

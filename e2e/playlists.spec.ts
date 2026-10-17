@@ -36,7 +36,8 @@ test.describe('playlists', () => {
   /** Creates a playlist from Library and returns its id. */
   async function createPlaylist(page: Page, title: string) {
     await page.goto('/library')
-    await page.getByRole('tab', { name: 'Playlists' }).click()
+    // Library's own playlists are the Mine tab.
+    await page.getByRole('tab', { name: 'Mine' }).click()
     await page.getByRole('button', { name: /new playlist/i }).click()
     await page.getByRole('textbox', { name: 'Title' }).fill(title)
 
@@ -101,7 +102,8 @@ test.describe('playlists', () => {
 
     // Library lists it with a song count.
     await page.goto('/library')
-    await page.getByRole('tab', { name: 'Playlists' }).click()
+    // Library's own playlists are the Mine tab.
+    await page.getByRole('tab', { name: 'Mine' }).click()
     await expect(page.getByRole('link', { name: /Late Night.*1 song/s })).toBeVisible()
 
     // Profile lists it too, and the stat counts it.

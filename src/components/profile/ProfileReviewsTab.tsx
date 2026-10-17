@@ -177,6 +177,8 @@ export function ProfileReviewsTab({
                 <FeedCard
                   review={r}
                   variant="profile"
+                  // Their own profile is where a muted person's reviews still show.
+                  hideIfMuted={false}
                   onDeleted={(gone) => setItems((prev) => prev.filter((x) => x.id !== gone.id))}
                 />
               ) : (

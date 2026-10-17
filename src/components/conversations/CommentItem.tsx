@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Heart } from 'lucide-react'
+import { BellOff, Heart, MoreHorizontal } from 'lucide-react'
+import { Sheet } from '@/components/ui/Sheet'
 import { CommentText } from './CommentText'
 import { PersonAvatar } from './PersonAvatar'
 import { commentAge, type ThreadComment } from '@/lib/conversations'
@@ -22,6 +23,8 @@ export function CommentItem({
   onLike,
   onReply,
   onDelete,
+  muted = false,
+  onMute,
 }: {
   comment: ThreadComment
   /** For "Loved by author": the review author's name and picture. */
@@ -34,9 +37,15 @@ export function CommentItem({
   onLike: () => void
   onReply: () => void
   onDelete: () => void
+  /** By someone you muted: folded until you choose to read it. */
+  muted?: boolean
+  /** Someone else's comment: "⋯" offers Mute. */
+  onMute?: () => void
 }) {
   const ref = useRef<HTMLDivElement>(null)
   const [confirming, setConfirming] = useState(false)
+  const [revealed, setRevealed] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
 
   useEffect(() => {
     if (highlighted) ref.current?.scrollIntoView({ block: 'center', behavior: 'smooth' })
@@ -56,6 +65,30 @@ export function CommentItem({
   }
 
   const name = comment.author?.displayName || comment.author?.username || 'Someone'
+  const handle = comment.author?.username ? `@${comment.author.username}` : name
+
+  if (muted && !revealed) {
+    return (
+      <div ref={ref} data-comment-id={comment.id} data-muted className="flex items-center gap-3">
+        <span
+          aria-hidden
+          className={cn('grid shrink-0 place-items-center rounded-full bg-surface-2 text-muted-foreground', avatar)}
+        >
+          <BellOff className="size-4" strokeWidth={1.75} />
+        </span>
+        <p className="flex min-w-0 flex-wrap items-center gap-x-1 text-secondary text-muted-foreground">
+          {reply ? 'Reply' : 'Comment'} from someone you muted ·
+          <button
+            type="button"
+            onClick={() => setRevealed(true)}
+            className="min-h-11 rounded-button px-1 font-semibold text-accent transition-colors duration-200 ease-soft hover:text-foreground"
+          >
+            Show
+          </button>
+        </p>
+      </div>
+    )
+  }
 
   return (
     <div
@@ -124,6 +157,42 @@ export function CommentItem({
             <span className="flex items-center gap-1.5 rounded-chip bg-like/10 py-1 pl-1 pr-2.5 text-meta font-semibold text-like">
               <PersonAvatar name={reviewAuthor.name} url={reviewAuthor.avatarUrl} className="size-5 text-[10px]" />
               Loved by author
+            </span>
+          )}
+          {muted && revealed && (
+            <button
+              type="button"
+              onClick={() => setRevealed(false)}
+              className="min-h-11 rounded-button px-2.5 text-secondary text-muted-foreground transition-colors duration-200 ease-soft hover:text-foreground"
+            >
+              Hide again
+            </button>
+          )}
+          {onMute && !isMine && (
+            <span className="relative">
+              <button
+                type="button"
+                onClick={() => setMenuOpen((v) => !v)}
+                aria-label={`More options for ${name}'s ${reply ? 'reply' : 'comment'}`}
+                aria-haspopup="dialog"
+                aria-expanded={menuOpen}
+                className="grid size-11 place-items-center rounded-full text-muted-foreground transition-colors duration-200 ease-soft hover:text-foreground"
+              >
+                <MoreHorizontal className="size-4" strokeWidth={1.75} />
+              </button>
+              <Sheet open={menuOpen} onClose={() => setMenuOpen(false)} title="Comment options" className="sm:w-56">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuOpen(false)
+                    onMute()
+                  }}
+                  className="flex min-h-11 w-full items-center gap-3 rounded-button px-3 text-left text-body hover:bg-white/5"
+                >
+                  <BellOff className="size-4 text-muted-foreground" strokeWidth={1.75} aria-hidden />
+                  Mute {handle}
+                </button>
+              </Sheet>
             </span>
           )}
           {isMine &&

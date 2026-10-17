@@ -111,7 +111,7 @@ test('liking a comment counts straight away, survives a reload, and goes back if
   const saved = page.waitForResponse((r) => r.url().includes('/comment_likes') && r.request().method() === 'POST')
   await like.click()
   await expect(row.getByRole('button', { name: /^Unlike Toji's comment/ })).toHaveAttribute('aria-pressed', 'true')
-  await expect(row.getByRole('button', { name: /Toji's comment/ })).toContainText('1')
+  await expect(row.getByRole('button', { name: /^(Like|Unlike) Toji's comment/ })).toContainText('1')
   expect((await saved).ok()).toBe(true)
 
   scope = await openThread(page, songs[1].id, review)

@@ -29,6 +29,11 @@ type Toast = {
   lead?: string
   /** Beatie's mark at the start, and a close button (the tour's message). */
   beatie?: boolean
+  /**
+   * A small icon at the start (the bookmark on "Saved to your Library").
+   * These toasts wrap instead of cutting off and show the action as a pill.
+   */
+  icon?: ReactNode
   actionLabel?: string
   onAction?: () => void
 }
@@ -81,15 +86,16 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           <div
             className={cn(
               'pointer-events-auto flex max-w-md items-center gap-3 rounded-card bg-surface-2 px-4 py-3 shadow-card',
-              toast.beatie && 'w-full border border-primary/50'
+              (toast.beatie || toast.icon != null) && 'w-full border border-primary/50'
             )}
           >
+            {toast.icon && <span className="shrink-0 text-accent">{toast.icon}</span>}
             {toast.beatie && (
               <span className="grid size-11 shrink-0 place-items-center rounded-full border border-primary/40 bg-background">
                 <BeatieImage mood="mark" size={28} />
               </span>
             )}
-            <p className={cn('min-w-0 flex-1 text-body', !toast.beatie && 'truncate')}>
+            <p className={cn('min-w-0 flex-1 text-body', !toast.beatie && toast.icon == null && 'truncate')}>
               {toast.lead && <b>{toast.lead} </b>}
               {toast.message}
             </p>
@@ -100,7 +106,12 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                   toast.onAction?.()
                   clear()
                 }}
-                className="shrink-0 rounded-button px-2 py-1 text-button text-accent transition-colors duration-200 ease-soft hover:text-foreground"
+                className={cn(
+                  'shrink-0 text-button transition-colors duration-200 ease-soft',
+                  toast.icon
+                    ? 'min-h-10 rounded-chip bg-primary/25 px-4 text-accent hover:bg-primary/35'
+                    : 'rounded-button px-2 py-1 text-accent hover:text-foreground'
+                )}
               >
                 {toast.actionLabel}
               </button>

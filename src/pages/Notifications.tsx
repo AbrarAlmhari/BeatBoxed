@@ -54,6 +54,7 @@ const EMPTY_CTX: RenderContext = {
   comments: new Map(),
   artists: new Map(),
   albums: new Map(),
+  playlists: new Map(),
 }
 
 /** One row on the page: a notification, or several grouped into one. */
@@ -158,7 +159,15 @@ export default function Notifications() {
   for (const u of filtered) {
     const unread = u.kind === 'notification' ? !u.notification.read : !u.announcement.read
     const id = u.kind === 'notification' ? u.notification.id : u.announcement.id
-    const group = u.kind === 'notification' ? u.notification.groupKey : null
+    // Playlist likes group per playlist too (the database's group_key
+    // predates them, so the key is made here).
+    const group =
+      u.kind === 'notification'
+        ? u.notification.groupKey ??
+          (u.notification.type === 'playlist_liked' && typeof u.notification.payload.playlist_id === 'string'
+            ? `playlist_liked:${u.notification.payload.playlist_id}`
+            : null)
+        : null
     if (group) {
       const existing = byGroup.get(group)
       if (existing && u.kind === 'notification') {

@@ -41,6 +41,7 @@ export type NotificationPrefs = {
   comment_reply: boolean
   mention: boolean
   comment_liked: boolean
+  playlist_liked: boolean
   new_follower: boolean
   follow_accepted: boolean
   artist_release: boolean
@@ -58,6 +59,7 @@ export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
   comment_reply: true,
   mention: true,
   comment_liked: true,
+  playlist_liked: true,
   new_follower: true,
   follow_accepted: true,
   artist_release: true,

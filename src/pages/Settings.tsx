@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { LogOut } from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
+import { ChevronRight, LogOut } from 'lucide-react'
 import { Toggle } from '@/components/ui/Toggle'
 import { BeatieImage } from '@/components/beatie/BeatieImage'
 import { Card } from '@/components/ui/Card'
@@ -28,6 +28,7 @@ const NOTIFICATION_ROWS: { key: NotificationPrefKey; label: string; hint?: strin
   { key: 'comment_reply', label: 'Replies to your comments' },
   { key: 'mention', label: 'Mentions' },
   { key: 'comment_liked', label: 'Likes on your comments and replies' },
+  { key: 'playlist_liked', label: 'Likes on your playlists' },
   { key: 'thread_reply', label: 'Replies in threads you’re in', hint: 'At most once an hour per thread.' },
   { key: 'new_follower', label: 'New followers' },
   {
@@ -192,6 +193,18 @@ export default function Settings() {
             checked={account.followListsVisible}
             onChange={(next) => void saveAccount({ followListsVisible: next })}
           />
+          <Link
+            to="/settings/muted"
+            className="flex min-h-14 items-center gap-3 py-3 transition-colors duration-200 ease-soft hover:text-accent"
+          >
+            <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <span className="text-body text-foreground">Muted accounts</span>
+              <span className="text-meta text-muted-foreground">
+                People whose reviews, comments and notifications you don't see.
+              </span>
+            </span>
+            <ChevronRight className="size-4 shrink-0 text-muted-foreground" strokeWidth={2} aria-hidden />
+          </Link>
         </div>
       </Section>
 
