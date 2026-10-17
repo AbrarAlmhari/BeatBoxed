@@ -72,13 +72,14 @@ export function CommentComposer({
       requestAnimationFrame(() => {
         const el = ref.current
         if (!el) return
-        // The bottom box takes the cursor without moving the page: opening
-        // a long thread on desktop shouldn't jump past the comments (on a
-        // phone it's pinned to the bottom of the sheet anyway). An inline
-        // reply box sits right under its comment, so scrolling to it is fine.
         // Cursor at the end first: moving it inside a focused box makes
-        // Chrome scroll to it, which preventScroll is there to avoid.
+        // Chrome scroll to it, whatever focus() was told.
         el.setSelectionRange(el.value.length, el.value.length)
+        // The bottom box is only focused when someone means to write, so on
+        // desktop bring it into view. In a phone's sheet it's pinned in
+        // view already, and scrolling would move the page behind the sheet.
+        const inSheet = el.closest('[role="dialog"]') !== null
+        if (variant === 'bar' && !inSheet) el.scrollIntoView({ block: 'center' })
         el.focus({ preventScroll: variant === 'bar' })
       })
     }

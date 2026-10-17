@@ -59,7 +59,7 @@ let author: Person, toji: Person, truly: Person, ory: Person
 test.describe.configure({ mode: 'serial' })
 
 test.beforeAll(async () => {
-  songs = await distinctSongs(11)
+  songs = await distinctSongs(12)
   author = await person('cvauthor', 'Abrar')
   toji = await person('cvtoji', 'Toji')
   truly = await person('cvtruly', 'TrulyMe')
@@ -379,10 +379,40 @@ test('the comment box appears only once the thread is open, focused, and keeps a
   await expect(page.locator('[data-comment-id]').filter({ hasText: 'half written thought' })).toBeVisible()
   await expect(box).toHaveValue('')
 
-  // With a comment, the collapsed card shows it; tapping the preview opens the thread.
+  // With a comment, the collapsed card shows it. View comment opens the
+  // thread to read: on desktop at the top, without the cursor in the box;
+  // a phone's sheet still focuses its box.
   await page.goto(`/song/${songs[10].id}?review=${review}`)
   await expect(card.getByText('half written thought')).toBeVisible()
   await expect(page.getByRole('combobox', { name: 'Add a comment' })).toHaveCount(0)
   await card.getByRole('button', { name: 'View comment' }).click()
-  await expect(page.getByRole('combobox', { name: 'Add a comment' })).toBeFocused()
+  const opened = page.getByRole('combobox', { name: 'Add a comment' })
+  await expect(opened).toBeVisible()
+  const phone = (await page.getByRole('dialog').count()) > 0
+  if (phone) await expect(opened).toBeFocused()
+  else {
+    await expect(opened).not.toBeFocused()
+    await expect(page.locator('[data-comment-id]').filter({ hasText: 'half written thought' })).toBeInViewport()
+  }
+})
+
+test('desktop: the comment pill scrolls to the box and focuses it, ready to write', async ({ page }, info) => {
+  test.skip(info.project.name !== 'desktop', 'phones open a sheet with the box pinned in view')
+  const review = await createReview(author.id, songs[11].id, 5, 'Long thread test.')
+  await adminFetch(`/rest/v1/review_comments?review_id=eq.${review}`, { method: 'DELETE' })
+  for (let i = 1; i <= 12; i++) await commentAs(toji.token, review, toji.id, `comment number ${i}`)
+
+  await login(page, ory.email)
+  await page.goto(`/song/${songs[11].id}?review=${review}`)
+  const card = page.locator(`article[data-review-id="${review}"]`)
+  await card.getByRole('button', { name: '12 comments', exact: true }).click()
+  const box = card.getByRole('combobox', { name: 'Add a comment' })
+  await expect(box).toBeFocused()
+  await expect(box).toBeInViewport()
+
+  // View all reads from the top instead.
+  await card.getByRole('button', { name: '12 comments', exact: true }).click()
+  await card.getByRole('button', { name: 'View all 12 comments' }).click()
+  await expect(box).not.toBeFocused()
+  await expect(card.getByRole('button', { name: 'Top', exact: true })).toBeInViewport()
 })

@@ -57,8 +57,12 @@ export function ReviewConversation({
   const [preview, setPreview] = useState<ReviewPreview | null>(null)
   const [count, setCount] = useState(review.commentCount)
   const [open, setOpen] = useState(openComments || !!highlightCommentId || !!replyToCommentId)
-  // Opened by a tap: the box gets the cursor (a notification link doesn't
-  // focus it, so the keyboard doesn't cover the highlighted comment).
+  // Opened by a tap. The comment pill means "I want to write": the box gets
+  // the cursor, and on desktop the page scrolls to it. View all, View comment
+  // and the preview mean "I want to read": desktop opens at the top of the
+  // thread without the cursor; a phone's sheet focuses its box either way.
+  // A notification link focuses nothing, so the keyboard doesn't cover the
+  // highlighted comment.
   const [focusBox, setFocusBox] = useState(false)
   // An unsent new comment. Kept while the card is on screen, so closing the
   // sheet or the thread by accident loses nothing; sending clears it.
@@ -118,8 +122,8 @@ export function ReviewConversation({
     </span>
   ) : null
 
-  function openThread() {
-    setFocusBox(true)
+  function openThread(intent: 'write' | 'read') {
+    setFocusBox(intent === 'write' || !wide)
     setOpen(true)
   }
 
@@ -144,7 +148,7 @@ export function ReviewConversation({
           if (open && wide) {
             setOpen(false)
             refresh()
-          } else openThread()
+          } else openThread('write')
         }}
         aria-expanded={open}
         aria-label={count === 0 ? 'Comments' : commentCountLabel(count)}
@@ -173,7 +177,7 @@ export function ReviewConversation({
         <div
           onClick={(e) => {
             // The names are links of their own.
-            if (!(e.target as HTMLElement).closest('a, button')) openThread()
+            if (!(e.target as HTMLElement).closest('a, button')) openThread('read')
           }}
           className="flex cursor-pointer flex-col gap-2 rounded-card border border-line bg-surface-2/40 p-3.5 transition-colors duration-200 ease-soft hover:border-line-strong"
         >
@@ -216,7 +220,7 @@ export function ReviewConversation({
           {count > 0 && (
             <button
               type="button"
-              onClick={() => openThread()}
+              onClick={() => openThread('read')}
               className="ml-12 flex min-h-10 w-fit items-center gap-2 text-secondary font-semibold text-accent transition-colors duration-200 ease-soft hover:text-foreground"
             >
               <AvatarStack
