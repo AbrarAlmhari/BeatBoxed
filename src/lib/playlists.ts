@@ -59,7 +59,10 @@ export type PlaylistDetail = {
   description: string | null
   ownerId: string
   ownerName: string
+  ownerAvatarUrl: string | null
   coverUrl: string | null
+  /** Only the owner can see it (0045). */
+  isPrivate: boolean
   songs: PlaylistTrack[]
 }
 
@@ -222,7 +225,9 @@ export async function getPlaylist(id: string): Promise<PlaylistDetail | null> {
 
   const { data: list, error } = await client
     .from('playlists')
-    .select('id, title, description, user_id, cover_url, profiles(display_name, username)')
+    // The foreign key is named: playlist likes and saves also connect
+    // playlists to people, and an unnamed embed can become ambiguous.
+    .select('id, title, description, user_id, cover_url, is_private, profiles!playlists_user_id_fkey(display_name, username, avatar_url)')
     .eq('id', id)
     .maybeSingle()
   if (error) throw error
@@ -236,7 +241,7 @@ export async function getPlaylist(id: string): Promise<PlaylistDetail | null> {
   if (songErr) throw songErr
 
   const owner = one(
-    list.profiles as Rel<{ display_name: string | null; username: string | null }>
+    list.profiles as Rel<{ display_name: string | null; username: string | null; avatar_url: string | null }>
   )
 
   const songs: PlaylistTrack[] = []
@@ -255,6 +260,8 @@ export async function getPlaylist(id: string): Promise<PlaylistDetail | null> {
     ownerId: list.user_id,
     coverUrl: list.cover_url,
     ownerName: owner?.display_name || owner?.username || 'Unknown listener',
+    ownerAvatarUrl: owner?.avatar_url ?? null,
+    isPrivate: Boolean((list as { is_private?: boolean }).is_private),
     songs,
   }
 }
@@ -431,4 +438,163 @@ export async function getPlaylistsContaining(
     .eq('playlists.user_id', userId)
   if (error) throw error
   return new Set((data ?? []).map((r) => r.playlist_id))
+}
+
+/* ------------------------------------------------- likes, saves, privacy */
+
+export type PlaylistSocial = {
+  likeCount: number
+  saveCount: number
+  likedByMe: boolean
+  savedByMe: boolean
+}
+
+/**
+ * The playlist page's numbers in one request (0045). Saves come back as a
+ * total only: nobody, the owner included, can see who saved a playlist.
+ */
+export async function getPlaylistSocial(playlistId: string): Promise<PlaylistSocial> {
+  const { data, error } = await requireClient().rpc('playlist_social', { target_playlist: playlistId })
+  if (error) throw error
+  const row = ((data ?? []) as { like_count: number; save_count: number; liked_by_me: boolean; saved_by_me: boolean }[])[0]
+  return {
+    likeCount: row?.like_count ?? 0,
+    saveCount: row?.save_count ?? 0,
+    likedByMe: row?.liked_by_me ?? false,
+    savedByMe: row?.saved_by_me ?? false,
+  }
+}
+
+/** Public: adds to the count and tells the owner. */
+export async function setPlaylistLike(playlistId: string, userId: string, liked: boolean) {
+  const client = requireClient()
+  if (liked) {
+    const { error } = await client.from('playlist_likes').insert({ playlist_id: playlistId, user_id: userId })
+    if (error && error.code !== '23505') throw error
+  } else {
+    const { error } = await client
+      .from('playlist_likes')
+      .delete()
+      .eq('playlist_id', playlistId)
+      .eq('user_id', userId)
+    if (error) throw error
+  }
+}
+
+/** Private: the owner only ever sees the total. A link, not a copy. */
+export async function setPlaylistSave(playlistId: string, userId: string, saved: boolean) {
+  const client = requireClient()
+  if (saved) {
+    const { error } = await client.from('playlist_saves').insert({ playlist_id: playlistId, user_id: userId })
+    if (error && error.code !== '23505') throw error
+  } else {
+    const { error } = await client
+      .from('playlist_saves')
+      .delete()
+      .eq('playlist_id', playlistId)
+      .eq('user_id', userId)
+    if (error) throw error
+  }
+}
+
+/** The owner's switch: a private playlist is only visible to them. */
+export async function setPlaylistPrivate(playlistId: string, ownerId: string, isPrivate: boolean) {
+  const { error } = await requireClient()
+    .from('playlists')
+    .update({ is_private: isPrivate })
+    .eq('id', playlistId)
+    .eq('user_id', ownerId)
+  if (error) throw error
+}
+
+export type SavedPlaylist =
+  | {
+      id: string
+      available: true
+      title: string
+      coverUrl: string | null
+      coverUrls: string[]
+      ownerId: string
+      ownerName: string
+      ownerAvatarUrl: string | null
+      songCount: number
+      /** Songs added since you last opened it. */
+      newSongs: number
+    }
+  | { id: string; available: false }
+
+/**
+ * The Library's Saved tab. One you can no longer see comes back with
+ * nothing but its id, so the row can say so and offer Remove; a deleted
+ * playlist is simply gone.
+ */
+export async function getSavedPlaylists(): Promise<SavedPlaylist[]> {
+  const { data, error } = await requireClient().rpc('my_saved_playlists')
+  if (error) throw error
+  return ((data ?? []) as {
+    playlist_id: string
+    available: boolean
+    title: string | null
+    cover_url: string | null
+    owner_id: string | null
+    owner_name: string | null
+    owner_avatar: string | null
+    song_count: number
+    new_songs: number
+    covers: string[] | null
+  }[]).map((r) =>
+    r.available
+      ? {
+          id: r.playlist_id,
+          available: true,
+          title: r.title ?? '',
+          coverUrl: r.cover_url,
+          coverUrls: r.covers ?? [],
+          ownerId: r.owner_id ?? '',
+          ownerName: r.owner_name || 'Unknown listener',
+          ownerAvatarUrl: r.owner_avatar,
+          songCount: r.song_count,
+          newSongs: r.new_songs,
+        }
+      : { id: r.playlist_id, available: false }
+  )
+}
+
+/** Opening a saved playlist clears its "N new songs". */
+export async function markSavedPlaylistOpened(playlistId: string) {
+  const { error } = await requireClient().rpc('open_saved_playlist', { target_playlist: playlistId })
+  if (error) throw error
+}
+
+export type LikedPlaylist = {
+  id: string
+  title: string
+  coverUrl: string | null
+  coverUrls: string[]
+  ownerId: string
+  ownerName: string
+  songCount: number
+}
+
+/** Playlists someone liked, for their profile's Likes tab (privacy applied in the database). */
+export async function getLikedPlaylists(userId: string): Promise<LikedPlaylist[]> {
+  const { data, error } = await requireClient().rpc('liked_playlists', { target_user: userId, max_count: 20 })
+  if (error) throw error
+  return ((data ?? []) as {
+    playlist_id: string
+    title: string
+    cover_url: string | null
+    owner_id: string
+    owner_name: string | null
+    song_count: number
+    covers: string[] | null
+  }[]).map((r) => ({
+    id: r.playlist_id,
+    title: r.title,
+    coverUrl: r.cover_url,
+    coverUrls: r.covers ?? [],
+    ownerId: r.owner_id,
+    ownerName: r.owner_name || 'Unknown listener',
+    songCount: r.song_count,
+  }))
 }

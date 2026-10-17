@@ -10,14 +10,16 @@ import { usePlayer } from '@/lib/player'
 import { useToast } from '@/lib/toast'
 import { getLikedSongs, setSongLike } from '@/lib/catalog'
 import { getLikedReviews } from '@/lib/profile'
+import { getLikedPlaylists, type PlaylistSummary } from '@/lib/playlists'
+import { PlaylistGrid, PlaylistGridSkeleton } from '@/components/playlist/PlaylistGrid'
 import type { FeedReview } from '@/lib/feed'
 import type { SongCardModel } from '@/lib/types'
 import { cn } from '@/lib/cn'
 
-type Kind = 'songs' | 'reviews'
+type Kind = 'songs' | 'reviews' | 'playlists'
 
 /**
- * Songs and reviews this person liked. The page shows this tab only when
+ * Songs, reviews and playlists this person liked. The page shows this tab only when
  * the rest of the profile is visible; the likes tables themselves are still
  * readable to anyone at the database level (TASKS.md).
  */
@@ -38,7 +40,7 @@ export function ProfileLikesTab({
         aria-label="Liked"
         className="flex w-full max-w-xs gap-1 self-start rounded-card border border-line-strong bg-surface p-1"
       >
-        {(['songs', 'reviews'] as Kind[]).map((k) => (
+        {(['songs', 'reviews', 'playlists'] as Kind[]).map((k) => (
           <button
             key={k}
             type="button"
@@ -51,16 +53,68 @@ export function ProfileLikesTab({
                 : 'text-muted-foreground hover:text-foreground'
             )}
           >
-            {k === 'songs' ? 'Songs' : 'Reviews'}
+            {k === 'songs' ? 'Songs' : k === 'reviews' ? 'Reviews' : 'Playlists'}
           </button>
         ))}
       </div>
       {kind === 'songs' ? (
         <LikedSongs userId={userId} isOwn={isOwn} handle={handle} />
-      ) : (
+      ) : kind === 'reviews' ? (
         <LikedReviews userId={userId} isOwn={isOwn} handle={handle} />
+      ) : (
+        <LikedPlaylists userId={userId} isOwn={isOwn} handle={handle} />
       )}
     </div>
+  )
+}
+
+/**
+ * Playlists this person liked. The database applies the privacy: only when
+ * you can see their account, and only playlists you're allowed to see.
+ */
+function LikedPlaylists({ userId, isOwn, handle }: { userId: string; isOwn: boolean; handle: string }) {
+  const [items, setItems] = useState<PlaylistSummary[] | null>(null)
+  useEffect(() => {
+    let live = true
+    getLikedPlaylists(userId)
+      .then((rows) => {
+        if (!live) return
+        setItems(
+          rows.map((r) => ({
+            id: r.id,
+            title: r.title,
+            description: null,
+            ownerId: r.ownerId,
+            sortedAt: '',
+            coverUrl: r.coverUrl,
+            songCount: r.songCount,
+            coverUrls: r.coverUrls,
+          }))
+        )
+      })
+      .catch((err) => {
+        console.error('[beatboxed] liked playlists failed:', err)
+        if (live) setItems([])
+      })
+    return () => {
+      live = false
+    }
+  }, [userId])
+
+  if (items === null) return <PlaylistGridSkeleton />
+  if (items.length === 0) {
+    return (
+      <EmptyState
+        face="happy-sticker"
+        title="No liked playlists yet"
+        detail={isOwn ? "Tap the heart on someone's playlist to keep it here." : `${handle} hasn't liked any playlists yet.`}
+      />
+    )
+  }
+  return (
+    <section aria-label="Liked playlists">
+      <PlaylistGrid playlists={items} />
+    </section>
   )
 }
 

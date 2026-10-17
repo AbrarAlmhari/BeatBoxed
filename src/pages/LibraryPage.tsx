@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Plus } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { EmptyState } from '@/components/ui/EmptyState'
@@ -7,6 +8,7 @@ import { SkeletonMediaGrid } from '@/components/ui/Skeleton'
 import { TabPanel, Tabs } from '@/components/ui/Tabs'
 import { PlaylistGrid, PlaylistGridSkeleton } from '@/components/playlist/PlaylistGrid'
 import { PlaylistForm } from '@/components/playlist/PlaylistForm'
+import { SavedPlaylists } from '@/components/playlist/SavedPlaylists'
 import {
   createPlaylist,
   getUserPlaylists,
@@ -20,19 +22,34 @@ import { usePlayer } from '@/lib/player'
 import { getFollowedArtists, getLikedSongs } from '@/lib/catalog'
 import type { ArtistCardModel, SongCardModel } from '@/lib/types'
 
-type Tab = 'liked' | 'playlists' | 'artists'
+type Tab = 'playlists' | 'saved' | 'liked' | 'artists'
 
+// "Mine" is your own playlists; "Saved" other people's you saved (links,
+// not copies). Artists stays as the last tab.
 const TABS: { id: Tab; label: string }[] = [
-  { id: 'liked', label: 'Liked Songs' },
-  { id: 'playlists', label: 'Playlists' },
+  { id: 'playlists', label: 'Mine' },
+  { id: 'saved', label: 'Saved' },
+  { id: 'liked', label: 'Liked songs' },
   { id: 'artists', label: 'Artists' },
 ]
+
+const isTab = (v: string | null): v is Tab => TABS.some((t) => t.id === v)
 
 /** Always the signed-in user's own library — there's no view of someone else's. */
 export default function LibraryPage() {
   const { user } = useAuth()
   const player = usePlayer()
-  const [tab, setTab] = useState<Tab>('liked')
+  // ?tab=saved opens Saved (the "Saved to your Library" toast's View).
+  const [params, setParams] = useSearchParams()
+  const fromUrl = params.get('tab')
+  const [tab, setTabState] = useState<Tab>(isTab(fromUrl) ? fromUrl : 'playlists')
+  const setTab = (next: Tab) => {
+    setTabState(next)
+    setParams(next === 'playlists' ? {} : { tab: next }, { replace: true })
+  }
+  useEffect(() => {
+    if (isTab(fromUrl)) setTabState(fromUrl)
+  }, [fromUrl])
 
   const [liked, setLiked] = useState<SongCardModel[] | null>(null)
   const [artists, setArtists] = useState<ArtistCardModel[] | null>(null)
@@ -160,6 +177,12 @@ export default function LibraryPage() {
           ) : (
             <PlaylistGrid playlists={playlists} />
           )}
+        </section>
+      )}
+
+      {tab === 'saved' && (
+        <section>
+          <SavedPlaylists />
         </section>
       )}
 

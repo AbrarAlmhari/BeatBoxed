@@ -36,6 +36,7 @@ export const NOTIFICATION_CATEGORIES: Record<string, NotificationCategory> = {
   review_commented: 'replies',
   review_liked: 'likes',
   comment_liked: 'likes',
+  playlist_liked: 'likes',
   new_follower: 'follows',
   follow_requested: 'follows',
   follow_accepted: 'follows',
@@ -209,6 +210,27 @@ const commentLiked: NotificationRenderer = (n, ctx, also = []) => {
   }
 }
 
+const playlistLiked: NotificationRenderer = (n, ctx, also = []) => {
+  const actor = str(n.payload.actor_id)
+  const id = str(n.payload.playlist_id)
+  if (!actor || !id) return null
+  const playlist = ctx.playlists.get(id)
+  return {
+    avatar: <Avatar person={ctx.people.get(actor)} badge="like" />,
+    body: (
+      <>
+        {actors(actor, ctx, also)} liked your playlist{playlist ? ' ' : ''}
+        {playlist && <span dir="auto">{playlist.title}</span>}
+      </>
+    ),
+    quote: null,
+    coverUrl: playlist?.coverUrl ?? null,
+    href: `/playlist/${id}`,
+    actorId: actor,
+    commentId: null,
+  }
+}
+
 const commentReply: NotificationRenderer = (n, ctx) => {
   const actor = str(n.payload.actor_id)
   if (!actor) return null
@@ -359,6 +381,7 @@ export const NOTIFICATION_RENDERERS: Record<string, NotificationRenderer> = {
   },
   review_liked: reviewLiked,
   comment_liked: commentLiked,
+  playlist_liked: playlistLiked,
   review_commented: reviewCommented,
   comment_reply: commentReply,
   thread_reply: threadReply,
