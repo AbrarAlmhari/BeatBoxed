@@ -24,9 +24,10 @@ const personName = (p: Pick<CommentPerson, 'displayName' | 'username'>) =>
 
 /**
  * Everything under a review: the like and comment pills, "Liked by", and
- * the conversation. Collapsed, it shows the top comment, "View all N
- * comments" and a quick box to add one. Opened, a phone gets the comments
- * sheet and desktop gets the thread inside the card.
+ * the conversation. Collapsed, it shows the top comment and "View all N
+ * comments". The comment pill (or the preview) opens it with the box ready
+ * to type in: a phone gets the comments sheet, desktop the thread inside
+ * the card.
  *
  * Shared by the feed, the profile tabs and the song page, so comments
  * behave the same everywhere.
@@ -56,7 +57,16 @@ export function ReviewConversation({
   const [preview, setPreview] = useState<ReviewPreview | null>(null)
   const [count, setCount] = useState(review.commentCount)
   const [open, setOpen] = useState(openComments || !!highlightCommentId || !!replyToCommentId)
+  // Opened by a tap. The comment pill means "I want to write": the box gets
+  // the cursor, and on desktop the page scrolls to it. View all, View comment
+  // and the preview mean "I want to read": desktop opens at the top of the
+  // thread without the cursor; a phone's sheet focuses its box either way.
+  // A notification link focuses nothing, so the keyboard doesn't cover the
+  // highlighted comment.
   const [focusBox, setFocusBox] = useState(false)
+  // An unsent new comment. Kept while the card is on screen, so closing the
+  // sheet or the thread by accident loses nothing; sending clears it.
+  const [draft, setDraft] = useState('')
 
   const refresh = useCallback(() => {
     loadPreview(review.id)
@@ -112,8 +122,8 @@ export function ReviewConversation({
     </span>
   ) : null
 
-  function openThread(withBox = false) {
-    setFocusBox(withBox)
+  function openThread(intent: 'write' | 'read') {
+    setFocusBox(intent === 'write' || !wide)
     setOpen(true)
   }
 
@@ -138,7 +148,7 @@ export function ReviewConversation({
           if (open && wide) {
             setOpen(false)
             refresh()
-          } else openThread()
+          } else openThread('write')
         }}
         aria-expanded={open}
         aria-label={count === 0 ? 'Comments' : commentCountLabel(count)}
@@ -159,10 +169,18 @@ export function ReviewConversation({
   const top = preview?.topComment
   const otherCommenters = (preview?.commenters ?? []).filter((p) => p.id !== top?.userId).slice(0, 2)
 
-  const collapsed = (
+  // Collapsed: the top comment and "View all" on a card with comments,
+  // nothing more. The box to write in appears once the thread is open.
+  const collapsed = top ? (
     <div className="flex flex-col gap-3">
       {top && (
-        <div className="flex flex-col gap-2 rounded-card border border-line bg-surface-2/40 p-3.5">
+        <div
+          onClick={(e) => {
+            // The names are links of their own.
+            if (!(e.target as HTMLElement).closest('a, button')) openThread('read')
+          }}
+          className="flex cursor-pointer flex-col gap-2 rounded-card border border-line bg-surface-2/40 p-3.5 transition-colors duration-200 ease-soft hover:border-line-strong"
+        >
           <div className="flex gap-3">
             <Link to={`/profile/${top.userId}`} aria-hidden tabIndex={-1}>
               <PersonAvatar
@@ -199,30 +217,22 @@ export function ReviewConversation({
               </div>
             </div>
           </div>
-          {count > 1 && (
+          {count > 0 && (
             <button
               type="button"
-              onClick={() => openThread()}
+              onClick={() => openThread('read')}
               className="ml-12 flex min-h-10 w-fit items-center gap-2 text-secondary font-semibold text-accent transition-colors duration-200 ease-soft hover:text-foreground"
             >
               <AvatarStack
                 people={otherCommenters.map((p) => ({ id: p.id, name: personName(p), avatarUrl: p.avatarUrl }))}
               />
-              View all {commentCountLabel(count)}
+              {count === 1 ? 'View comment' : `View all ${commentCountLabel(count)}`}
             </button>
           )}
         </div>
       )}
-      <button
-        type="button"
-        onClick={() => openThread(true)}
-        className="flex min-h-14 items-center gap-3 rounded-[28px] border border-line-strong bg-surface-2/60 p-1.5 pr-4 text-left transition-colors duration-200 ease-soft hover:border-primary/50"
-      >
-        <PersonAvatar name={me.name} url={me.avatarUrl} className="size-9 text-secondary" />
-        <span className="truncate text-body text-muted-foreground">Add a comment… type @ to mention</span>
-      </button>
     </div>
-  )
+  ) : null
 
   return (
     <div className="flex flex-col gap-4">
@@ -238,6 +248,8 @@ export function ReviewConversation({
           highlightId={highlightCommentId}
           replyToId={replyToCommentId}
           focusComposer={focusBox}
+          draft={draft}
+          onDraftChange={setDraft}
           onCount={setCount}
         >
           {({ sort, list, composer }) => (
@@ -268,6 +280,8 @@ export function ReviewConversation({
           highlightId={highlightCommentId}
           replyToId={replyToCommentId}
           focusComposer={focusBox}
+          draft={draft}
+          onDraftChange={setDraft}
           onCount={setCount}
         />
       )}
