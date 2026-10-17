@@ -5,6 +5,7 @@ import { StarRating } from '@/components/ui/StarRating'
 import { Sheet } from '@/components/ui/Sheet'
 import { Modal } from '@/components/ui/Modal'
 import { ReviewConversation } from '@/components/conversations/ReviewConversation'
+import { MuteConfirm, type MuteTarget } from '@/components/mutes/MuteConfirm'
 import { Artwork } from './Artwork'
 import { useAuth } from '@/lib/auth'
 import { usePlayer } from '@/lib/player'
@@ -12,6 +13,7 @@ import { useToast } from '@/lib/toast'
 import { deleteReview } from '@/lib/catalog'
 import { REPORT_REASONS, reportReview, type FeedReview } from '@/lib/feed'
 import { cardGlowStyle, useCoverColors } from '@/lib/coverColors'
+import { useMutedIds } from '@/lib/mutes'
 import { cn } from '@/lib/cn'
 
 /** "just now", "5m", "3h", "2d", then a date. */
@@ -36,6 +38,7 @@ export function FeedCard({
   highlight = false,
   onDeleted,
   variant = 'feed',
+  hideIfMuted = true,
 }: {
   review: FeedReview
   /** Just posted: outline it briefly so the eye finds it. */
@@ -47,6 +50,12 @@ export function FeedCard({
    * four lines with "Read more", and the text opens the review.
    */
   variant?: 'feed' | 'profile'
+  /**
+   * Reviews by someone you muted disappear everywhere except their own
+   * profile, which passes false. The database already leaves them out of
+   * the feeds; this also covers the moment you mute.
+   */
+  hideIfMuted?: boolean
 }) {
   const { user } = useAuth()
   const player = usePlayer()
@@ -68,6 +77,9 @@ export function FeedCard({
   const name = review.author?.displayName || review.author?.username || 'Someone'
   const isOwn = user?.id === review.userId
   const colors = useCoverColors(song.coverUrl)
+  const muted = useMutedIds(user?.id).has(review.userId)
+
+  if (muted && hideIfMuted && !isOwn) return null
 
   return (
     <article
@@ -250,10 +262,13 @@ function ReviewMenu({
   review,
   isOwn,
   onDeleted,
+  onMuted,
 }: {
   review: FeedReview
   isOwn: boolean
   onDeleted: () => void
+  /** Muting the author: the feed drops their reviews straight away. */
+  onMuted?: () => void
 }) {
   const { user } = useAuth()
   const toast = useToast()
@@ -261,7 +276,10 @@ function ReviewMenu({
   const [open, setOpen] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [reporting, setReporting] = useState(false)
+  const [muting, setMuting] = useState<MuteTarget | null>(null)
   const [pending, setPending] = useState(false)
+  const authorName = review.author?.displayName || review.author?.username || 'Someone'
+  const authorHandle = review.author?.username ? `@${review.author.username}` : authorName
 
   function close() {
     setOpen(false)
@@ -327,18 +345,36 @@ function ReviewMenu({
             </button>
           )
         ) : (
-          <button
-            type="button"
-            onClick={() => {
-              close()
-              setReporting(true)
-            }}
-            className={item}
-          >
-            Report
-          </button>
+          <>
+            <button
+              type="button"
+              onClick={() => {
+                close()
+                setReporting(true)
+              }}
+              className={item}
+            >
+              Report
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                close()
+                setMuting({
+                  id: review.userId,
+                  username: review.author?.username ?? null,
+                  name: authorName,
+                  avatarUrl: review.author?.avatarUrl ?? null,
+                })
+              }}
+              className={item}
+            >
+              Mute {authorHandle}
+            </button>
+          </>
         )}
       </Sheet>
+      <MuteConfirm target={muting} onClose={() => setMuting(null)} onMuted={onMuted} />
 
       {user && !isOwn && (
         <ReportDialog

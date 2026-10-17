@@ -5,6 +5,7 @@ import { UserFollowButton } from '@/components/people/UserFollowButton'
 import { PageGlow } from '@/components/ui/PageGlow'
 import { tagLabel } from '@/lib/tags'
 import { ProfileMenu } from './ProfileMenu'
+import { MuteBanner } from '@/components/mutes/MuteBanner'
 import type { ProfileList } from './ProfileListSheet'
 import type { FollowState, ProfileDetail } from '@/lib/types'
 
@@ -45,6 +46,7 @@ export function ProfileHero({
 }) {
   const navigate = useNavigate()
   const name = profile.displayName || profile.username || 'Listener'
+  const menuPerson = { id: profile.id, username: profile.username, name, avatarUrl: profile.avatarUrl }
   // React Router keeps its own position in history; 0 means this page was
   // opened directly, so there's nothing in the app to go back to.
   const canGoBack = ((window.history.state as { idx?: number } | null)?.idx ?? 0) > 0
@@ -97,7 +99,7 @@ export function ProfileHero({
         ) : (
           <span />
         )}
-        <ProfileMenu profileId={profile.id} name={name} />
+        <ProfileMenu person={menuPerson} isOwn={isOwn} />
       </div>
 
       <div className="flex items-center gap-4 md:gap-5">
@@ -109,13 +111,17 @@ export function ProfileHero({
             </h1>
             {/* Desktop: actions on the name's line, "⋯" at the far end. */}
             <div className="hidden items-center gap-2 md:flex">{actions}</div>
-            <ProfileMenu profileId={profile.id} name={name} className="ml-auto hidden md:block" />
+            <ProfileMenu person={menuPerson} isOwn={isOwn} className="ml-auto hidden md:block" />
           </div>
           {profile.username && (
             <p className="truncate text-secondary text-muted-foreground">@{profile.username}</p>
           )}
         </div>
       </div>
+
+      {!isOwn && (
+        <MuteBanner personId={profile.id} handle={profile.username ? `@${profile.username}` : name} />
+      )}
 
       {profile.bio && (
         <p dir="auto" className="line-clamp-2 max-w-prose text-body text-muted-foreground">

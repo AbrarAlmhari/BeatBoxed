@@ -3,6 +3,8 @@ import { Loader2 } from 'lucide-react'
 import { Chip } from '@/components/ui/Chip'
 import { CommentItem } from './CommentItem'
 import { CommentComposer } from './CommentComposer'
+import { MuteConfirm, type MuteTarget } from '@/components/mutes/MuteConfirm'
+import { useMutedIds } from '@/lib/mutes'
 import { useAuth } from '@/lib/auth'
 import { useToast } from '@/lib/toast'
 import {
@@ -77,6 +79,8 @@ export function CommentThread({
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [replyTarget, setReplyTarget] = useState<ThreadComment | null>(null)
   const [pendingReplyId, setPendingReplyId] = useState(replyToId)
+  const mutedIds = useMutedIds(user?.id)
+  const [muting, setMuting] = useState<MuteTarget | null>(null)
 
   // Only the newest load may change the list. An older one arriving late
   // (switching Top and Newest, posting while it's still loading) would
@@ -223,6 +227,18 @@ export function CommentThread({
       onLike={() => void like(c)}
       onReply={() => startReply(c)}
       onDelete={() => void remove(c)}
+      muted={!!c.userId && mutedIds.has(c.userId)}
+      onMute={
+        c.userId && c.userId !== user?.id
+          ? () =>
+              setMuting({
+                id: c.userId!,
+                username: c.author?.username ?? null,
+                name: c.author?.displayName || c.author?.username || 'Someone',
+                avatarUrl: c.author?.avatarUrl ?? null,
+              })
+          : undefined
+      }
     />
   )
 
@@ -327,5 +343,10 @@ export function CommentThread({
     />
   )
 
-  return <>{children({ sort: sortRow, list, composer })}</>
+  return (
+    <>
+      {children({ sort: sortRow, list, composer })}
+      <MuteConfirm target={muting} onClose={() => setMuting(null)} />
+    </>
+  )
 }
