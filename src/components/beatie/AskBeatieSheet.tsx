@@ -16,7 +16,16 @@ import type { SongCardModel } from '@/lib/types'
  * A bottom sheet on phones and a centred dialog on wider screens, like the
  * composer: a search list and a conversation don't fit in a small popover.
  */
-export function AskBeatieSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function AskBeatieSheet({
+  open,
+  onClose,
+  initialSong,
+}: {
+  open: boolean
+  onClose: () => void
+  /** Open straight on this song (the check-in's "Ask me about it"). */
+  initialSong?: SongCardModel
+}) {
   const titleId = useId()
   const searchRef = useRef<HTMLInputElement>(null)
   const [step, setStep] = useState<1 | 2>(1)
@@ -28,10 +37,12 @@ export function AskBeatieSheet({ open, onClose }: { open: boolean; onClose: () =
   // Each opening starts at the picker; the conversation isn't kept.
   useEffect(() => {
     if (!open) return
-    setStep(1)
+    setStep(initialSong ? 2 : 1)
     setQuery('')
-    setSong(null)
+    setSong(initialSong ?? null)
     setAnswered(false)
+    // initialSong is read when the sheet opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
   useEffect(() => {
