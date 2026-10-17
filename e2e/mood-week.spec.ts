@@ -168,10 +168,15 @@ test('the song of the week: card on Home, the page, and a star tap that keeps yo
 
   await page.getByRole('radio', { name: '4 stars', exact: true }).check({ force: true })
   await expect(page.getByText('You rated it 4 stars')).toBeVisible()
-  const [row] = (await (await adminFetch(`/rest/v1/reviews?user_id=eq.${me.id}&song_id=eq.${songId}&select=rating,body,title`)).json()) as {
-    rating: number; body: string; title: string
-  }[]
-  expect(row).toEqual({ rating: 4, body: 'These words must survive a star tap.', title: 'Kept' })
+  // The stars change on screen before the save lands; wait for the save.
+  await expect
+    .poll(async () => {
+      const [row] = (await (await adminFetch(`/rest/v1/reviews?user_id=eq.${me.id}&song_id=eq.${songId}&select=rating,body,title`)).json()) as {
+        rating: number; body: string; title: string
+      }[]
+      return row
+    })
+    .toEqual({ rating: 4, body: 'These words must survive a star tap.', title: 'Kept' })
 
   // "Edit your review" opens the composer on this song, with the text.
   await page.getByRole('button', { name: 'Edit your review' }).click()
