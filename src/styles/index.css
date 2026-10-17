@@ -55,6 +55,9 @@
   --color-badge-mention: #3b82f6;
   --color-badge-follow: #14b8a6;
 
+  /* The song of the week's label: a warm peach that reads on the glow. */
+  --color-week: #f5a97f;
+
   --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI',
     sans-serif;
 

@@ -27,9 +27,15 @@ export function ReviewComposer({
   open,
   onClose,
   onPosted,
+  initialSong,
 }: {
   open: boolean
   onClose: () => void
+  /**
+   * Skip the search and open on this song (the song of the week's "Add a
+   * review"); your existing review of it opens for editing.
+   */
+  initialSong?: SongCardModel
   /** The saved review, with its song, so the feed can show it at once. */
   onPosted: (review: FeedReview, wasEdit: boolean) => void
 }) {
@@ -64,6 +70,26 @@ export function ReviewComposer({
     setBody('')
     setPostError(null)
     setConfirmingDiscard(false)
+    if (!initialSong) return
+    setChosen(initialSong)
+    setStep(2)
+    if (!user) return
+    let live = true
+    getMyReviews(user.id, [initialSong.id])
+      .then((m) => {
+        const theirs = m.get(initialSong.id) ?? null
+        if (!live || !theirs) return
+        setExisting(theirs)
+        setRating(theirs.rating)
+        setHeadline(theirs.title ?? '')
+        setBody(theirs.body ?? '')
+      })
+      .catch((err: unknown) => console.warn('[beatboxed] own review lookup failed:', err))
+    return () => {
+      live = false
+    }
+    // initialSong is read when the composer opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
   // Which offered songs the user has already reviewed — the "Reviewed"

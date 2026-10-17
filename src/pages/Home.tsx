@@ -4,6 +4,8 @@ import { PenLine } from 'lucide-react'
 import { FeedCard } from '@/components/feed/FeedCard'
 import { ReviewComposer } from '@/components/feed/ReviewComposer'
 import { AskBeatieSheet } from '@/components/beatie/AskBeatieSheet'
+import { CheckinCard } from '@/components/mood/CheckinCard'
+import { WeeklySongCard } from '@/components/mood/WeeklySongCard'
 import { AskBeatiePill, BeatieHello, useBeatieHello } from '@/components/beatie/AskBeatiePill'
 import { BeatieImage } from '@/components/beatie/BeatieImage'
 import { PersonCard } from '@/components/people/PersonCard'
@@ -248,6 +250,11 @@ export default function Home() {
         </div>
         {!tourOpen && <BeatieHello hello={hello} />}
       </div>
+
+      {/* #9 and #10: today's check-in (or its "Today" bar), then the
+          song of the week. */}
+      <CheckinCard />
+      <WeeklySongCard />
 
       <WelcomeCard />
 

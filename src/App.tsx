@@ -17,6 +17,7 @@ import Artist from '@/pages/Artist'
 import Album from '@/pages/Album'
 import SettingsPage from '@/pages/Settings'
 import MutedAccounts from '@/pages/MutedAccounts'
+import WeeklySong from '@/pages/WeeklySong'
 import Notifications from '@/pages/Notifications'
 import FollowRequests from '@/pages/FollowRequests'
 import ProfileFollows from '@/pages/ProfileFollows'
@@ -68,6 +69,7 @@ export default function App() {
               <Route path="album/:id" element={<Album />} />
               <Route path="settings" element={<SettingsPage />} />
               <Route path="settings/muted" element={<MutedAccounts />} />
+              <Route path="week" element={<WeeklySong />} />
               <Route path="notifications" element={<Notifications />} />
               <Route path="notifications/requests" element={<FollowRequests />} />
               <Route path="now-playing" element={<NowPlaying />} />
