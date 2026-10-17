@@ -22,6 +22,8 @@ export function CommentsSheet({
   highlightId,
   replyToId,
   focusComposer = false,
+  draft,
+  onDraftChange,
   onCount,
 }: {
   open: boolean
@@ -35,8 +37,10 @@ export function CommentsSheet({
   me: { name: string; avatarUrl: string | null }
   highlightId?: string | null
   replyToId?: string | null
-  /** Opened from the quick "Add a comment" box: start typing straight away. */
+  /** Opened by a tap: start typing straight away. */
   focusComposer?: boolean
+  draft?: string
+  onDraftChange?: (text: string) => void
   onCount: (n: number) => void
 }) {
   const titleId = useId()
@@ -51,6 +55,8 @@ export function CommentsSheet({
         highlightId={highlightId}
         replyToId={replyToId}
         focusComposer={focusComposer}
+        draft={draft}
+        onDraftChange={onDraftChange}
         onCount={onCount}
       >
         {({ sort, list, composer }) => (

@@ -25,6 +25,8 @@ export function CommentComposer({
   replyingTo = null,
   initialText = '',
   autoFocus = false,
+  draft = '',
+  onDraftChange,
   onCancelReply,
   onSubmit,
 }: {
@@ -36,28 +38,51 @@ export function CommentComposer({
   /** "@name " when replying to a reply. */
   initialText?: string
   autoFocus?: boolean
+  /**
+   * A new comment written earlier and not sent (the sheet or thread was
+   * closed). Restored when the box opens again; replies don't use it.
+   */
+  draft?: string
+  /** Every change to a new comment, so the card can keep the draft. */
+  onDraftChange?: (text: string) => void
   onCancelReply?: () => void
   /** Resolves true when it was posted, so the box can clear. */
   onSubmit: (text: string) => Promise<boolean>
 }) {
-  const [text, setText] = useState(initialText)
+  const [text, setTextState] = useState(initialText || (replyingTo ? '' : draft))
   const [sending, setSending] = useState(false)
   const [focused, setFocused] = useState(false)
   const ref = useRef<HTMLTextAreaElement>(null)
+  // A new comment's text is also the card's draft.
+  const setText = (next: string) => {
+    setTextState(next)
+    if (!replyingTo) onDraftChange?.(next)
+  }
   const mentions = useMentions({ reviewId, value: text, setValue: setText, inputRef: ref })
 
-  // A new reply target brings its own "@name ".
+  // A new reply target brings its own "@name "; leaving a reply goes back to
+  // the draft. On first open the text is already right (useState above).
+  const target = useRef(replyingTo)
   useEffect(() => {
-    setText(initialText)
-    if (autoFocus || initialText) {
+    if (target.current !== replyingTo) {
+      target.current = replyingTo
+      setTextState(initialText || (replyingTo ? '' : draft))
+    }
+    if (autoFocus || initialText || replyingTo) {
       requestAnimationFrame(() => {
         const el = ref.current
         if (!el) return
-        el.focus()
+        // The bottom box takes the cursor without moving the page: opening
+        // a long thread on desktop shouldn't jump past the comments (on a
+        // phone it's pinned to the bottom of the sheet anyway). An inline
+        // reply box sits right under its comment, so scrolling to it is fine.
+        // Cursor at the end first: moving it inside a focused box makes
+        // Chrome scroll to it, which preventScroll is there to avoid.
         el.setSelectionRange(el.value.length, el.value.length)
+        el.focus({ preventScroll: variant === 'bar' })
       })
     }
-    // Only when the target changes.
+    // Only when the target changes (and on open).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [replyingTo, initialText])
 
@@ -185,11 +210,18 @@ export function CommentComposer({
           )}
         </button>
       </div>
-      {focused && (
-        <p className="px-2 text-meta text-muted-foreground">
-          Type @ and a name. People you mention get a notification.
-        </p>
-      )}
+      {/* Always takes its space and only fades: if it came and went with
+          focus, tapping anything else would shrink the page mid-tap and the
+          tap could land on something else. */}
+      <p
+        aria-hidden={!focused}
+        className={cn(
+          'px-2 text-meta text-muted-foreground transition-opacity duration-200 ease-soft',
+          focused ? 'opacity-100' : 'opacity-0'
+        )}
+      >
+        Type @ and a name. People you mention get a notification.
+      </p>
     </form>
   )
 }

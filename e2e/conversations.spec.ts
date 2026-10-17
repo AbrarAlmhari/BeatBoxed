@@ -59,7 +59,7 @@ let author: Person, toji: Person, truly: Person, ory: Person
 test.describe.configure({ mode: 'serial' })
 
 test.beforeAll(async () => {
-  songs = await distinctSongs(10)
+  songs = await distinctSongs(11)
   author = await person('cvauthor', 'Abrar')
   toji = await person('cvtoji', 'Toji')
   truly = await person('cvtruly', 'TrulyMe')
@@ -344,4 +344,45 @@ test('privacy: logged out sees comments on public reviews only; a pending reques
   await login(page, pending.email)
   await page.goto(`/song/${songs[9].id}`)
   await expect(page.locator(`article[data-review-id="${privateReview}"]`)).toHaveCount(0)
+})
+
+test('the comment box appears only once the thread is open, focused, and keeps an unsent draft', async ({ page }) => {
+  const review = await createReview(author.id, songs[10].id, 4, 'Draft test.')
+  await adminFetch(`/rest/v1/review_comments?review_id=eq.${review}`, { method: 'DELETE' })
+
+  await login(page, toji.email)
+  await page.goto(`/song/${songs[10].id}?review=${review}`)
+  const card = page.locator(`article[data-review-id="${review}"]`)
+  const pill = card.getByRole('button', { name: 'Comments', exact: true })
+  await expect(pill).toBeVisible()
+  // Collapsed: no box to write in.
+  await expect(page.getByRole('combobox', { name: 'Add a comment' })).toHaveCount(0)
+
+  // The pill opens the thread: empty state, and the box ready to type in.
+  await pill.click()
+  const box = page.getByRole('combobox', { name: 'Add a comment' })
+  await expect(page.getByText('No comments yet. Start the conversation.')).toBeVisible()
+  await expect(box).toBeFocused()
+  await box.pressSequentially('half written thought')
+
+  // Closed by accident: the box goes, the words don't.
+  const sheet = page.getByRole('dialog')
+  if ((await sheet.count()) > 0) await sheet.getByRole('button', { name: 'Close comments' }).click()
+  else await card.getByRole('button', { name: 'Comments', exact: true }).click()
+  await expect(box).toHaveCount(0)
+  await card.getByRole('button', { name: 'Comments', exact: true }).click()
+  await expect(box).toHaveValue('half written thought')
+  await expect(box).toBeFocused()
+
+  // Sending clears the draft.
+  await box.press('Enter')
+  await expect(page.locator('[data-comment-id]').filter({ hasText: 'half written thought' })).toBeVisible()
+  await expect(box).toHaveValue('')
+
+  // With a comment, the collapsed card shows it; tapping the preview opens the thread.
+  await page.goto(`/song/${songs[10].id}?review=${review}`)
+  await expect(card.getByText('half written thought')).toBeVisible()
+  await expect(page.getByRole('combobox', { name: 'Add a comment' })).toHaveCount(0)
+  await card.getByRole('button', { name: 'View comment' }).click()
+  await expect(page.getByRole('combobox', { name: 'Add a comment' })).toBeFocused()
 })

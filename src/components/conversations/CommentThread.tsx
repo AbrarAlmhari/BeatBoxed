@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Loader2 } from 'lucide-react'
 import { Chip } from '@/components/ui/Chip'
 import { CommentItem } from './CommentItem'
@@ -44,6 +44,8 @@ export function CommentThread({
   highlightId = null,
   replyToId = null,
   focusComposer = false,
+  draft = '',
+  onDraftChange,
   onCount,
   children,
 }: {
@@ -60,6 +62,9 @@ export function CommentThread({
   replyToId?: string | null
   /** Put the cursor in the bottom box on open. */
   focusComposer?: boolean
+  /** The unsent new comment, kept by the card while the thread is closed. */
+  draft?: string
+  onDraftChange?: (text: string) => void
   /** The total, replies included, whenever it changes. */
   onCount?: (n: number) => void
   children: (parts: ThreadParts) => ReactNode
@@ -73,14 +78,22 @@ export function CommentThread({
   const [replyTarget, setReplyTarget] = useState<ThreadComment | null>(null)
   const [pendingReplyId, setPendingReplyId] = useState(replyToId)
 
+  // Only the newest load may change the list. An older one arriving late
+  // (switching Top and Newest, posting while it's still loading) would
+  // otherwise put back what was there before, a like made since included.
+  const latest = useRef(0)
+
   const load = useCallback(
     async (s: ThreadSort) => {
+      const n = ++latest.current
       try {
         const next = await getThread(reviewId, s)
+        if (n !== latest.current) return null
         setEntries(next)
         setFailed(false)
         return next
       } catch (err) {
+        if (n !== latest.current) return null
         console.error('[beatboxed] thread failed:', err)
         setFailed(true)
         setEntries((e) => e ?? [])
@@ -92,6 +105,10 @@ export function CommentThread({
 
   useEffect(() => {
     void load(sort)
+    // Closing the thread mid-load: nothing that arrives afterwards counts.
+    return () => {
+      latest.current++
+    }
   }, [load, sort])
 
   const total = useMemo(
@@ -302,6 +319,8 @@ export function CommentThread({
       replyingTo={!inlineReplies && replyTarget ? (replyTarget.author?.username ?? null) : null}
       initialText={!inlineReplies ? replyText : ''}
       autoFocus={focusComposer}
+      draft={draft}
+      onDraftChange={onDraftChange}
       onCancelReply={() => setReplyTarget(null)}
       // On desktop the bottom box is always a new top-level comment.
       onSubmit={(text) => submit(text, inlineReplies ? null : replyTarget)}
