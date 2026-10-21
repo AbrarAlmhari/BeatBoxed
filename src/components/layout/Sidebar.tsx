@@ -2,12 +2,14 @@ import { NavLink } from 'react-router-dom'
 import { NAV_ITEMS } from '@/lib/nav'
 import { cn } from '@/lib/cn'
 import { Logo } from '@/components/ui/Logo'
+import { useTapToTop } from '@/lib/scroll'
 
 /**
  * Tablet and up. Hidden below `md`, where BottomTabBar takes over.
  * `md` renders an icon rail; `lg` expands to icon + label.
  */
 export function Sidebar() {
+  const tapToTop = useTapToTop()
   return (
     <aside
       className="fixed inset-y-0 left-0 z-30 hidden w-20 flex-col border-r border-white/5 bg-surface/60 px-3 py-6 backdrop-blur-xl md:flex lg:w-60 lg:px-4"
@@ -29,6 +31,7 @@ export function Sidebar() {
             to={to}
             data-tour={`nav-${label.toLowerCase()}`}
             end
+            onClick={tapToTop(to)}
             title={label}
             className={({ isActive }) =>
               cn(

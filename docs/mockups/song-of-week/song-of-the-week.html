@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Song of the week: record sleeve</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root { --bg:#0D0D12; --panel:#15151C; --text:#FFFFFF; --muted:#B4B4BD; --dim:#A1A1AA; --accent:#7C3AED; --peach:#FDBA8C; --gold:#F5B94A; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #08080B; color: var(--text); font-family: Inter, system-ui, sans-serif; padding: 32px 16px; }
+  .wrap { max-width: 1240px; margin: 0 auto; display: flex; flex-wrap: wrap; gap: 40px; align-items: flex-start; }
+  h1 { font-size: 22px; margin: 0 0 6px; } .lead { color: var(--muted); font-size: 14px; margin: 0 0 28px; max-width: 760px; line-height: 1.5; }
+  .phone { width: 390px; height: 844px; border-radius: 28px; overflow: hidden; position: relative; background: var(--bg); display: flex; flex-direction: column; box-shadow: 0 0 0 1px rgba(255,255,255,.08); }
+  .top { display: flex; align-items: center; gap: 6px; padding: 16px 12px 10px 16px; }
+  .pill { height: 36px; padding: 0 12px; border-radius: 999px; font-size: 14px; font-weight: 600; display: flex; align-items: center; }
+  .pill.on { background: rgba(139,92,246,.15); border: 1px solid rgba(139,92,246,.55); }
+  .pill.off { background: #181820; color: var(--dim); }
+  .beatie { font-size: 13px; gap: 6px; padding-left: 4px; }
+  .beatie i { width: 28px; height: 28px; border-radius: 999px; background: #8B5CF6; display: inline-block; }
+  .spacer { flex: 1; }
+  button { font: inherit; cursor: pointer; }
+  .groove { border-radius: 999px; background: repeating-radial-gradient(circle at center, #121216 0 2px, #22222A 2px 4px); display: grid; place-items: center; }
+  .spin { animation: spin 2.4s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .spin { animation: none; } }
+  .mini { width: 44px; height: 44px; border: 0; padding: 0; background: transparent; display: none; place-items: center; }
+  .mini .groove { width: 40px; height: 40px; box-shadow: 0 0 0 1.5px rgba(255,255,255,.12); }
+  .sotw { position: relative; height: 230px; padding: 0 16px; display: flex; align-items: center; gap: 14px; border-bottom: 1px solid rgba(255,255,255,.08); }
+  .art { position: relative; width: 196px; height: 170px; flex-shrink: 0; }
+  .art .groove { position: absolute; left: 58px; top: 16px; width: 138px; height: 138px; box-shadow: 0 14px 30px -12px rgba(0,0,0,.9); }
+  .sleeve { position: absolute; left: 0; top: 8px; width: 150px; height: 150px; border-radius: 6px; background: linear-gradient(140deg,#3f7f7a 0%,#7a4b3a 60%,#c9805a 100%); transform: rotate(-4deg); box-shadow: 8px 14px 28px -10px rgba(0,0,0,.9); display: flex; align-items: flex-end; padding: 10px; font-size: 10px; font-weight: 800; letter-spacing: .12em; color: rgba(255,255,255,.85); }
+  .info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+  .eyebrow { font-size: 11px; font-weight: 800; letter-spacing: .1em; color: var(--peach); }
+  .rate { margin-top: 6px; align-self: flex-start; height: 40px; padding: 0 16px; border-radius: 999px; background: var(--accent); color: #fff; font-size: 14px; font-weight: 700; display: flex; align-items: center; text-decoration: none; }
+  .fold { position: absolute; right: 6px; top: 0; width: 44px; height: 44px; border: 0; background: transparent; color: var(--muted); display: grid; place-items: center; }
+  .feed { padding: 12px 14px 0; display: flex; flex-direction: column; gap: 12px; }
+  .mood { display: flex; align-items: center; gap: 10px; height: 46px; padding: 0 14px 0 6px; border-radius: 999px; background: var(--panel); border: 1px solid rgba(90,180,160,.4); font-size: 14px; }
+  .mood i { width: 34px; height: 34px; border-radius: 999px; background: #2f6d62; display: inline-block; }
+  .review { padding: 14px; border-radius: 20px; background: var(--panel); border: 1px solid rgba(255,255,255,.07); display: flex; flex-direction: column; gap: 10px; font-size: 14px; }
+  .who { display: flex; align-items: center; gap: 10px; } .av { width: 36px; height: 36px; border-radius: 999px; display: grid; place-items: center; font-weight: 700; }
+  .song { display: flex; gap: 10px; align-items: center; } .cov { width: 48px; height: 48px; border-radius: 10px; }
+  .review p { margin: 0; line-height: 1.5; color: #D4D4D8; }
+  nav { position: absolute; left: 0; right: 0; bottom: 0; height: 68px; display: grid; grid-template-columns: repeat(4,1fr); background: var(--bg); border-top: 1px solid rgba(255,255,255,.06); font-size: 11px; color: var(--dim); }
+  nav span { display: grid; place-items: center; } nav span.on { color: #fff; }
+  .side { flex: 1; min-width: 320px; display: flex; flex-direction: column; gap: 28px; }
+  .card { background: var(--bg); border-radius: 20px; padding: 24px; box-shadow: 0 0 0 1px rgba(255,255,255,.08); }
+  .stages { display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap: 12px; text-align: center; }
+  .stages .groove { width: 96px; height: 96px; margin: 0 auto 10px; box-shadow: 0 0 0 2px rgba(255,255,255,.1); }
+  .stages b { display: block; font-size: 14px; } .stages small { color: var(--muted); font-size: 13px; }
+  label { font-size: 14px; font-weight: 600; display: block; margin-bottom: 8px; } input[type=range] { width: 100%; }
+  ul { margin: 0; padding-left: 18px; color: #D4D4D8; font-size: 14px; line-height: 1.6; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div style="width:100%">
+    <h1>Song of the week: record sleeve that folds into the top bar</h1>
+    <p class="lead">Full at the top of Home. It folds into a small record next to Ask Beatie. The record's centre counts down the week (Sunday 00:00 to Saturday 23:59, Saudi time): full and green on Sunday, shrinking and turning red, spinning on the last day, a thin red line in the last hour. Use the slider to preview any moment of the week. The slider is for this mockup only.</p>
+  </div>
+
+  <div class="phone" id="phone">
+    <div class="top">
+      <span class="pill on">For You</span><span class="pill off">Following</span><span class="spacer"></span>
+      <button class="mini" id="mini" type="button" aria-label="Open song of the week"><span class="groove" id="miniRec"></span></button>
+      <span class="pill on beatie"><i></i>Ask Beatie</span>
+    </div>
+    <section class="sotw" id="full" aria-label="Song of the week">
+      <div class="art"><span class="groove" id="bigRec"></span><span class="sleeve">WEEK 43</span></div>
+      <div class="info">
+        <span class="eyebrow">SONG OF THE WEEK</span>
+        <b style="font-size:21px;letter-spacing:-.02em;line-height:1.1">Reflections</b>
+        <span style="font-size:13px;color:#D4D4D8">The Neighbourhood</span>
+        <span style="font-size:13px;color:#D4D4D8"><b style="color:var(--gold)">★ 4.4</b> · <span id="leftText">4 days left</span></span>
+        <a class="rate" href="#">Rate it</a>
+      </div>
+      <button class="fold" id="fold" type="button" aria-label="Fold song of the week into the top bar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 15 6-6 6 6"/></svg></button>
+    </section>
+    <div class="feed">
+      <div class="mood"><i></i><span style="flex:1">Today: <b style="color:#7DD3C0">Chill</b> · 4 songs that fit</span><b style="color:#C4B5FD;font-size:13px">Open</b></div>
+      <article class="review"><div class="who"><span class="av" style="background:#3a5a78">O</span><span><b>ory</b><br><small style="color:var(--dim)">2h ago</small></span></div><div class="song"><span class="cov" style="background:linear-gradient(140deg,#1f2a44,#6d7fd6)"></span><span><b>Snooze</b><br><small style="color:var(--muted)">SZA · <span style="color:var(--gold)">★★★★★</span></small></span></div><p>The way the chorus floats. Still on repeat three weeks later.</p></article>
+      <article class="review"><div class="who"><span class="av" style="background:#c25a8a">T</span><span><b>Toji</b><br><small style="color:var(--dim)">5h ago</small></span></div><div class="song"><span class="cov" style="background:linear-gradient(140deg,#3d2a1f,#c98a4b)"></span><span><b>Best Part</b><br><small style="color:var(--muted)">Daniel Caesar · <span style="color:var(--gold)">★★★★☆</span></small></span></div><p>Soft and simple. Perfect for a late drive.</p></article>
+    </div>
+    <nav><span class="on">Home</span><span>Explore</span><span>Library</span><span>Profile</span></nav>
+  </div>
+
+  <div class="side">
+    <div class="card">
+      <label for="days">Preview: time left this week (<span id="daysOut">4 days</span>)</label>
+      <input id="days" type="range" min="0.02" max="7" step="0.02" value="4">
+    </div>
+    <div class="card">
+      <b style="display:block;margin-bottom:18px">The timer through the week</b>
+      <div class="stages" id="stages"></div>
+    </div>
+    <div class="card">
+      <b style="display:block;margin-bottom:10px">How it behaves</b>
+      <ul>
+        <li>Shows full at the top of Home.</li>
+        <li>Folds into the top bar when you scroll past the 3rd review, tap the arrow, or have already rated this week's song. The feed keeps your place; nothing jumps.</li>
+        <li>The fold is animated: the record shrinks and slides up next to Ask Beatie.</li>
+        <li>Tapping the small record scrolls to the top and opens the full view again.</li>
+        <li>The centre is a timer: green and full on Sunday, shrinking and turning red. The record spins only on the last day. In the last hour, only a thin red line is left.</li>
+        <li>No song this week: nothing shows, not even the small record.</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<script>
+  const C = 31.416;
+  function label(d, size) {
+    const f = d / 7, last = d <= 1;
+    const color = `hsl(${Math.round(130 * f)}, 72%, ${last ? 55 : 48}%)`;
+    const dash = `${(Math.max(f, 0.03) * C).toFixed(2)} ${C}`;
+    return `<svg aria-hidden="true" width="${size}" height="${size}" viewBox="0 0 20 20"><circle cx="10" cy="10" r="10" fill="#0D0D12"/><circle cx="10" cy="10" r="5" fill="none" stroke="${color}" stroke-width="10" stroke-dasharray="${dash}" transform="rotate(-90 10 10)"/><circle cx="10" cy="10" r="9.5" fill="none" stroke="rgba(201,128,90,.9)" stroke-width="1"/></svg>`;
+  }
+  function leftText(d) {
+    if (d >= 1.5) return `${Math.round(d)} days left`;
+    if (d >= 1) return 'last day';
+    if (d >= 1 / 24) return `${Math.max(1, Math.round(d * 24))} hours left`;
+    return 'ending now';
+  }
+  const days = document.getElementById('days');
+  function render() {
+    const d = Number(days.value), spin = d <= 1;
+    for (const [id, s] of [['miniRec', 18], ['bigRec', 48]]) {
+      const el = document.getElementById(id);
+      el.innerHTML = label(d, s);
+      el.classList.toggle('spin', spin);
+    }
+    document.getElementById('leftText').textContent = leftText(d);
+    document.getElementById('daysOut').textContent = leftText(d);
+    document.getElementById('mini').setAttribute('aria-label', `Open song of the week, ${leftText(d)}`);
+  }
+  days.addEventListener('input', render);
+  const full = document.getElementById('full'), mini = document.getElementById('mini');
+  document.getElementById('fold').addEventListener('click', () => { full.style.display = 'none'; mini.style.display = 'grid'; });
+  mini.addEventListener('click', () => { full.style.display = 'flex'; mini.style.display = 'none'; });
+  const st = [['Sunday', '7 days left', 7], ['Tuesday', '5 days left', 5], ['Thursday', '3 days left', 3], ['Saturday', 'Last day · spinning', 1], ['Saturday night', 'Last hour', 1 / 24]];
+  document.getElementById('stages').innerHTML = st.map(([w, l, d]) => `<div><span class="groove${d <= 1 ? ' spin' : ''}">${label(d, 40)}</span><b>${w}</b><small>${l}</small></div>`).join('');
+  render();
+</script>
+</body>
+</html>

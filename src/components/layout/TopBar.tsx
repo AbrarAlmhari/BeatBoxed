@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { Bell } from 'lucide-react'
 import { Logo } from '@/components/ui/Logo'
@@ -48,11 +48,25 @@ export function TopBar() {
     }
   }, [user, location.pathname])
 
+  // Its height, for bars that stick just below it (Home's tab row).
+  const header = useRef<HTMLElement>(null)
+  useEffect(() => {
+    const el = header.current
+    if (!el) return
+    const root = document.documentElement
+    const publish = () => root.style.setProperty('--topbar-h', `${el.offsetHeight}px`)
+    publish()
+    const ro = new ResizeObserver(publish)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
   const showBack = shouldShowBack(location.pathname)
   const profilePage = isProfilePage(location.pathname)
 
   return (
     <header
+      ref={header}
       className={cn(
         'sticky top-0 z-20 -mx-4 mb-2 items-center',
         profilePage ? 'hidden md:flex' : 'flex',
