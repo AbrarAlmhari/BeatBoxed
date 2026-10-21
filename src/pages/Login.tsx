@@ -96,6 +96,14 @@ export default function Login() {
           onChange={(e) => setPassword(e.target.value)}
         />
 
+        <Link
+          to="/forgot-password"
+          state={{ email: email.trim() }}
+          className="-mt-2 inline-flex min-h-11 w-fit items-center self-end text-secondary text-accent transition-colors duration-200 hover:text-foreground"
+        >
+          Forgot password?
+        </Link>
+
         <div className="mt-1">
           <SubmitButton pending={pending}>
             {pending ? 'Logging in…' : 'Log in'}

@@ -84,6 +84,17 @@ Each artist's genres come from **Wikidata's "genre" (P136)** on the item whose *
 - **Back catalogue:** `node scripts/backfill-artist-genres.mjs` (only artists with at least one song; stop and re-run freely, it picks up where it left off; `--limit 50` for a trial). It prints a summary and the top unmapped genres.
 - **New artists:** the artist page calls the `artist-genres` Edge Function the first time it's opened for an artist whose genres were never looked up. The function is deployed; redeploy it with `npx supabase functions deploy artist-genres` after changing it. If it can't run, the page just shows no genres for that artist.
 
+## Auth emails and links (Supabase Auth + Vercel)
+
+Sign-up confirmation, its resend, and password reset all send an email with a link back to the app. `src/lib/authLinks.ts` decides where:
+
+- **In production** every link uses `VITE_SITE_URL` (set in Vercel, no trailing slash), so a link never points at an expired preview deployment or another address the app was opened on.
+- **On localhost** it uses the local address, so testing comes back to the local app.
+
+Supabase only follows a link to an address in **Authentication → URL Configuration → Redirect URLs**; anything else goes to the **Site URL** instead. The links are `<site>/welcome` (sign-up) and `<site>/reset-password` (reset). If a reset link lands somewhere else anyway (the Site URL's home page), the app moves it to `/reset-password`.
+
+`vercel.json` sends every route to `index.html`, so refreshing a page or opening a direct link (`/welcome`, `/profile/…`) loads the app instead of Vercel's 404. Real files (scripts, images) are served first, so they're unaffected.
+
 ## Environment variables
 
 See `.env.example` at the repo root. Real keys go in `.env.local` (gitignored), never committed.

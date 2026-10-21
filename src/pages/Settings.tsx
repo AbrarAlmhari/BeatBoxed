@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/Card'
 import { SectionHeader } from '@/components/ui/SectionHeader'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { MakePublicDialog } from '@/components/settings/MakePublicDialog'
+import { ChangePassword } from '@/components/settings/ChangePassword'
 import { useAuth } from '@/lib/auth'
 import { useToast } from '@/lib/toast'
 import { cn } from '@/lib/cn'
@@ -250,6 +251,8 @@ export default function Settings() {
             <span className="text-meta text-muted-foreground">Signed in as</span>
             <span className="truncate text-body text-foreground">{user?.email}</span>
           </div>
+
+          <ChangePassword />
 
           <button
             type="button"

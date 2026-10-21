@@ -1,9 +1,13 @@
-import { BrowserRouter, Navigate, Route, Routes, useParams } from 'react-router-dom'
-import { AuthProvider } from '@/lib/auth'
+import { useEffect } from 'react'
+import { BrowserRouter, Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom'
+import { AuthProvider, useAuth } from '@/lib/auth'
+import { arrival } from '@/lib/authLinks'
 import { RequireAuth } from '@/components/auth/RequireAuth'
 import { AppShell } from '@/components/layout/AppShell'
 import Login from '@/pages/Login'
 import SignUp from '@/pages/SignUp'
+import ForgotPassword from '@/pages/ForgotPassword'
+import ResetPassword from '@/pages/ResetPassword'
 import Home from '@/pages/Home'
 import Explore from '@/pages/Explore'
 import RailList from '@/pages/RailList'
@@ -31,9 +35,12 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <RecoveryToResetPage />
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<SignUp />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
 
           <Route element={<RequireAuth />}>
             {/* Setup and tour state for the signed-in user, read once. */}
@@ -88,4 +95,23 @@ export default function App() {
 function FriendsRedirect() {
   const { userId } = useParams()
   return <Navigate to={`/profile/${userId}/followers`} replace />
+}
+
+/**
+ * A reset link that Supabase sent somewhere other than /reset-password
+ * (it falls back to the Site URL when /reset-password isn't in its Redirect
+ * URLs list): take it to the reset page, once, wherever it landed.
+ */
+let recoveryHandled = false
+function RecoveryToResetPage() {
+  const navigate = useNavigate()
+  const { loading } = useAuth()
+  useEffect(() => {
+    // Only once Supabase has read the link from the address, which moving
+    // to another page would wipe.
+    if (loading || !arrival.recovery || recoveryHandled) return
+    recoveryHandled = true
+    if (window.location.pathname !== '/reset-password') navigate('/reset-password', { replace: true })
+  }, [loading, navigate])
+  return null
 }
