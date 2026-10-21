@@ -21,15 +21,18 @@ const OnboardingContext = createContext<OnboardingApi | null>(null)
 
 /** Wraps everything behind sign-in: /welcome and the app itself. */
 export function OnboardingRoot() {
-  const { user } = useAuth()
+  // The id, not the user object: Supabase hands out a new object on every
+  // token refresh, password change or re-check, and reloading on each one
+  // put the whole app behind a spinner (stopping music, losing toasts).
+  const userId = useAuth().user?.id
   const [state, setState] = useState<OnboardingState | null>(null)
   const [loading, setLoading] = useState(true)
   const [tourOpen, setTourOpen] = useState(false)
 
   const refresh = useCallback(async () => {
-    if (!user) return
+    if (!userId) return
     try {
-      setState(await getOnboardingState(user.id))
+      setState(await getOnboardingState(userId))
     } catch (err) {
       // Never lock someone out of the app over this: treat as set up.
       console.warn('[beatboxed] onboarding state failed:', err)
@@ -37,7 +40,7 @@ export function OnboardingRoot() {
     } finally {
       setLoading(false)
     }
-  }, [user])
+  }, [userId])
 
   useEffect(() => {
     setLoading(true)
