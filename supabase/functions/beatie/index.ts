@@ -1,6 +1,14 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { corsHeaders, json } from '../_shared/cors.ts'
-import { generate, wasCutOff, type ChatMessage } from './provider.ts'
+import {
+  currentModel,
+  fallbackModel,
+  generate,
+  wasCutOff,
+  type ChatMessage,
+  type GenerateOptions,
+  type GenerateResult,
+} from './groq.ts'
 import {
   EXPLAIN_REQUEST,
   LANGUAGE_NAMES,
@@ -32,8 +40,8 @@ import {
  * Replies are always 200 with { ok: true, ... } or { ok: false, code }, so
  * the app can show a friendly message for each code and never a raw error:
  *   limit    this user's 30 requests for today are used up
- *   global   the whole app's 150 Gemini calls for today are used up
- *   busy     Gemini is down, overloaded, rate limiting or too slow
+ *   global   the whole app's 150 AI calls for today are used up
+ *   busy     the AI service is down, overloaded, rate limiting or too slow
  *   pending  still being written in the background; ask again shortly
  *   error    anything else
  * Only a missing or invalid login is a 401.
@@ -41,21 +49,26 @@ import {
 
 /** Per user per day. Cache hits don't count. */
 const USER_DAILY_LIMIT = 30
-/** Gemini calls per day for the whole app, retries included. */
+/** AI calls per day for the whole app, retries and backups included. */
 const GLOBAL_DAILY_LIMIT = 150
 
 /**
- * How long a job may spend waiting on Gemini, all its calls together.
- * Explanations, line explanations and translations are cached and, past
+ * How long a request may run, measured from the moment it arrives (before
+ * the song and lyrics are loaded), all its AI calls together. Explanations,
+ * line explanations and translations are cached and, past
  * RESPOND_WITHIN_MS, finish in the background while the user sees "check
- * back", so they get up to 140 seconds: just under Supabase's 150-second
- * limit for a function. Chat isn't cached and the user is waiting on it, so
- * it gets 40.
+ * back", so they get up to 120 seconds in total: well inside Supabase's
+ * 150-second limit for a function, however long the lookups before the
+ * first call took. Chat isn't cached and the user is waiting on it, so it
+ * gets 40.
  */
-const CACHED_BUDGET_MS = 140_000
+const REQUEST_BUDGET_MS = 120_000
 const CHAT_BUDGET_MS = 40_000
 
-/** The lyric-quote retry only starts if at least this much budget is left. */
+/**
+ * The lyric-quote retry, and the backup model when the primary is busy,
+ * only start if at least this much budget is left.
+ */
 const MIN_RETRY_MS = 20_000
 
 /**
@@ -71,9 +84,9 @@ const RESPOND_WITHIN_MS = 25_000
 const PENDING_STALE_MS = 3 * 60_000
 
 /**
- * After a job fails (Gemini down, too slow, or an answer rejected), its row
+ * After a job fails (the AI service down, too slow, or an answer rejected), its row
  * holds FAILED for this long, and taps meanwhile get 'busy' ("taking a
- * break") without calling Gemini again. Then the next tap tries afresh.
+ * break") without calling the AI service again. Then the next tap tries afresh.
  */
 const FAILED_HOLD_MS = 2 * 60_000
 const FAILED = '__beatie_failed__'
@@ -98,6 +111,8 @@ declare const EdgeRuntime: { waitUntil(promise: Promise<unknown>): void } | unde
 const fail = (code: Code, status = 200) => json({ ok: false, code }, status)
 
 type Ctx = {
+  /** When the request arrived: every budget is measured from here. */
+  startedAt: number
   songId: string
   song: SongInfo
   language: string
@@ -108,6 +123,7 @@ type Ctx = {
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+  const startedAt = Date.now()
 
   try {
     // 1. Signed in?
@@ -126,7 +142,7 @@ Deno.serve(async (req) => {
 
     // 2. The song, the user's language, and the lyrics (fetched here, so the
     //    browser never sends lyrics in).
-    const ctx = await loadContext(songId, userId, auth)
+    const ctx = await loadContext(songId, userId, auth, startedAt)
     if (!ctx) return fail('bad_request')
 
     if (action === 'explain') return await explain(ctx, userId)
@@ -141,7 +157,12 @@ Deno.serve(async (req) => {
 
 /* ------------------------------------------------------------- context */
 
-async function loadContext(songId: string, userId: string, auth: string): Promise<Ctx | null> {
+async function loadContext(
+  songId: string,
+  userId: string,
+  auth: string,
+  startedAt: number
+): Promise<Ctx | null> {
   const [songRes, profileRes] = await Promise.all([
     admin
       .from('songs')
@@ -195,7 +216,7 @@ async function loadContext(songId: string, userId: string, auth: string): Promis
     lyricsStatus = 'failed'
   }
 
-  return { songId, song, language, lyrics, lyricsStatus }
+  return { startedAt, songId, song, language, lyrics, lyricsStatus }
 }
 
 /* --------------------------------------------------------------- cache */
@@ -205,7 +226,7 @@ type CacheKind = 'explain' | 'line' | 'translate'
 /**
  * A row with empty content is a claim: someone's answer is being written
  * right now. The table's unique key means only one request can make the
- * claim, so a song's answer is asked of Gemini once, however many people
+ * claim, so a song's answer is asked of the AI service once, however many people
  * (or taps) arrive while it's being written. The claim is filled in with the
  * answer, or removed if writing it fails.
  */
@@ -276,7 +297,7 @@ type Work = { content: string } | { code: Code }
  *   2. Someone else's answer still being written: 'pending', free.
  *   3. One that failed in the last FAILED_HOLD_MS: 'busy', free.
  *   4. Otherwise claim it, and run `work` (which takes the quota and calls
- *      Gemini). If it's done within RESPOND_WITHIN_MS, reply with it. If
+ *      the AI service). If it's done within RESPOND_WITHIN_MS, reply with it. If
  *      not, reply 'pending' and let it finish in the background: the answer
  *      lands in the cache and the next tap gets it. Either way the work, and
  *      its quota, happens once.
@@ -358,6 +379,37 @@ async function takeQuota(userId: string | null): Promise<Code | null> {
 }
 
 /**
+ * One call to the primary model, and when it's busy (down, overloaded,
+ * rate limiting or too slow) one call to the backup model, if at least
+ * MIN_RETRY_MS of the budget is left. The backup is a real extra call, so
+ * it takes from today's app-wide cap first, as the retries do.
+ */
+async function generateWithBackup(
+  system: string,
+  messages: ChatMessage[],
+  options: GenerateOptions,
+  deadline: number
+): Promise<GenerateResult | { ok: false; reason: Code; detail: string }> {
+  const first = await generate(system, messages, options)
+  if (first.ok || first.reason !== 'busy') return first
+  const backup = fallbackModel()
+  if (backup === currentModel()) return first
+  if (deadline - Date.now() < MIN_RETRY_MS) {
+    console.warn(`[beatie] no time left for the backup model (${options.label ?? 'call'})`)
+    return first
+  }
+  const capped = await takeQuota(null)
+  if (capped) return { ok: false, reason: capped, detail: 'quota' }
+  console.warn(`[beatie] primary model busy; trying ${backup} (${options.label ?? 'call'})`)
+  return generate(system, messages, {
+    ...options,
+    model: backup,
+    timeoutMs: deadline - Date.now(),
+    label: `${options.label ?? 'call'} backup`,
+  })
+}
+
+/**
  * Asks the provider for a prose answer and checks it doesn't reprint the
  * lyrics. One retry with a stricter reminder, then give up — never more.
  */
@@ -370,16 +422,21 @@ async function proseAnswer(
   const blocked = await takeQuota(userId)
   if (blocked) return { code: blocked }
 
-  const deadline = Date.now() + opts.budgetMs
+  const deadline = ctx.startedAt + opts.budgetMs
   const system = songSystemPrompt(PERSONALITY, ctx.song, ctx.language, ctx.lyrics)
   let attempt = messages
   for (let tries = 0; tries < 2; tries++) {
-    const res = await generate(system, attempt, {
-      maxTokens: opts.maxTokens,
-      temperature: 0.7,
-      timeoutMs: deadline - Date.now(),
-      label: `${opts.label} try ${tries + 1}`,
-    })
+    const res = await generateWithBackup(
+      system,
+      attempt,
+      {
+        maxTokens: opts.maxTokens,
+        temperature: 0.7,
+        timeoutMs: deadline - Date.now(),
+        label: `${opts.label} try ${tries + 1}`,
+      },
+      deadline
+    )
     if (!res.ok) {
       console.error('[beatie] provider', res.reason, res.detail)
       return { code: res.reason }
@@ -409,7 +466,7 @@ async function proseAnswer(
         console.warn(`[beatie] no time left for the lyric-quote retry (${opts.label})`)
         break
       }
-      // The retry is a real Gemini call, so it counts against the app's cap.
+      // The retry is a real AI call, so it counts against the app's cap.
       const capped = await takeQuota(null)
       if (capped) return { code: capped }
       const last = attempt[attempt.length - 1]
@@ -430,7 +487,7 @@ async function explain(ctx: Ctx, userId: string) {
     async () => {
       const a = await proseAnswer(ctx, userId, [{ role: 'user', text: EXPLAIN_REQUEST }], {
         maxTokens: 700,
-        budgetMs: CACHED_BUDGET_MS,
+        budgetMs: REQUEST_BUDGET_MS,
         label: `explain ${ctx.songId.slice(0, 8)} ${ctx.language}`,
         maxQuoted: 1,
       })
@@ -452,7 +509,7 @@ async function explainLine(ctx: Ctx, userId: string, line: unknown) {
     async () => {
       const a = await proseAnswer(ctx, userId, [{ role: 'user', text: explainLineRequest(line) }], {
         maxTokens: 350,
-        budgetMs: CACHED_BUDGET_MS,
+        budgetMs: REQUEST_BUDGET_MS,
         label: `line ${ctx.songId.slice(0, 8)} ${ctx.language}`,
         allowedLine: line,
         maxQuoted: 0,
@@ -505,7 +562,7 @@ async function translate(ctx: Ctx, userId: string) {
       const blocked = await takeQuota(userId)
       if (blocked) return { code: blocked }
 
-      const deadline = Date.now() + CACHED_BUDGET_MS
+      const deadline = ctx.startedAt + REQUEST_BUDGET_MS
       const system = translationSystemPrompt(ctx.language, count)
       const input: ChatMessage[] = [{ role: 'user', text: JSON.stringify(ctx.lyrics) }]
       const maxTokens = Math.min(8192, 200 + ctx.lyrics.join(' ').length * 2)
@@ -519,13 +576,18 @@ async function translate(ctx: Ctx, userId: string) {
           const capped = await takeQuota(null)
           if (capped) return { code: capped }
         }
-        const res = await generate(system, input, {
-          maxTokens,
-          temperature: 0.2,
-          json: true,
-          timeoutMs: deadline - Date.now(),
-          label: `translate ${ctx.songId.slice(0, 8)} ${ctx.language} try ${tries + 1}`,
-        })
+        const res = await generateWithBackup(
+          system,
+          input,
+          {
+            maxTokens,
+            temperature: 0.2,
+            json: true,
+            timeoutMs: deadline - Date.now(),
+            label: `translate ${ctx.songId.slice(0, 8)} ${ctx.language} try ${tries + 1}`,
+          },
+          deadline
+        )
         if (!res.ok) {
           console.error('[beatie] provider', res.reason, res.detail)
           return { code: res.reason }
