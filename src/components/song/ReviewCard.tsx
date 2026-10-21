@@ -90,7 +90,8 @@ export function ReviewCard({
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <Link
               to={`/profile/${review.userId}`}
-              className="text-card-title transition-colors duration-200 ease-soft hover:text-accent"
+              dir="auto"
+              className="min-w-0 text-card-title transition-colors duration-200 ease-soft hover:text-accent"
             >
               {name}
             </Link>

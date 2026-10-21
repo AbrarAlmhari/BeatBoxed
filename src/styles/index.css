@@ -219,6 +219,19 @@
 
   body {
     @apply bg-background text-foreground font-sans text-body antialiased;
+    /* A safety net: a word too long for its box wraps instead of spilling. */
+    overflow-wrap: break-word;
+  }
+
+  /*
+   * Text people write (reviews, comments, names, bios, playlists, Beatie,
+   * notifications) is marked dir="auto", so Arabic runs right to left and
+   * English left to right, line by line. It also wraps anywhere: a long
+   * unbroken word ("ههههههههه…") breaks inside its box, even in boxes that
+   * size to their text, instead of pushing the card wider.
+   */
+  [dir='auto'] {
+    overflow-wrap: anywhere;
   }
 
   /* Keyboard focus only — pointer clicks stay clean. */

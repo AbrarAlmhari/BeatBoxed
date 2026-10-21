@@ -124,7 +124,9 @@ const songCover = (n: NotificationRow, ctx: RenderContext) =>
   ctx.songs.get(str(n.payload.song_id) ?? '')?.coverUrl ?? null
 
 const Who = ({ children }: { children: React.ReactNode }) => (
-  <span className="font-semibold text-foreground">{children}</span>
+  <span dir="auto" className="font-semibold text-foreground">
+    {children}
+  </span>
 )
 
 export type NotificationRenderer = (
@@ -415,7 +417,9 @@ export function renderAnnouncement(a: Announcement): RenderedNotification {
     body: (
       <>
         <Who>{a.title}</Who>
-        <span className="block">{a.body}</span>
+        <span dir="auto" className="block">
+          {a.body}
+        </span>
       </>
     ),
     quote: null,
