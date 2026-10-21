@@ -6,9 +6,15 @@
  * it is: song-vibes still uses it, with Gemini, and nothing here touches it
  * beyond borrowing its types.
  */
-import type { CallInfo, ChatMessage, GenerateOptions, GenerateResult } from './provider.ts'
+import type { CallInfo, ChatMessage, GenerateOptions as BaseOptions, GenerateResult } from './provider.ts'
 
-export type { CallInfo, ChatMessage, GenerateOptions, GenerateResult }
+export type { CallInfo, ChatMessage, GenerateResult }
+
+/**
+ * provider.ts's options, plus `model`: a caller can pick its own model
+ * (song-vibes, and Beatie's backup). Without it, GROQ_MODEL is used.
+ */
+export type GenerateOptions = BaseOptions & { model?: string }
 
 const ENDPOINT = 'https://api.groq.com/openai/v1/chat/completions'
 
@@ -25,8 +31,9 @@ const FALLBACK_MODEL_SECRET = 'GROQ_FALLBACK_MODEL'
 const DEFAULT_MODEL = 'openai/gpt-oss-120b'
 const DEFAULT_FALLBACK_MODEL = 'qwen/qwen3.8-27b'
 
-export function currentModel() {
-  return Deno.env.get(MODEL_SECRET)?.trim() || DEFAULT_MODEL
+/** The model a call will use: the override if given, otherwise GROQ_MODEL. */
+export function currentModel(override?: string) {
+  return override?.trim() || Deno.env.get(MODEL_SECRET)?.trim() || DEFAULT_MODEL
 }
 
 export function fallbackModel() {
@@ -83,19 +90,19 @@ function unwrapJson(text: string) {
 /**
  * Streams the answer, so how far it got is known even when the wait runs
  * out, and logs what it cost in the same line format as provider.ts, with
- * the provider named. options.model picks a model other than the primary
- * (the backup); the signature is otherwise the same as provider.ts.
+ * the provider named. options.model picks a model other than GROQ_MODEL;
+ * the signature is otherwise the same as provider.ts.
  */
 export async function generate(
   systemPrompt: string,
   messages: ChatMessage[],
-  options: GenerateOptions & { model?: string }
+  options: GenerateOptions
 ): Promise<GenerateResult> {
   const key = Deno.env.get(KEY_SECRET)
   if (!key) return { ok: false, reason: 'error', detail: `${KEY_SECRET} is not set` }
 
   const label = options.label ?? 'call'
-  const model = options.model ?? currentModel()
+  const model = currentModel(options.model)
   const reasoning = isGptOss(model) || isQwen(model)
   const body: Record<string, unknown> = {
     model,

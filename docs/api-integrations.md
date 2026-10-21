@@ -20,7 +20,7 @@ Genius (`api.genius.com`) can still be used for artist bios, song metadata, and 
 
 Beatie's answers come from Groq's OpenAI-compatible chat API (`https://api.groq.com/openai/v1/chat/completions`). The key is stored only as the Supabase secret `GROQ_API_KEY` (`supabase secrets set GROQ_API_KEY=...`). It is never in the repo and never reaches the browser; the frontend needs no AI setting at all.
 
-Gemini is still used, but only by the `song-vibes` function that labels songs for the daily check-in (see `supabase/functions/song-vibes/`). It keeps its own secrets (`GEMINI_API_KEY`, `GEMINI_MODEL`) and its own code (`beatie/provider.ts`), untouched by Beatie's switch to Groq. Generate a Gemini key from **Google AI Studio** (https://aistudio.google.com), not from the consumer Gemini app.
+The `song-vibes` function that labels songs for the daily check-in (see `supabase/functions/song-vibes/`) also goes through `groq.ts`, with the same key but its own model, the secret `VIBES_GROQ_MODEL` (default `openai/gpt-oss-20b`), and no backup model. Its labels record the model as `groq/<model>` in `song_vibes.model`. It makes at most 150 calls a day, failures included (`DAILY_CAP`), 5 songs per run.
 
 ### The `beatie` Edge Function
 
@@ -37,7 +37,7 @@ For each request the function checks the user is signed in, loads the song, arti
 
 **Files:**
 - `groq.ts`: the only Groq-specific code (models, endpoint, request and response format, secret names), behind `generate(systemPrompt, messages, options)`, with the same signature and types as `provider.ts`. `index.ts` imports from here.
-- `provider.ts`: the Gemini version of the same surface, now used only by `song-vibes`. Its types are shared with `groq.ts`.
+- `provider.ts`: the earlier Gemini version of the same surface, no longer called by any function. `groq.ts` borrows its types.
 - `personality.md`: Beatie's voice and rules, editable without touching code. Used as the system prompt for explanations and chat, followed by the song context. It must stay listed under `static_files` in `supabase/config.toml` to be deployed.
 - `prompts.ts`: the song context, the task wording, the separate short translation instruction (translations don't use the personality), and the lyric-quote check.
 - `index.ts`: the request flow, cache, limits and error codes.

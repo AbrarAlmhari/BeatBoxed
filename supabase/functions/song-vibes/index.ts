@@ -9,15 +9,24 @@
  * run. Each run labels at most BATCH songs, and the database stops handing
  * out songs at DAILY_CAP calls a day, failures included.
  *
- * Anything that goes wrong (Gemini busy or slow, a reply that isn't the
+ * Anything that goes wrong (the AI service busy or slow, a reply that isn't the
  * exact JSON asked for) saves nothing; the song stays in the queue and is
  * tried again later (claim_song_vibes sets when).
  */
 import { createClient } from 'jsr:@supabase/supabase-js@2'
-import { currentModel, generate } from '../beatie/provider.ts'
+import { currentModel, generate } from '../beatie/groq.ts'
 
 const BATCH = 5
-const DAILY_CAP = 300
+const DAILY_CAP = 150
+
+/**
+ * The labeller's own Groq model, separate from Beatie's GROQ_MODEL. Read
+ * per run, so `supabase secrets set` changes it with no redeploy. There's
+ * no backup model: a busy call just leaves the song in the queue.
+ */
+const MODEL_SECRET = 'VIBES_GROQ_MODEL'
+const DEFAULT_MODEL = 'openai/gpt-oss-20b'
+const vibesModel = () => currentModel(Deno.env.get(MODEL_SECRET) || DEFAULT_MODEL)
 /** Without lyrics (and not instrumental) a mood is a guess from the title. */
 const NO_LYRICS_MAX_CONFIDENCE = 0.5
 const LYRICS_CHARS = 2500
@@ -94,7 +103,9 @@ async function labelOne(song: Claimed): Promise<string> {
     `Lyrics: ${lyrics.kind === 'found' ? `\n${lyrics.text}` : lyrics.kind === 'instrumental' ? 'INSTRUMENTAL' : 'NOT FOUND'}`,
   ].join('\n')
 
+  const model = vibesModel()
   const result = await generate(SYSTEM, [{ role: 'user', text: prompt }], {
+    model,
     maxTokens: 120,
     temperature: 0.2,
     json: true,
@@ -120,7 +131,7 @@ async function labelOne(song: Claimed): Promise<string> {
     energy: label.energy,
     confidence,
     has_lyrics: lyrics.kind !== 'none',
-    model: currentModel(),
+    model: `groq/${model}`,
     labelled_at: new Date().toISOString(),
   })
   if (error) {
@@ -150,7 +161,7 @@ Deno.serve(async (req) => {
   }
   const songs = (data ?? []) as Claimed[]
   const outcomes: Record<string, number> = {}
-  // One at a time: gentle on Gemini's rate limits and on lrclib.
+  // One at a time: gentle on Groq's rate limits and on lrclib.
   for (const song of songs) {
     const outcome = await labelOne(song).catch(async (err) => {
       await fail(song.song_id, `error: ${(err as Error).message}`.slice(0, 300))
