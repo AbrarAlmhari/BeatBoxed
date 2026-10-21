@@ -185,7 +185,8 @@ function LinePanel({
       onClose={onClose}
       title="Explain this line"
       // Beside the line rather than under the screen's right edge.
-      className="sm:left-0 sm:right-auto sm:w-96 sm:max-h-[26rem] sm:p-4"
+      align="start"
+      className="sm:w-96 sm:max-h-[26rem] sm:p-4"
     >
       <div className="flex flex-col gap-3">
         <div className="flex items-start gap-3">

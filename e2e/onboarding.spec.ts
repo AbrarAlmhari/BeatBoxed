@@ -147,9 +147,10 @@ test.describe('onboarding', () => {
       await expect(page.getByRole('dialog', { name: title })).toBeVisible()
     }
     // The Ask Beatie step explains songs; it doesn't recommend them.
-    await page.getByRole('button', { name: 'Back' }).click()
-    await page.getByRole('button', { name: 'Back' }).click()
-    await page.getByRole('button', { name: 'Back' }).click()
+    // Exact: a feed post's "Play Back To Black" would match "Back" too.
+    await page.getByRole('button', { name: 'Back', exact: true }).click()
+    await page.getByRole('button', { name: 'Back', exact: true }).click()
+    await page.getByRole('button', { name: 'Back', exact: true }).click()
     await expect(page.getByText(/Ask me what the lyrics mean, get a translation, or learn about the artist/)).toBeVisible()
     for (let i = 0; i < 3; i++) await page.getByRole('button', { name: 'Next' }).click()
     await page.getByRole('button', { name: 'Finish' }).click()

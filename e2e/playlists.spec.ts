@@ -82,6 +82,9 @@ test.describe('playlists', () => {
       .getByRole('button', { name: new RegExp(playlistTitle) })
       .click()
     await written
+    // The closed picker takes its Back-button step out of the history; a
+    // page load in that same instant would be cut short.
+    await expect.poll(() => page.evaluate(() => Boolean(window.history.state?.__sheet))).toBe(false)
   }
 
   test('create, add a song, and see it on the detail page, Library and Profile', async ({

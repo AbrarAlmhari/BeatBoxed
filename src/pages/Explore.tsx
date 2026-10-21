@@ -30,6 +30,7 @@ import type {
   LyricMatch,
   UnifiedResults,
 } from '@/lib/types'
+import { ScrollRow } from '@/components/ui/ScrollRow'
 
 /** Router state set by the Home search button; see src/pages/Home.tsx. */
 type ExploreNavState = { autoFocus?: boolean } | null
@@ -256,7 +257,9 @@ export default function Explore() {
           )}
         </div>
 
-        <div
+        <ScrollRow
+          as="div"
+          size="sm"
           className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
           role="group"
           aria-label="Filter results"
@@ -270,7 +273,7 @@ export default function Explore() {
               {f.label}
             </Chip>
           ))}
-        </div>
+        </ScrollRow>
 
       </div>
 

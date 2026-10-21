@@ -5,7 +5,8 @@ import { cn } from '@/lib/cn'
 /**
  * A comment's words, with mentions as purple chips that open the person's
  * profile. dir="auto" lets Arabic run right to left inside its bubble
- * without pushing the bubble to the far side of the card.
+ * without pushing the bubble to the far side of the card, and (index.css)
+ * wraps a long word inside the bubble.
  */
 export function CommentText({
   body,
@@ -17,7 +18,7 @@ export function CommentText({
   className?: string
 }) {
   return (
-    <p dir="auto" className={cn('whitespace-pre-line break-words', className)}>
+    <p dir="auto" className={cn('max-w-full whitespace-pre-line', className)}>
       {commentSegments(body, mentions).map((s, i) =>
         s.kind === 'text' ? (
           <span key={i}>{s.text}</span>
