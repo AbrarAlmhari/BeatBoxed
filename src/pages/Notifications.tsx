@@ -25,6 +25,7 @@ import {
 import { setCommentLike } from '@/lib/conversations'
 import { cn } from '@/lib/cn'
 import type { NotificationCenter, UpdateItem } from '@/lib/types'
+import { ScrollRow } from '@/components/ui/ScrollRow'
 
 type Filter = 'all' | NotificationCategory
 
@@ -237,7 +238,9 @@ export default function Notifications() {
         )}
       </div>
 
-      <div
+      <ScrollRow
+        as="div"
+        size="sm"
         className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0"
         role="group"
         aria-label="Filter notifications"
@@ -260,7 +263,7 @@ export default function Notifications() {
             </Chip>
           )
         })}
-      </div>
+      </ScrollRow>
 
       {requests.length > 0 && (filter === 'all' || filter === 'follows') && (
         <Link

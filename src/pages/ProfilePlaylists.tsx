@@ -15,6 +15,7 @@ import {
   type PlaylistSort,
   type PlaylistSummary,
 } from '@/lib/playlists'
+import { ScrollRow } from '@/components/ui/ScrollRow'
 
 const PAGE = 30
 
@@ -156,7 +157,9 @@ export default function ProfilePlaylists() {
               </button>
             ))}
 
-          <div
+          <ScrollRow
+            as="div"
+            size="sm"
             className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
             role="group"
             aria-label="Sort playlists"
@@ -170,7 +173,7 @@ export default function ProfilePlaylists() {
                 {s.label}
               </Chip>
             ))}
-          </div>
+          </ScrollRow>
 
           {playlists.length > 0 && (
             <FilterBox

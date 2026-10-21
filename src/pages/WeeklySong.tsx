@@ -14,6 +14,7 @@ import { usePlayer } from '@/lib/player'
 import { useToast } from '@/lib/toast'
 import { COVER_FALLBACK, useCoverColors } from '@/lib/coverColors'
 import { getWeeklySong, setMyRating, weekRange, type WeeklySong as Week } from '@/lib/mood'
+import { ScrollRow } from '@/components/ui/ScrollRow'
 
 const REASON: Record<Week['reason'], string> = {
   most_rated: 'Chosen because it was the most-rated new song last week',
@@ -210,7 +211,7 @@ export default function WeeklySong() {
             <h2 id="week-past" className="text-card-title text-foreground/90">
               Past weeks
             </h2>
-            <ul className="no-scrollbar -mx-4 flex gap-3 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+            <ScrollRow aria-labelledby="week-past" arrowTop="top-[30%]" className="no-scrollbar -mx-4 flex gap-3 overflow-x-auto px-4 sm:mx-0 sm:px-0">
               {week.pastWeeks.map((w) => (
                 <li key={w.weekStart} className="w-40 shrink-0">
                   <Link to={`/song/${w.songId}`} className="flex flex-col gap-2">
@@ -230,7 +231,7 @@ export default function WeeklySong() {
                   </Link>
                 </li>
               ))}
-            </ul>
+            </ScrollRow>
           </section>
         )}
       </div>

@@ -42,6 +42,7 @@ import { BIO_MAX } from '@/lib/profile'
 import { normalizeUsername, usernameProblem, usernameSubmittable, useUsernameStatus } from '@/lib/username'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import type { SongCardModel } from '@/lib/types'
+import { ScrollRow } from '@/components/ui/ScrollRow'
 
 export type SetupProfile = {
   username: string
@@ -796,13 +797,13 @@ export function StepReview({ userId, next, back, liked }: StepProps & { liked: M
         />
       ) : (
         <>
-          <div role="group" aria-label="Song to review" className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 py-2">
+          <ScrollRow as="div" size="sm" role="group" aria-label="Song to review" className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 py-2">
             {songs.map((s) => (
               <Chip key={s.id} active={s.id === songId} onClick={() => setSongId(s.id)}>
                 {s.title}
               </Chip>
             ))}
-          </div>
+          </ScrollRow>
           {song && (
             <Card className="flex flex-col gap-4 p-5">
               <div className="flex items-center gap-4">

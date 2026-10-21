@@ -4,6 +4,7 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { SectionHeader } from '@/components/ui/SectionHeader'
 import { SkeletonMediaCard } from '@/components/ui/Skeleton'
 import { usePlayer, type PlayerTrack } from '@/lib/player'
+import { ScrollRow } from '@/components/ui/ScrollRow'
 
 /** Card width steps up with viewport so rails never feel cramped on phones. */
 const CARD_WIDTH = 'w-[44vw] max-w-[190px] sm:w-[190px] lg:w-[200px]'
@@ -53,7 +54,11 @@ export function Rail({
     >
       {/* Negative margin lets cards bleed to the screen edge while keeping the
           section heading aligned with the page gutter. */}
-      <ul className="no-scrollbar -mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1 sm:-mx-6 sm:gap-4 sm:px-6 lg:-mx-8 lg:px-8">
+      <ScrollRow
+        aria-label={title}
+        arrowTop="top-[38%]"
+        className="no-scrollbar -mx-4 flex snap-x snap-mandatory scroll-px-4 gap-3 overflow-x-auto px-4 pb-1 sm:-mx-6 sm:scroll-px-6 sm:gap-4 sm:px-6 lg:-mx-8 lg:scroll-px-8 lg:px-8"
+      >
         {songs.map((song, i) => (
           <li key={song.id} className={`${CARD_WIDTH} shrink-0 snap-start`}>
             <MediaCard
@@ -74,7 +79,7 @@ export function Rail({
             />
           </li>
         ))}
-      </ul>
+      </ScrollRow>
     </RailShell>
   )
 }
