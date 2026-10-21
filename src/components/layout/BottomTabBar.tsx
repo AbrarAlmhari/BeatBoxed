@@ -1,9 +1,11 @@
 import { NavLink } from 'react-router-dom'
 import { NAV_ITEMS } from '@/lib/nav'
 import { cn } from '@/lib/cn'
+import { useTapToTop } from '@/lib/scroll'
 
 /** Phone only. Hidden from `md` up, where Sidebar takes over. */
 export function BottomTabBar() {
+  const tapToTop = useTapToTop()
   return (
     <nav
       className="glass-bar fixed inset-x-0 bottom-0 z-40 border-t border-line md:hidden"
@@ -16,6 +18,7 @@ export function BottomTabBar() {
             <NavLink
               to={to}
               end
+              onClick={tapToTop(to)}
               data-tour={`nav-${label.toLowerCase()}`}
               className={({ isActive }) =>
                 cn(

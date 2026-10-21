@@ -225,6 +225,9 @@ export type WeeklyReview = {
 export type WeeklySong = {
   weekStart: string
   weekEnd: string
+  /** The exact moments the week starts and ends (Saudi midnight), from the database. */
+  startsAt: string
+  endsAt: string
   reason: 'most_rated' | 'trending'
   song: { id: string; title: string; artistId: string | null; artistName: string; coverUrl: string | null }
   myRating: number | null
@@ -266,6 +269,8 @@ export async function getWeeklySong(weekStart?: string): Promise<WeeklySong | nu
   const d = data as {
     week_start: string
     week_end: string
+    starts_at: string
+    ends_at: string
     reason: WeeklySong['reason']
     song: { id: string; title: string; artist_id: string | null; artist_name: string | null; cover_url: string | null }
     my_rating: number | null
@@ -284,6 +289,8 @@ export async function getWeeklySong(weekStart?: string): Promise<WeeklySong | nu
   return {
     weekStart: d.week_start,
     weekEnd: d.week_end,
+    startsAt: d.starts_at,
+    endsAt: d.ends_at,
     reason: d.reason,
     song: {
       id: d.song.id,
@@ -323,14 +330,6 @@ export async function getWeeklySong(weekStart?: string): Promise<WeeklySong | nu
       average: w.average === null ? null : Number(w.average),
     })),
   }
-}
-
-/** Days left in the Riyadh week, counting today ("Ends in 4 days"). */
-export function daysLeft(weekEnd: string, now = new Date()) {
-  const riyadhToday = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Riyadh' }))
-  const end = new Date(`${weekEnd}T00:00:00`)
-  const today = new Date(riyadhToday.getFullYear(), riyadhToday.getMonth(), riyadhToday.getDate())
-  return Math.max(0, Math.round((end.getTime() - today.getTime()) / 86400000) + 1)
 }
 
 const MONTH = new Intl.DateTimeFormat('en-US', { month: 'short' })

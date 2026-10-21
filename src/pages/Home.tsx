@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { PenLine } from 'lucide-react'
 import { FeedCard } from '@/components/feed/FeedCard'
 import { ReviewComposer } from '@/components/feed/ReviewComposer'
 import { AskBeatieSheet } from '@/components/beatie/AskBeatieSheet'
 import { CheckinCard } from '@/components/mood/CheckinCard'
-import { WeeklySongCard } from '@/components/mood/WeeklySongCard'
+import { SongOfTheWeekFull, SongOfTheWeekMini } from '@/components/mood/SongOfTheWeek'
 import { AskBeatiePill, BeatieHello, useBeatieHello } from '@/components/beatie/AskBeatiePill'
 import { BeatieImage } from '@/components/beatie/BeatieImage'
 import { PersonCard } from '@/components/people/PersonCard'
@@ -15,10 +15,12 @@ import { Card, cardClass } from '@/components/ui/Card'
 import { EmptyState, emptyActionClass, emptySecondaryActionClass } from '@/components/ui/EmptyState'
 import { PageGlow } from '@/components/ui/PageGlow'
 import { Skeleton, SkeletonList } from '@/components/ui/Skeleton'
-import { Tabs } from '@/components/ui/Tabs'
+import { Tabs, useStuck } from '@/components/ui/Tabs'
 import { useAuth } from '@/lib/auth'
 import { useProfile } from '@/hooks/useProfile'
 import { useToast } from '@/lib/toast'
+import { useSongOfTheWeek } from '@/lib/songOfTheWeek'
+import { prefersReducedMotion, scrollToTop } from '@/lib/scroll'
 import {
   getFeedPage,
   getSuggestedReviewers,
@@ -109,6 +111,91 @@ export default function Home() {
   const [askingBeatie, setAskingBeatie] = useState(false)
   const hello = useBeatieHello()
 
+  /* Song of the week: full at the top, or folded into the tab row. */
+  const sotw = useSongOfTheWeek()
+  const row = useRef<HTMLDivElement>(null)
+  const rowStuck = useStuck(row, true)
+  const bigRecord = useRef<HTMLSpanElement>(null)
+  const miniRecord = useRef<HTMLButtonElement>(null)
+  /** How the last fold happened, for its animation and to keep the reader's place. */
+  const foldMotion = useRef<
+    { kind: 'arrow'; from: DOMRect } | { kind: 'scroll'; anchor: HTMLElement; top: number } | null
+  >(null)
+  const { fold: foldWeek } = sotw
+
+  function foldWithArrow() {
+    const from = bigRecord.current?.getBoundingClientRect()
+    foldMotion.current = from ? { kind: 'arrow', from } : null
+    foldWeek()
+  }
+
+  function openWeek() {
+    sotw.unfold()
+    scrollToTop()
+  }
+
+  // Scrolling past the 3rd review folds it.
+  const canFold = Boolean(sotw.week) && !sotw.folded
+  useEffect(() => {
+    if (!canFold) return
+    let frame = 0
+    const check = () => {
+      frame = 0
+      const third = document.querySelector<HTMLElement>('[data-feed-index="2"]')
+      const bar = row.current
+      if (!third || !bar) return
+      const rect = third.getBoundingClientRect()
+      if (rect.bottom < bar.getBoundingClientRect().bottom) {
+        foldMotion.current = { kind: 'scroll', anchor: third, top: rect.top }
+        foldWeek()
+      }
+    }
+    const onScroll = () => {
+      if (!frame) frame = requestAnimationFrame(check)
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => {
+      window.removeEventListener('scroll', onScroll)
+      cancelAnimationFrame(frame)
+    }
+  }, [canFold, foldWeek])
+
+  // Right after folding, before the screen is drawn: keep the reader's
+  // place (the full view above them is gone), then send the record into
+  // its spot.
+  useLayoutEffect(() => {
+    const motion = foldMotion.current
+    if (!sotw.folded || !motion) return
+    foldMotion.current = null
+    if (motion.kind === 'scroll') {
+      const shift = motion.anchor.getBoundingClientRect().top - motion.top
+      if (shift) window.scrollBy(0, shift)
+    }
+    const mini = miniRecord.current
+    if (!mini || prefersReducedMotion() || typeof mini.animate !== 'function') return
+    const easing = 'cubic-bezier(0.2, 0.8, 0.2, 1)'
+    if (motion.kind === 'arrow') {
+      // The big record shrinks and slides up into the small one's place.
+      const to = mini.getBoundingClientRect()
+      const dx = motion.from.left + motion.from.width / 2 - (to.left + to.width / 2)
+      const dy = motion.from.top + motion.from.height / 2 - (to.top + to.height / 2)
+      const scale = motion.from.width / to.width
+      mini.animate([{ transform: `translate(${dx}px, ${dy}px) scale(${scale})` }, { transform: 'none' }], {
+        duration: 350,
+        easing,
+      })
+    } else {
+      // The big one is already off screen: the small one slides up into place.
+      mini.animate(
+        [
+          { transform: 'translateY(14px) scale(0.6)', opacity: 0 },
+          { transform: 'none', opacity: 1 },
+        ],
+        { duration: 350, easing }
+      )
+    }
+  }, [sotw.folded])
+
   const patch = useCallback((t: FeedTab, p: Partial<TabState>) => {
     setTabs((prev) => ({ ...prev, [t]: { ...prev[t], ...p } }))
   }, [])
@@ -176,8 +263,15 @@ export default function Home() {
     return () => io.disconnect()
   }, [current.next, current.moreError, loadMore])
 
+  // The tab you're on: back to the top. The other one: opens at the top
+  // of the page (song of the week and check-in in view).
   function setTab(next: FeedTab) {
+    if (next === tab) {
+      scrollToTop()
+      return
+    }
     setParams(next === 'for-you' ? {} : { tab: next }, { replace: true })
+    scrollToTop({ instant: true })
   }
 
   function handlePosted(review: FeedReview) {
@@ -229,7 +323,19 @@ export default function Home() {
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-5 pb-4">
       <h1 className="sr-only">Home</h1>
 
-      <div>
+      {/* Stays under the top bar while the feed scrolls. Solid once stuck
+          (also over the gap above it, behind the top bar, which is see-
+          through on desktop), so posts don't show through; see-through
+          before that, so it doesn't cut a band through the page's glow. */}
+      <div
+        ref={row}
+        data-feed-tabs
+        className={cn(
+          'sticky top-[var(--topbar-h,68px)] z-10 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8',
+          rowStuck &&
+            'bg-background before:pointer-events-none before:absolute before:inset-x-0 before:bottom-full before:h-[var(--topbar-h,68px)] before:bg-background'
+        )}
+      >
         {/* The pill sits on the tab row's line but outside the tablist. */}
         <div className="flex items-center gap-2 border-b border-line-strong">
           <Tabs
@@ -241,6 +347,10 @@ export default function Home() {
             fill={false}
             underline={false}
           />
+          <div className="flex-1" />
+          {sotw.week && sotw.timer && sotw.folded && (
+            <SongOfTheWeekMini ref={miniRecord} timer={sotw.timer} onOpen={openWeek} />
+          )}
           <AskBeatiePill
             onOpen={() => {
               hello.dismiss()
@@ -248,13 +358,16 @@ export default function Home() {
             }}
           />
         </div>
-        {!tourOpen && <BeatieHello hello={hello} />}
       </div>
+      {/* Outside the sticky row, so it scrolls away instead of covering posts. */}
+      {!tourOpen && <BeatieHello hello={hello} />}
 
-      {/* #9 and #10: today's check-in (or its "Today" bar), then the
-          song of the week. */}
+      {/* #10 and #9: the song of the week (unless folded into the tab
+          row), then today's check-in (or its "Today" bar). On both tabs. */}
+      {sotw.week && sotw.timer && !sotw.folded && (
+        <SongOfTheWeekFull ref={bigRecord} week={sotw.week} timer={sotw.timer} onFold={foldWithArrow} />
+      )}
       <CheckinCard />
-      <WeeklySongCard />
 
       <WelcomeCard />
 
@@ -313,7 +426,7 @@ export default function Home() {
           <>
             {visible.map((r, i) => (
               // The first card is the tour's "This is your feed".
-              <div key={r.id} data-tour={i === 0 ? 'feed-review' : undefined}>
+              <div key={r.id} data-tour={i === 0 ? 'feed-review' : undefined} data-feed-index={i}>
                 <FeedCard review={r} highlight={r.id === highlightId} onDeleted={handleDeleted} />
               </div>
             ))}

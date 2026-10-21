@@ -155,10 +155,12 @@ test('the song of the week: card on Home, the page, and a star tap that keeps yo
   })
 
   await login(page, me.email)
+  // Already rated, so it starts folded into the tab row; the small record opens it.
+  await page.getByRole('button', { name: /^Song of the week, (\d+ days left|last day|\d+ hours left|less than an hour left)$/ }).click()
   const weekCard = page.getByRole('region', { name: 'Song of the week' })
   await expect(weekCard.getByText('Song of the week')).toBeVisible()
-  await expect(weekCard.getByText(/Ends (today|in \d+ days)/)).toBeVisible()
-  await weekCard.getByRole('button', { name: /See the week|Rate this week's song/ }).click()
+  await expect(weekCard.getByText(/^(\d+ days left|last day|\d+ hours left|less than an hour left)$/)).toBeVisible()
+  await weekCard.getByRole('link', { name: 'You rated it 2★' }).click()
   await page.waitForURL(/\/week$/)
 
   await expect(page.getByText(/^Song of the week · /)).toBeVisible()

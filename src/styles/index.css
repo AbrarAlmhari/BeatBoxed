@@ -188,6 +188,30 @@
   }
 }
 
+/* Song of the week: the record slides out of its sleeve. */
+@keyframes record-out {
+  from {
+    transform: translateX(-46px) rotate(-40deg);
+  }
+  to {
+    transform: none;
+  }
+}
+
+/*
+ * iPhones zoom in when you tap a text box whose text is under 16px, so on
+ * phone-sized screens every text box is at least 16px. Outside any layer on
+ * purpose: unlayered rules win over Tailwind's utilities (text-body is 15px).
+ * Pinch-zoom stays on: the viewport tag doesn't limit scaling.
+ */
+@media (max-width: 767.98px) {
+  input:not([type='checkbox'], [type='radio'], [type='range'], [type='file'], [type='color'], [type='button'], [type='submit'], [type='reset'], [type='image']),
+  textarea,
+  select {
+    font-size: 16px;
+  }
+}
+
 @layer base {
   html {
     -webkit-tap-highlight-color: transparent;
