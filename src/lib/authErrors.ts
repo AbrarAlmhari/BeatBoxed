@@ -20,13 +20,16 @@ export function authErrorMessage(error: unknown): string {
   if (m.includes('user already registered') || m.includes('already been registered')) {
     return 'An account with this email already exists. Try logging in instead.'
   }
+  if (m.includes('should be different from the old password')) {
+    return 'Your new password must be different from your current one.'
+  }
   if (m.includes('password should be at least')) {
     return 'Password must be at least 8 characters.'
   }
   if (m.includes('unable to validate email') || m.includes('invalid email')) {
     return 'That email address looks invalid.'
   }
-  if (m.includes('rate limit') || m.includes('too many requests')) {
+  if (m.includes('rate limit') || m.includes('too many requests') || m.includes('for security purposes')) {
     return 'Too many attempts. Wait a minute, then try again.'
   }
   if (m.includes('failed to fetch') || m.includes('networkerror')) {

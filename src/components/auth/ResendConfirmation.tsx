@@ -7,15 +7,33 @@ import { cn } from '@/lib/cn'
 /** Supabase limits how often a confirmation email can be resent. */
 const COOLDOWN_S = 30
 
-/**
- * "Resend email": sends the confirmation link again, then waits before it
- * can be tapped again, saying when it was sent.
- */
+/** "Resend email" for the sign-up confirmation (sign-up, and Log in). */
 export function ResendConfirmation({ email, className }: { email: string; className?: string }) {
   const { resendConfirmation } = useAuth()
+  return <ResendEmail email={email} send={resendConfirmation} cooldownS={COOLDOWN_S} className={className} />
+}
+
+/**
+ * Sends an email again, then waits before it can be tapped again, saying
+ * when it was sent. initialWaitS starts it already waiting, for a screen
+ * that appears right after the first email went out.
+ */
+export function ResendEmail({
+  email,
+  send,
+  cooldownS,
+  initialWaitS = 0,
+  className,
+}: {
+  email: string
+  send: (email: string) => Promise<void>
+  cooldownS: number
+  initialWaitS?: number
+  className?: string
+}) {
   const [state, setState] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle')
   const [message, setMessage] = useState<string | null>(null)
-  const [wait, setWait] = useState(0)
+  const [wait, setWait] = useState(initialWaitS)
 
   useEffect(() => {
     if (wait <= 0) return
@@ -23,13 +41,13 @@ export function ResendConfirmation({ email, className }: { email: string; classN
     return () => clearTimeout(t)
   }, [wait])
 
-  async function send() {
+  async function resend() {
     setState('sending')
     setMessage(null)
     try {
-      await resendConfirmation(email)
+      await send(email)
       setState('sent')
-      setWait(COOLDOWN_S)
+      setWait(cooldownS)
     } catch (err) {
       setState('error')
       setMessage(authErrorMessage(err))
@@ -40,7 +58,7 @@ export function ResendConfirmation({ email, className }: { email: string; classN
     <div className={cn('flex flex-col items-center gap-2', className)}>
       <button
         type="button"
-        onClick={() => void send()}
+        onClick={() => void resend()}
         disabled={state === 'sending' || wait > 0 || !email.trim()}
         className="flex min-h-12 w-full items-center justify-center gap-2 rounded-chip border border-line-strong px-5 text-button text-foreground transition-colors duration-200 ease-soft hover:bg-white/5 disabled:opacity-60"
       >
