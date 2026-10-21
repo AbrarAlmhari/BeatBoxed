@@ -1,6 +1,7 @@
-import { useEffect, useRef, type ReactNode, type RefObject } from 'react'
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import { cn } from '@/lib/cn'
+import { isPhoneWidth, useBackToClose, useScrollLock, useSwipeToClose } from '@/lib/sheets'
 
 /** The grab handle on a phone sheet. Shared with Sheet. Decorative. */
 export const SHEET_HANDLE = 'mx-auto mt-2.5 h-1 w-9 shrink-0 rounded-full bg-white/15 sm:hidden'
@@ -17,9 +18,11 @@ const FOCUSABLE =
  * this blocks the page until it's dismissed, so it's for things that need an
  * answer — the private-to-public warning, the review composer.
  *
- * Every way out — Escape, the backdrop, a close button inside — goes through
- * onClose, so a caller that needs to intercept a close (unsaved text, a
- * setting that must stay unchanged) has exactly one place to do it.
+ * Every way out — Escape, the backdrop, a close button inside, the phone's
+ * Back button, swiping the sheet down — goes through onClose, so a caller
+ * that needs to intercept a close (unsaved text, a setting that must stay
+ * unchanged) has exactly one place to do it. The page behind doesn't scroll
+ * while it's open (src/lib/sheets.ts).
  */
 export function Modal({
   open,
@@ -43,9 +46,15 @@ export function Modal({
   // tear down and re-run the effect below, which would steal focus back.
   const close = useRef(onClose)
   close.current = onClose
+  const [phone, setPhone] = useState(isPhoneWidth)
+
+  useBackToClose(open, onClose)
+  useScrollLock(open)
+  useSwipeToClose(panel, onClose, open && phone)
 
   useEffect(() => {
     if (!open) return
+    setPhone(isPhoneWidth())
     const opener = document.activeElement as HTMLElement | null
 
     // Focus the given control, else the first one, rather than the panel, so
@@ -76,14 +85,9 @@ export function Modal({
     }
     document.addEventListener('keydown', onKey)
 
-    // The page behind shouldn't scroll under a phone sheet.
-    const overflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-
     return () => {
       document.removeEventListener('keydown', onKey)
-      document.body.style.overflow = overflow
-      opener?.focus?.()
+      opener?.focus?.({ preventScroll: true })
     }
     // initialFocus is a ref: reading .current at open time is the point.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -113,11 +117,11 @@ export function Modal({
           className
         )}
       >
-        {/* Grab handle: tells a phone user this is a sheet. Decorative. */}
-        <span
-          aria-hidden
-          className={SHEET_HANDLE}
-        />
+        {/* Grab handle: tells a phone user this is a sheet, and is where a
+            swipe down can always start. */}
+        <span data-sheet-handle className="flex shrink-0 justify-center pb-1 sm:hidden">
+          <span aria-hidden className={SHEET_HANDLE} />
+        </span>
         {children}
       </div>
     </div>,
