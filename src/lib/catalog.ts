@@ -569,15 +569,23 @@ const SONG_SELECT_BY_ARTIST =
   'id, title, genre, artist_id, album_id, artists!inner(name), albums(cover_url, title)'
 
 /**
- * Mirrors normalize_search_text() in 0024. Both sides have to agree or a
- * query will never match the column it is compared against.
+ * Mirrors normalize_search_text() (0051, first in 0024). Both sides have
+ * to agree or a query will never match the column it is compared against.
  */
 export function normalizeSearch(input: string) {
-  return input
-    .toLowerCase()
-    .replace(/['’`]/g, '')
-    .replace(/[^a-z0-9]+/g, ' ')
-    .trim()
+  return (
+    input
+      .toLowerCase()
+      .replace(/['’`]/g, '')
+      // Arabic as people type it: no diacritics (tashkeel) or tatweel,
+      // أ إ آ read as ا, ى as ي.
+      .replace(/[\u064B-\u0652\u0670\u0640]/g, '')
+      .replace(/[\u0623\u0625\u0622]/g, '\u0627')
+      .replace(/\u0649/g, '\u064A')
+      // Letters and digits in any script; everything else is a space.
+      .replace(/[^\p{L}\p{N}]+/gu, ' ')
+      .trim()
+  )
 }
 
 /**
