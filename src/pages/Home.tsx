@@ -154,6 +154,8 @@ export default function Home() {
       if (!frame) frame = requestAnimationFrame(check)
     }
     window.addEventListener('scroll', onScroll, { passive: true })
+    // Also once now: the week can arrive after the person already scrolled.
+    onScroll()
     return () => {
       window.removeEventListener('scroll', onScroll)
       cancelAnimationFrame(frame)
