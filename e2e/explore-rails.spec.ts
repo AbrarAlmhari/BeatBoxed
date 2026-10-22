@@ -66,11 +66,14 @@ test.describe('explore rails', () => {
     // Recently viewed in full: exactly the three songs, newest first.
     expect(await listIds()).toEqual(viewed.map((s) => s.id))
 
-    // Trending pages in 20s as you scroll, without repeats.
+    // Trending pages in 20s as you scroll, without repeats. A page can show
+    // a few fewer: another copy of a track already listed (the same song
+    // from a different release) is left out.
     await page.goto('/explore/trending')
-    await expect.poll(async () => (await listIds()).length).toBe(20)
+    await expect.poll(async () => (await listIds()).length).toBeGreaterThanOrEqual(12)
+    const first = (await listIds()).length
     await page.mouse.wheel(0, 20000)
-    await expect.poll(async () => (await listIds()).length).toBeGreaterThan(20)
+    await expect.poll(async () => (await listIds()).length).toBeGreaterThan(first)
     const all = await listIds()
     expect(new Set(all).size).toBe(all.length)
 
