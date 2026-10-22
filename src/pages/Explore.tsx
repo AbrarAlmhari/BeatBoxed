@@ -81,7 +81,9 @@ export default function Explore() {
     )
   }
 
-  const setQuery = (v: string) => patchParams({ q: v })
+  // An empty search box also puts the filter back to All: the chips only
+  // filter search results, and they're hidden until there's a search.
+  const setQuery = (v: string) => patchParams(v.trim() ? { q: v } : { q: null, filter: null })
   const setFilter = (v: Filter) => patchParams({ filter: v === 'all' ? null : v })
 
   const debouncedQuery = useDebouncedValue(query, 250)
@@ -212,6 +214,8 @@ export default function Explore() {
   }, [location, navigate])
 
   const isBrowsing = debouncedQuery.trim() === ''
+  /** Text in the box (or ?q= in the address): the filters show. */
+  const hasSearch = query.trim() !== ''
   const show = (section: Filter) => filter === 'all' || filter === section
   const sliceFor = (key: string, items: unknown[]) =>
     expanded.has(key) ? items.length : PREVIEW
@@ -227,6 +231,7 @@ export default function Explore() {
       <div className="flex flex-col gap-4">
         <h1 className="text-page-title">Explore</h1>
 
+        <div>
         <div className="relative">
           <Search
             className="pointer-events-none absolute left-3.5 top-1/2 size-[18px] -translate-y-1/2 text-muted-foreground"
@@ -257,23 +262,39 @@ export default function Explore() {
           )}
         </div>
 
-        <ScrollRow
-          as="div"
-          size="sm"
-          className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
-          role="group"
-          aria-label="Filter results"
+        {/* The filters only filter search results, so they appear with a
+            search and go with it. The row opens out (rather than popping
+            in) and fades, so the page below moves smoothly, not in a jump. */}
+        <div
+          data-search-filters
+          inert={!hasSearch}
+          aria-hidden={!hasSearch}
+          className={cn(
+            'grid transition-[grid-template-rows,opacity] duration-200 ease-soft motion-reduce:transition-none',
+            hasSearch ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+          )}
         >
-          {FILTERS.map((f) => (
-            <Chip
-              key={f.value}
-              active={filter === f.value}
-              onClick={() => setFilter(f.value)}
+          <div className="min-h-0 overflow-hidden">
+            <ScrollRow
+              as="div"
+              size="sm"
+              className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 pt-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
+              role="group"
+              aria-label="Filter results"
             >
-              {f.label}
-            </Chip>
-          ))}
-        </ScrollRow>
+              {FILTERS.map((f) => (
+                <Chip
+                  key={f.value}
+                  active={filter === f.value}
+                  onClick={() => setFilter(f.value)}
+                >
+                  {f.label}
+                </Chip>
+              ))}
+            </ScrollRow>
+          </div>
+        </div>
+        </div>
 
       </div>
 

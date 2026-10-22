@@ -129,7 +129,8 @@ test.describe('sideways rows', () => {
   test('a row that fits shows no arrows', async ({ page }, info) => {
     test.skip(info.project.name !== 'desktop', 'mouse only')
     await login(page, viewer.email)
-    await page.goto('/explore')
+    // The filter chips show once there's a search.
+    await page.goto('/explore?q=radiohead')
     const chips = page.locator('[data-scroll-row]').filter({ has: page.getByRole('group', { name: 'Filter results' }) })
     await chips.hover()
     await expect(chips.locator('[data-row-arrow]')).toHaveCount(0)

@@ -136,6 +136,43 @@ async function ratingsForClientSide(songIds: string[]) {
   return stats
 }
 
+/**
+ * The same track can be cached more than once: one row per release it's on
+ * (an album and its deluxe edition each have their own Spotify id). Lists
+ * show it once. Same title (ignoring case and spacing) by the same artist
+ * counts as the same track.
+ */
+export function trackKey(song: Pick<SongCardModel, 'title' | 'artistId' | 'artistName'>) {
+  const title = song.title.toLowerCase().replace(/\s+/g, ' ').trim()
+  return `${title}|${song.artistId ?? song.artistName.toLowerCase().trim()}`
+}
+
+/**
+ * Each track once, where it first appears in the list. Of its copies, the
+ * one with the most reviews is kept, so its rating shows; ties keep the
+ * first. Nothing in the database changes.
+ */
+export function dedupeSongs<T extends SongCardModel>(songs: T[]): T[] {
+  const best = new Map<string, T>()
+  for (const s of songs) {
+    const key = trackKey(s)
+    const kept = best.get(key)
+    if (!kept || s.reviewCount > kept.reviewCount) best.set(key, s)
+  }
+  const out: T[] = []
+  const placed = new Set<string>()
+  for (const s of songs) {
+    const key = trackKey(s)
+    if (placed.has(key)) continue
+    placed.add(key)
+    out.push(best.get(key)!)
+  }
+  return out
+}
+
+/** Extra rows read for a rail, so it's still full once copies are dropped. */
+const DUPLICATE_SLACK = 8
+
 async function decorate(rows: SongRow[]): Promise<SongCardModel[]> {
   const stats = await ratingsFor(rows.map((r) => r.id))
   return rows.map((r) => toCardModel(r, stats.get(r.id)))
@@ -156,7 +193,7 @@ export type RailId = 'trending' | 'for-you' | 'recent'
 
 /** Recently viewed as the rail shows it: the start of the full list. */
 export async function getRecentlyViewedRail(userId: string) {
-  return (await getRecentlyViewed(userId, LIST_POOL)).slice(0, RAIL_SIZE)
+  return dedupeSongs(await getRecentlyViewed(userId, LIST_POOL)).slice(0, RAIL_SIZE)
 }
 
 /**
@@ -175,14 +212,16 @@ export async function getRailPage(
 ): Promise<{ items: SongCardModel[]; hasMore: boolean }> {
   if (rail === 'trending' || !userId) {
     const items = await withRetry(() => fetchTrending(RAIL_PAGE_SIZE + 1, offset))
-    return { items: items.slice(0, RAIL_PAGE_SIZE), hasMore: items.length > RAIL_PAGE_SIZE }
+    // Copies on this page are dropped here; RailList drops any that land
+    // on different pages.
+    return { items: dedupeSongs(items.slice(0, RAIL_PAGE_SIZE)), hasMore: items.length > RAIL_PAGE_SIZE }
   }
   const key = `${rail}:${userId}`
   if (fresh || !poolCache.has(key)) {
     const pool =
       rail === 'recent'
-        ? withRetry(() => getRecentlyViewed(userId, LIST_POOL))
-        : withRetry(() => fetchForYou(userId, LIST_POOL))
+        ? withRetry(() => getRecentlyViewed(userId, LIST_POOL)).then(dedupeSongs)
+        : withRetry(() => fetchForYou(userId, LIST_POOL)).then(dedupeSongs)
     poolCache.set(key, pool)
     pool.catch(() => poolCache.delete(key))
   }
@@ -483,9 +522,9 @@ async function withRetry<T>(load: () => Promise<T>, pauseMs = 700): Promise<T> {
  */
 export async function getExploreRails(userId?: string): Promise<ExploreRails> {
   const [trending, recent, personal] = await Promise.allSettled([
-    withRetry(() => fetchTrending(RAIL_SIZE, 0)),
+    withRetry(() => fetchTrending(RAIL_SIZE + DUPLICATE_SLACK, 0)).then((l) => dedupeSongs(l).slice(0, RAIL_SIZE)),
     userId ? withRetry(() => getRecentlyViewedRail(userId)) : Promise.resolve([]),
-    userId ? withRetry(() => fetchForYou(userId, LIST_POOL)).then((l) => l.slice(0, RAIL_SIZE)) : Promise.resolve([]),
+    userId ? withRetry(() => fetchForYou(userId, LIST_POOL)).then((l) => dedupeSongs(l).slice(0, RAIL_SIZE)) : Promise.resolve([]),
   ])
   if (trending.status === 'rejected') throw trending.reason
 
@@ -1538,7 +1577,7 @@ export async function searchEverything(
 
   const songs =
     songsRes.status === 'fulfilled' && songsRes.value.mode === 'songs'
-      ? songsRes.value.songs
+      ? dedupeSongs(songsRes.value.songs)
       : []
   const artists =
     artistsRes.status === 'fulfilled' && artistsRes.value.mode === 'artists'
