@@ -9,7 +9,7 @@ import { useLoadMore } from '@/components/profile/useLoadMore'
 import { useAuth } from '@/lib/auth'
 import { usePlayer } from '@/lib/player'
 import { cn } from '@/lib/cn'
-import { getRailPage, type RailId } from '@/lib/catalog'
+import { getRailPage, trackKey, type RailId } from '@/lib/catalog'
 import type { SongCardModel } from '@/lib/types'
 
 const RAILS: Record<RailId, { title: string; subtitle: string; empty: string }> = {
@@ -75,8 +75,10 @@ export default function RailList() {
     try {
       const page = await getRailPage(known, user?.id, items.length)
       if (request !== latest.current) return
-      const seen = new Set(items.map((s) => s.id))
-      setItems([...items, ...page.items.filter((s) => !seen.has(s.id))])
+      // A track already listed (the same song, or another copy of it from
+      // a different release) isn't listed again.
+      const seen = new Set(items.map(trackKey))
+      setItems([...items, ...page.items.filter((s) => !seen.has(trackKey(s)))])
       setHasMore(page.hasMore)
     } catch (err) {
       console.error('[beatboxed] more rail songs failed:', err)
