@@ -1972,6 +1972,11 @@ export async function getFollowedArtistsPage(
     .from('follows')
     .select('artists(id, name, image_url, genres)')
     .eq('user_id', userId)
+    // Most recently followed first ("Listens to" names the newest), older
+    // follows with no date after them; a fixed order, so pages don't
+    // overlap and the same names show each time.
+    .order('created_at', { ascending: false, nullsFirst: false })
+    .order('artist_id', { ascending: true })
     .range(offset, offset + limit - 1)
   if (error) throw error
 
