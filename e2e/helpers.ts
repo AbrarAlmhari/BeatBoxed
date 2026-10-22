@@ -348,8 +348,14 @@ export async function stubPreviewAudio(
   await page.route(/itunes\.apple\.com/, async (route) => {
     const url = new URL(route.request().url())
     const term = (url.searchParams.get('term') ?? '').toLowerCase()
+    // The song asked for: title and artist both in the search words, the
+    // longest title winning ("...Baby One More Time (from Kung Fu Panda 4)"
+    // also contains "...baby one more time"). A lookup by id has no search
+    // words and gets the first song.
     const song =
-      songs.find((s) => term.includes(s.title.toLowerCase())) ?? songs[0]
+      songs
+        .filter((s) => term.includes(s.title.toLowerCase()) && term.includes(s.artistName.toLowerCase()))
+        .sort((a, b) => b.title.length - a.title.length)[0] ?? songs[0]
 
     // An empty result set is exactly what iTunes returns for a song it
     // doesn't carry, so the app takes its real no-preview path.
