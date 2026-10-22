@@ -21,7 +21,7 @@
  *     so a song that never works gives up after 5 tries.
  */
 import { createClient } from 'jsr:@supabase/supabase-js@2'
-import { currentModel, generate } from '../beatie/groq.ts'
+import { currentModel, generate, lastRateLimits } from '../beatie/groq.ts'
 
 const BATCH = 5
 const DAILY_CAP = 150
@@ -103,7 +103,10 @@ function parseLabel(text: string): Label | null {
 
 type Outcome = 'labelled' | 'busy' | 'failed' | 'invalid'
 
-async function labelOne(song: Claimed): Promise<Outcome> {
+/** Tokens a run used, for sizing the daily cap; reported in the run's summary. */
+type Tokens = { calls: number; prompt: number; thinking: number; answer: number }
+
+async function labelOne(song: Claimed, tokens: Tokens): Promise<Outcome> {
   const lyrics = await lyricsFor(song)
   const prompt = [
     `Title: ${song.title}`,
@@ -121,6 +124,12 @@ async function labelOne(song: Claimed): Promise<Outcome> {
     timeoutMs: 30_000,
     label: `vibe ${song.song_id.slice(0, 8)}`,
   })
+  if (result.info) {
+    tokens.calls += 1
+    tokens.prompt += result.info.promptTokens ?? 0
+    tokens.thinking += result.info.thinkingTokens ?? 0
+    tokens.answer += result.info.answerTokens ?? 0
+  }
   if (!result.ok) {
     await fail(song.song_id, `${result.reason}: ${result.detail ?? ''}`.slice(0, 300))
     return result.reason === 'busy' ? 'busy' : 'failed'
@@ -174,9 +183,10 @@ Deno.serve(async (req) => {
   const failed: string[] = []
   /** Busy, or never tried because the run stopped: back in the queue as if untouched. */
   let requeue: string[] = []
+  const tokens: Tokens = { calls: 0, prompt: 0, thinking: 0, answer: 0 }
   // One at a time: gentle on Groq's rate limits and on lrclib.
   for (const [i, song] of songs.entries()) {
-    const outcome = await labelOne(song).catch(async (err): Promise<Outcome> => {
+    const outcome = await labelOne(song, tokens).catch(async (err): Promise<Outcome> => {
       await fail(song.song_id, `error: ${(err as Error).message}`.slice(0, 300))
       return 'failed'
     })
@@ -195,7 +205,16 @@ Deno.serve(async (req) => {
     if (releaseError) console.error('[song-vibes] release failed:', releaseError.message)
   }
 
-  const summary = { claimed: songs.length, ...outcomes, given_back: failed.length + requeue.length, requeued: requeue.length }
+  // The cron job stores this answer (net._http_response): tokens and
+  // Groq's limits, for sizing DAILY_CAP.
+  const summary = {
+    claimed: songs.length,
+    ...outcomes,
+    given_back: failed.length + requeue.length,
+    requeued: requeue.length,
+    tokens,
+    limits: lastRateLimits(),
+  }
   console.log('[song-vibes]', JSON.stringify(summary))
   return Response.json(summary)
 })
