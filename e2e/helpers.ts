@@ -868,6 +868,26 @@ export async function seedArtistWithAlbum(label: string): Promise<SeededArtist> 
   }
 }
 
+/**
+ * Songs with the given titles, by one test artist, straight in the
+ * database (same clean-up as seedArtistWithAlbum: deleteSeededCatalog).
+ */
+export async function seedSongs(label: string, titles: string[]) {
+  const stamp = `${TEST_SPOTIFY_PREFIX}${label}-${Date.now()}`
+  const post = async (path: string, body: unknown) => {
+    const res = await admin(path, { method: 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify(body) })
+    const rows = await res.json()
+    if (!Array.isArray(rows)) throw new Error(`seed failed on ${path}: ${JSON.stringify(rows)}`)
+    return rows as { id: string; title?: string }[]
+  }
+  const [artist] = await post('/rest/v1/artists', { spotify_id: `${stamp}-artist`, name: `Test Artist ${label}` })
+  const songs = await post(
+    '/rest/v1/songs',
+    titles.map((title, i) => ({ spotify_id: `${stamp}-track-${i}`, title, artist_id: artist.id, duration_ms: 180000, popularity: 1 }))
+  )
+  return titles.map((title) => ({ id: songs.find((s) => s.title === title)!.id, title }))
+}
+
 /** Removes every catalog row these tests created. */
 export async function deleteSeededCatalog() {
   await admin(`/rest/v1/songs?spotify_id=like.${TEST_SPOTIFY_PREFIX}*`, { method: 'DELETE' })
