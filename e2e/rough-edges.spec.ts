@@ -292,6 +292,18 @@ test.describe('sheets', () => {
     await page.goto(`/profile/${author.id}`)
     // Fully loaded first: a page that appears resets the scroll to the top.
     await expect(page.getByRole('heading', { name: 'Rough Author', level: 1 })).toBeVisible()
+    // ...and done growing: sections that load after the heading change the
+    // page height, and the browser shifts the scroll to keep content in place.
+    await page.waitForLoadState('networkidle')
+    let lastHeight = -1
+    await expect
+      .poll(async () => {
+        const h = await page.evaluate(() => document.querySelector('main')?.scrollHeight ?? 0)
+        const same = h === lastHeight
+        lastHeight = h
+        return same
+      }, { intervals: [400] })
+      .toBe(true)
     await page.evaluate(() => document.body.style.setProperty('min-height', '400vh'))
     await page.evaluate(() => window.scrollTo({ top: 600, behavior: 'instant' }))
     await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(600)
