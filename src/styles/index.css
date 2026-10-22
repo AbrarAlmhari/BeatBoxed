@@ -175,10 +175,14 @@
 
 /*
  * A 44px tap area around a smaller control (a compact Follow button, a
- * chip), without changing how it looks. The element needs a position
- * (relative or absolute).
+ * chip), without changing how it looks. The element is its own anchor:
+ * without one, the invisible area stretched to the nearest positioned
+ * ancestor, and in a list sheet it covered the whole sheet, so every touch
+ * hit one row's Follow button and the list couldn't scroll or be tapped.
  */
 @utility tap-44 {
+  position: relative;
+
   &::after {
     content: '';
     position: absolute;

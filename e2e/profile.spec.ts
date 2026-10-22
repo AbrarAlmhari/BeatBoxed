@@ -27,7 +27,8 @@ async function ratingOnly(userId: string, songId: string, rating: number) {
   })
 }
 
-const tab = (page: Page, name: string) => page.getByRole('tab', { name, exact: true })
+/** A profile tab by name; the Reviews tab also shows its count ("Reviews 2"). */
+const tab = (page: Page, name: string) => page.getByRole('tab', { name: new RegExp(`^${name}(\\s*[\\d,]+)?$`) })
 
 test.describe('profile', () => {
   let owner: User
@@ -82,7 +83,7 @@ test.describe('profile', () => {
     await expect(tab(page, 'Stats')).toBeFocused()
   })
 
-  test('the counts open the lists, and ratings or reviews switch the Reviews filter', async ({ page }) => {
+  test('the counts open the lists, and the Reviews tab and chips carry the review counts', async ({ page }) => {
     await login(page, owner.email)
     await page.goto(`/profile/${owner.id}?tab=likes`)
 
@@ -93,19 +94,18 @@ test.describe('profile', () => {
     await sheet.getByRole('button', { name: 'Close' }).click()
     await expect(sheet).toHaveCount(0)
 
-    await page.getByRole('button', { name: '1 artist', exact: true }).click()
-    await expect(page.getByRole('dialog', { name: 'Artists followed' })).toBeVisible()
+    // The followed artist: "Listens to …" opens Artists.
+    await page.locator('[data-listens-to]').click()
+    await expect(page.getByRole('dialog', { name: 'Artists' })).toBeVisible()
     await page.keyboard.press('Escape')
 
-    // "1 review" (written) opens Reviews filtered to written ones.
-    await page.getByRole('button', { name: '1 review', exact: true }).click()
-    await expect(page).toHaveURL(/filter=written/)
-    await expect(tab(page, 'Reviews')).toHaveAttribute('aria-selected', 'true')
-    await expect(page.getByRole('button', { name: 'Written' })).toHaveAttribute('aria-pressed', 'true')
-
-    // "2 ratings" opens all of them.
-    await page.getByRole('button', { name: '2 ratings', exact: true }).click()
-    await expect(page.getByRole('button', { name: 'All', exact: true })).toHaveAttribute('aria-pressed', 'true')
+    // 2 ratings, 1 of them written.
+    await expect(page.getByRole('tab', { name: /^Reviews\s*2$/ })).toBeVisible()
+    await tab(page, 'Reviews').click()
+    const chips = page.getByRole('group', { name: 'Show' })
+    await expect(chips.getByRole('button', { name: /^All\s*2$/ })).toBeVisible()
+    await expect(chips.getByRole('button', { name: /^Written\s*1$/ })).toBeVisible()
+    await expect(chips.getByRole('button', { name: /^Ratings only\s*1$/ })).toBeVisible()
   })
 
   test('Reviews: written ones are cards, ratings-only ones are compact rows, and the filters work', async ({
@@ -132,7 +132,7 @@ test.describe('profile', () => {
     await expect(row).toBeVisible()
 
     // Sort: highest rated puts the 5-star review first.
-    await page.getByRole('button', { name: 'All', exact: true }).click()
+    await page.getByRole('button', { name: /^All\s*\d+$/ }).click()
     await page.getByRole('button', { name: /^Sort:/ }).click()
     await page.getByRole('button', { name: 'Highest rated' }).click()
     await expect(panel.locator('li').first()).toContainText(songs[0].title)
@@ -245,9 +245,8 @@ test.describe('profile', () => {
     await page.goto(`/profile/${priv.id}?tab=likes`)
     await expect(page.getByText('This account is private. Follow to see their reviews, playlists and stats.')).toBeVisible()
     await expect(page.getByRole('tablist')).toHaveCount(0)
-    await expect(page.getByRole('button', { name: '1 rating', exact: true })).toBeVisible()
-    // The written count isn't shown where it can't be counted.
-    await expect(page.getByRole('button', { name: /^\d+ reviews?$/ })).toHaveCount(0)
+    // The followers / following counts stay visible.
+    await expect(page.getByRole('list', { name: 'Profile counts' }).getByRole('button', { name: /^\d+ followers?$/ })).toBeVisible()
     // One follow button, in the lock card.
     await expect(page.getByRole('main').getByRole('button', { name: 'Follow', exact: true })).toHaveCount(1)
   })

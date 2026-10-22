@@ -165,7 +165,7 @@ test.describe('settings', () => {
     await expect(page.getByRole('link', { name: /Private List/ })).toHaveCount(0)
 
     // Counts stay visible even though the rows behind them don't.
-    await expect(page.getByRole('button', { name: /^\d+ ratings?$/ })).toBeVisible()
+    await expect(page.getByRole('list', { name: 'Profile counts' }).getByRole('button', { name: /^\d+ followers?$/ })).toBeVisible()
 
     // And the reviews are gone from the song page too, not just the profile.
     await page.goto(`/song/${songs[1].id}`)
