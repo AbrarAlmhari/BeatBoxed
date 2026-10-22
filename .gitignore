@@ -14,3 +14,7 @@ test-results/
 playwright-report/
 blob-report/
 .playwright/
+
+# Local, personal tool settings and notes (never committed)
+.claude/settings.local.json
+CLAUDE.md

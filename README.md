@@ -10,11 +10,10 @@ Design (theme, color system, full page mockups) is complete. Development starts 
 
 ## Start here
 
-1. Read `CLAUDE.md` — the working context if you're using Claude Code on this repo.
-2. Read `docs/roadmap.md` for the current plan and dates.
-3. Read `docs/team-workstreams.md` to find your slice.
-4. Copy `.env.example` to `.env.local` and fill in your own keys (never commit real keys).
-5. Check `TASKS.md` for the live checklist and update it as you go.
+1. Read `docs/roadmap.md` for the current plan and dates.
+2. Read `docs/team-workstreams.md` to find your slice.
+3. Copy `.env.example` to `.env.local` and fill in your own keys (never commit real keys).
+4. Check `TASKS.md` for the live checklist and update it as you go.
 
 ## Run locally
 
