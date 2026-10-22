@@ -7,11 +7,18 @@
  * sends a private secret kept in the database's Vault. Without that exact
  * secret the function does nothing, so the public key alone can't start a
  * run. Each run labels at most BATCH songs, and the database stops handing
- * out songs at DAILY_CAP calls a day, failures included.
+ * out songs at DAILY_CAP calls a day. Calls that fail are given back
+ * (release_song_vibes, 0051), so only songs actually labelled use it up.
  *
- * Anything that goes wrong (the AI service busy or slow, a reply that isn't the
- * exact JSON asked for) saves nothing; the song stays in the queue and is
- * tried again later (claim_song_vibes sets when).
+ * Anything that goes wrong saves nothing; the song stays in the queue.
+ *   - The AI service busy (a 429, overloaded, or too slow): the run stops
+ *     there. That song and the ones not yet tried go back in the queue for
+ *     the next run, without counting as an attempt; hammering a rate limit
+ *     only makes it longer.
+ *   - Any other failure (a reply that isn't the exact JSON asked for, a
+ *     save that fails): the next song is tried. The failed song keeps its
+ *     attempt and back-off (claim_song_vibes sets when it's tried again),
+ *     so a song that never works gives up after 5 tries.
  */
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { currentModel, generate } from '../beatie/groq.ts'
@@ -94,7 +101,9 @@ function parseLabel(text: string): Label | null {
   return { lyrics_mood: lyrics_mood as Label['lyrics_mood'], energy: energy as Label['energy'], confidence }
 }
 
-async function labelOne(song: Claimed): Promise<string> {
+type Outcome = 'labelled' | 'busy' | 'failed' | 'invalid'
+
+async function labelOne(song: Claimed): Promise<Outcome> {
   const lyrics = await lyricsFor(song)
   const prompt = [
     `Title: ${song.title}`,
@@ -114,7 +123,7 @@ async function labelOne(song: Claimed): Promise<string> {
   })
   if (!result.ok) {
     await fail(song.song_id, `${result.reason}: ${result.detail ?? ''}`.slice(0, 300))
-    return 'failed'
+    return result.reason === 'busy' ? 'busy' : 'failed'
   }
   const label = parseLabel(result.text)
   if (!label) {
@@ -161,14 +170,32 @@ Deno.serve(async (req) => {
   }
   const songs = (data ?? []) as Claimed[]
   const outcomes: Record<string, number> = {}
+  /** Tried and failed: the call is given back, the attempt stays. */
+  const failed: string[] = []
+  /** Busy, or never tried because the run stopped: back in the queue as if untouched. */
+  let requeue: string[] = []
   // One at a time: gentle on Groq's rate limits and on lrclib.
-  for (const song of songs) {
-    const outcome = await labelOne(song).catch(async (err) => {
+  for (const [i, song] of songs.entries()) {
+    const outcome = await labelOne(song).catch(async (err): Promise<Outcome> => {
       await fail(song.song_id, `error: ${(err as Error).message}`.slice(0, 300))
       return 'failed'
     })
     outcomes[outcome] = (outcomes[outcome] ?? 0) + 1
+    if (outcome === 'busy') {
+      requeue = songs.slice(i).map((s) => s.song_id)
+      break
+    }
+    if (outcome !== 'labelled') failed.push(song.song_id)
   }
-  console.log('[song-vibes]', JSON.stringify({ claimed: songs.length, ...outcomes }))
-  return Response.json({ claimed: songs.length, ...outcomes })
+
+  // Only labelled songs count against today's cap.
+  for (const [ids, again] of [[failed, false], [requeue, true]] as const) {
+    if (ids.length === 0) continue
+    const { error: releaseError } = await admin.rpc('release_song_vibes', { song_ids: ids, requeue: again })
+    if (releaseError) console.error('[song-vibes] release failed:', releaseError.message)
+  }
+
+  const summary = { claimed: songs.length, ...outcomes, given_back: failed.length + requeue.length, requeued: requeue.length }
+  console.log('[song-vibes]', JSON.stringify(summary))
+  return Response.json(summary)
 })
