@@ -97,11 +97,21 @@ export function Sheet({
       if (left < GAP) left = a.left
       else if (left + w > vw - GAP) left = a.right - w
       left = Math.max(GAP, Math.min(left, vw - GAP - w))
-      setPlace({ top, left })
+      setPlace((prev) => (prev && prev.top === top && prev.left === left ? prev : { top, left }))
     }
     position()
     window.addEventListener('resize', position)
-    return () => window.removeEventListener('resize', position)
+    window.addEventListener('scroll', position, true)
+    // Stays next to its button if the page is scrolled for it (a link that
+    // scrolls to a review) or its contents change size after it opens (an
+    // option that appears once something has loaded).
+    const ro = new ResizeObserver(position)
+    if (panel.current) ro.observe(panel.current)
+    return () => {
+      window.removeEventListener('resize', position)
+      window.removeEventListener('scroll', position, true)
+      ro.disconnect()
+    }
   }, [open, phone, align])
 
   return (
