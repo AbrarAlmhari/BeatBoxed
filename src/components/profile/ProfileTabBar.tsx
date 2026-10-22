@@ -2,7 +2,7 @@ import { Tabs, panelIdFor, tabIdFor } from '@/components/ui/Tabs'
 
 export type ProfileTab = 'reviews' | 'playlists' | 'stats' | 'likes'
 
-export const PROFILE_TABS: { id: ProfileTab; label: string }[] = [
+export const PROFILE_TABS: { id: ProfileTab; label: React.ReactNode }[] = [
   { id: 'reviews', label: 'Reviews' },
   { id: 'playlists', label: 'Playlists' },
   { id: 'stats', label: 'Stats' },
@@ -20,13 +20,31 @@ export const panelId = (t: ProfileTab) => panelIdFor(PROFILE_TABS_ID, t)
 export function ProfileTabBar({
   tab,
   onChange,
+  reviewCount,
 }: {
   tab: ProfileTab
   onChange: (next: ProfileTab) => void
+  /** Shown on the Reviews tab ("Reviews 19"). */
+  reviewCount?: number
 }) {
+  const tabs =
+    reviewCount === undefined
+      ? PROFILE_TABS
+      : PROFILE_TABS.map((t) =>
+          t.id === 'reviews'
+            ? {
+                ...t,
+                label: (
+                  <>
+                    Reviews <span className="ml-1 text-meta font-bold tabular-nums text-accent">{reviewCount.toLocaleString()}</span>
+                  </>
+                ),
+              }
+            : t
+        )
   return (
     <Tabs
-      tabs={PROFILE_TABS}
+      tabs={tabs}
       value={tab}
       onChange={onChange}
       label="Profile"

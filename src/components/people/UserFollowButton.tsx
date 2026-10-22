@@ -24,6 +24,7 @@ export function UserFollowButton({
   isPrivate = false,
   onChange,
   size = 'md',
+  followLabel = 'Follow',
 }: {
   personId: string
   state: FollowState
@@ -32,6 +33,8 @@ export function UserFollowButton({
   onChange?: (next: FollowState, previous: FollowState) => void
   /** lg: at least 44px tall, for the profile header. */
   size?: 'sm' | 'md' | 'lg'
+  /** "Follow back" on your own followers list. */
+  followLabel?: string
 }) {
   const { user } = useAuth()
   const navigate = useNavigate()
@@ -177,7 +180,7 @@ export function UserFollowButton({
   return (
     <button type="button" onClick={onFollow} disabled={pending} className={primary}>
       <UserPlus className="size-3.5" strokeWidth={2} />
-      Follow
+      {followLabel}
     </button>
   )
 }

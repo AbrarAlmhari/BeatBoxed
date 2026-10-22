@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Profile: new layout</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #08080B; color: #fff; font-family: Inter, system-ui, sans-serif; padding: 32px 16px; }
+  .wrap { max-width: 1240px; margin: 0 auto; display: flex; flex-wrap: wrap; gap: 40px; align-items: flex-start; }
+  h1 { font-size: 22px; margin: 0 0 6px; } .lead { color: #B4B4BD; font-size: 14px; margin: 0 0 28px; max-width: 800px; line-height: 1.5; }
+  .col { display: flex; flex-direction: column; gap: 10px; } .cap { font-size: 13px; font-weight: 700; color: #B4B4BD; }
+  .phone { width: 390px; height: 844px; border-radius: 28px; overflow: hidden; position: relative; background: #0D0D12; box-shadow: 0 0 0 1px rgba(255,255,255,.08); }
+  .glow { position: absolute; left: -120px; top: -180px; width: 520px; height: 460px; background: radial-gradient(closest-side, rgba(124,58,237,.32), rgba(124,58,237,0)); pointer-events: none; }
+  button, a { font: inherit; color: inherit; } button { cursor: pointer; }
+  .top { position: relative; display: flex; justify-content: space-between; padding: 12px 14px 0; min-height: 56px; }
+  .circle { width: 44px; height: 44px; border-radius: 999px; background: rgba(255,255,255,.07); border: 0; display: grid; place-items: center; color: #fff; }
+  .head { position: relative; padding: 6px 20px 0; display: flex; flex-direction: column; gap: 12px; }
+  .row { display: flex; align-items: center; gap: 16px; }
+  .av { width: 84px; height: 84px; border-radius: 999px; padding: 3px; background: linear-gradient(140deg,#F472B6,#8B5CF6); flex-shrink: 0; }
+  .av span { width: 100%; height: 100%; border-radius: 999px; display: grid; place-items: center; font-size: 28px; font-weight: 800; border: 3px solid #0D0D12; }
+  .name b { font-size: 24px; letter-spacing: -.02em; display: block; } .handle { color: #A1A1AA; font-size: 15px; }
+  .counts { display: flex; gap: 6px; font-size: 14px; color: #B4B4BD; margin-top: 4px; }
+  .counts button { background: none; border: 0; padding: 0; color: #B4B4BD; min-height: 28px; } .counts b { color: #fff; }
+  .bio { margin: 0; font-size: 15px; color: #D4D4D8; overflow-wrap: anywhere; }
+  .chips { display: flex; gap: 8px; } .chip { height: 32px; padding: 0 14px; border-radius: 999px; background: rgba(139,92,246,.18); color: #C4B5FD; font-size: 14px; font-weight: 600; display: flex; align-items: center; }
+  .listens { display: flex; align-items: center; gap: 10px; min-height: 44px; background: none; border: 0; padding: 0; color: #B4B4BD; font-size: 14px; text-align: left; }
+  .listens b { color: #fff; } .stack { display: flex; } .stack i { width: 32px; height: 32px; border-radius: 999px; border: 2px solid #0D0D12; display: block; } .stack i + i { margin-left: -10px; }
+  .actions { display: flex; gap: 10px; }
+  .btn { flex: 1; height: 44px; border-radius: 14px; background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.12); font-size: 15px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .btn.follow { background: #7C3AED; border: 0; font-weight: 700; } .btn.following { background: rgba(139,92,246,.14); border-color: rgba(139,92,246,.6); font-weight: 700; }
+  .sq { width: 44px; height: 44px; border-radius: 14px; background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.12); display: grid; place-items: center; padding: 0; }
+  .tabs { position: relative; margin-top: 18px; display: grid; grid-template-columns: repeat(4,1fr); border-bottom: 1px solid rgba(255,255,255,.08); }
+  .tabs span { height: 48px; display: flex; align-items: center; justify-content: center; gap: 6px; color: #A1A1AA; font-size: 15px; font-weight: 600; }
+  .tabs span.on { color: #fff; font-weight: 700; border-bottom: 2px solid #8B5CF6; } .tabs small { color: #C4B5FD; font-size: 12px; font-weight: 700; }
+  .filters { position: relative; padding: 14px 20px 0; display: flex; gap: 8px; }
+  .filters span { height: 36px; padding: 0 14px; border-radius: 999px; background: #181820; color: #B4B4BD; font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 5px; }
+  .filters span.on { background: rgba(139,92,246,.18); border: 1px solid rgba(139,92,246,.6); color: #fff; } .filters em { font-style: normal; opacity: .75; }
+  .sheetwrap { position: absolute; inset: 0; display: none; flex-direction: column; justify-content: flex-end; z-index: 5; } .sheetwrap.open { display: flex; }
+  .scrim { position: absolute; inset: 0; background: rgba(0,0,0,.6); border: 0; }
+  .sheet { position: relative; background: #17171F; border-radius: 22px 22px 0 0; padding: 10px 14px 20px; display: flex; flex-direction: column; gap: 4px; max-height: 76%; }
+  .grab { align-self: center; width: 40px; height: 5px; border-radius: 99px; background: rgba(255,255,255,.25); margin-bottom: 8px; }
+  .item { height: 52px; border: 0; border-radius: 14px; background: transparent; font-size: 16px; display: flex; align-items: center; gap: 14px; padding: 0 12px; text-align: left; } .item:hover { background: rgba(255,255,255,.05); }
+  .cancel { margin-top: 6px; height: 48px; border: 0; border-radius: 14px; background: rgba(255,255,255,.08); font-size: 16px; font-weight: 600; }
+  .shead { display: flex; align-items: center; justify-content: space-between; padding: 0 4px 6px; } .shead b { font-size: 18px; }
+  .list { overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
+  .person { display: flex; align-items: center; gap: 12px; padding: 8px 4px; border-radius: 14px; }
+  .person .open { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; background: none; border: 0; padding: 0; text-align: left; }
+  .person .pic { width: 44px; height: 44px; flex-shrink: 0; } .person small { display: block; color: #A1A1AA; font-size: 13px; }
+  .pill { height: 36px; padding: 0 14px; border-radius: 999px; border: 1px solid rgba(255,255,255,.18); background: transparent; font-size: 13px; font-weight: 700; min-width: 96px; }
+  .pill.solid { background: #7C3AED; border-color: #7C3AED; }
+  .toast { position: absolute; left: 50%; bottom: 24px; transform: translateX(-50%); background: #2A2A36; padding: 10px 16px; border-radius: 12px; font-size: 14px; display: none; z-index: 9; } .toast.show { display: block; }
+  ul { margin: 0; padding-left: 18px; color: #D4D4D8; font-size: 14px; line-height: 1.6; } .notes { flex: 1; min-width: 300px; background: #0D0D12; border-radius: 20px; padding: 24px; box-shadow: 0 0 0 1px rgba(255,255,255,.08); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div style="width:100%">
+    <h1>Profile: new layout (option C)</h1>
+    <p class="lead">Settings moves to the top-right corner. ⋯ sits next to Edit profile. Reviews and ratings become one count on the Reviews tab. Followers, following and artists each open their own working list. Everything here can be clicked: try the counts, "Listens to", ⋯ and the buttons in the lists.</p>
+  </div>
+
+  <div class="col"><span class="cap">Your own profile</span>
+  <div class="phone" id="own">
+    <div class="glow"></div>
+    <div class="top">
+      <button class="circle" aria-label="Back"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></button>
+      <button class="circle" aria-label="Settings" data-toast="Opens Settings"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg></button>
+    </div>
+    <div class="head">
+      <div class="row">
+        <span class="av"><span style="background:linear-gradient(160deg,#e8e2d8,#9c8f80);color:#3a3028">T</span></span>
+        <div class="name"><b>TrulyMe</b><span class="handle">@truly</span>
+          <div class="counts"><button data-open="followers"><b>6</b> followers</button><span aria-hidden="true">·</span><button data-open="following"><b>8</b> following</button></div>
+        </div>
+      </div>
+      <p class="bio">I love rap</p>
+      <div class="chips"><span class="chip">Rock</span><span class="chip">Hip-Hop</span></div>
+      <button class="listens" data-open="artists"><span class="stack"><i style="background:#b9763e"></i><i style="background:#5c8fbf"></i><i style="background:#c05d8a"></i><i style="background:#7aa35a"></i></span><span>Listens to <b>J. Cole</b>, <b>Jack Harlow</b> and 8 more</span></button>
+      <div class="actions"><button class="btn" data-toast="Opens Edit profile">Edit profile</button><button class="sq" aria-label="More" data-open="menuOwn"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></button></div>
+    </div>
+    <div class="tabs"><span class="on">Reviews <small>19</small></span><span>Playlists</span><span>Stats</span><span>Likes</span></div>
+    <div class="filters"><span class="on">All <em>19</em></span><span>Written <em>12</em></span><span>Ratings only <em>7</em></span></div>
+  </div></div>
+
+  <div class="col"><span class="cap">Someone else's profile</span>
+  <div class="phone" id="other">
+    <div class="glow"></div>
+    <div class="top"><button class="circle" aria-label="Back"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></button></div>
+    <div class="head">
+      <div class="row">
+        <span class="av"><span style="background:linear-gradient(160deg,#f6c6dc,#d9579b);color:#4a1530">T</span></span>
+        <div class="name"><b>Toji</b><span class="handle">@toji</span>
+          <div class="counts"><button data-open="followers"><b>10</b> followers</button><span aria-hidden="true">·</span><button data-open="following"><b>10</b> following</button></div>
+        </div>
+      </div>
+      <p class="bio">i believe in using songs to say things</p>
+      <button class="listens" data-open="artists"><span class="stack"><i style="background:#a0583a"></i><i style="background:#c05d8a"></i><i style="background:#6d6d8a"></i><i style="background:#5c8fbf"></i></span><span>Listens to <b>Kendrick Lamar</b>, <b>SZA</b> and 27 more</span></button>
+      <div class="actions"><button class="btn following" id="followBtn">✓ Following</button><button class="sq" aria-label="More" data-open="menuOther"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></button></div>
+    </div>
+    <div class="tabs"><span class="on">Reviews <small>90</small></span><span>Playlists</span><span>Stats</span><span>Likes</span></div>
+    <div class="filters"><span class="on">All <em>90</em></span><span>Written</span><span>Ratings only</span></div>
+  </div></div>
+
+  <div class="notes">
+    <b style="display:block;margin-bottom:10px">How it behaves</b>
+    <ul>
+      <li>Your profile: gear (Settings) top-right. ⋯ next to Edit profile opens Share profile and Copy profile link.</li>
+      <li>Someone else's: no gear. Follow / Following / Requested next to ⋯, which opens Share profile, Mute and Report.</li>
+      <li>"6 followers" opens Followers. "8 following" opens Following (people only). "Listens to…" opens Artists (artists only).</li>
+      <li>In every list: it scrolls; tapping a row opens that profile or artist page; each row has a working Follow / Following button; your own row has no button.</li>
+      <li>The header has no ratings, reviews or artists counts. The Reviews tab shows the total, and the All / Written / Ratings only chips show theirs.</li>
+      <li>No artists followed: the "Listens to" row is hidden.</li>
+      <li>Phone: the lists are bottom sheets. Computer: centred dialogs.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<template id="tplSheet">
+  <div class="sheetwrap"><button class="scrim" aria-label="Close"></button><div class="sheet" role="dialog"><span class="grab"></span></div></div>
+</template>
+
+<script>
+  const data = {
+    followers: { title: 'Followers', round: '999px', rows: [['Toji','@toji','#c25a8a',true],['ory','@ory','#3a5a78',true],['Lina','@lina.m','#6b8f4a',false],['Sara','@sarabeats','#b0703a',true],['Noor','@noorr','#5a4ab0',false],['Reem','@reem','#8a3a5a',true]] },
+    following: { title: 'Following', round: '999px', rows: [['Toji','@toji','#c25a8a',true],['ory','@ory','#3a5a78',true],['Sara','@sarabeats','#b0703a',true],['Reem','@reem','#8a3a5a',true],['Maha','@maha','#3a7a78',true],['Dana','@dana_k','#7a5a3a',true],['Hessa','@hessa','#5a3a7a',true],['Abeer','@abeer','#3a5a3a',true]] },
+    artists: { title: 'Artists', round: '12px', rows: [['J. Cole','Artist','#b9763e',true],['Jack Harlow','Artist','#5c8fbf',true],['SZA','Artist','#c05d8a',true],['Daniel Caesar','Artist','#7aa35a',true],['The Neighbourhood','Artist','#6d6d8a',true],['Kendrick Lamar','Artist','#a0583a',true],['Frank Ocean','Artist','#3a6d8a',true],['Tyler, The Creator','Artist','#8a8a3a',true],['Doja Cat','Artist','#8a3a6d',true],['Drake','Artist','#4a4a5a',true]] },
+  };
+  const toastEl = document.getElementById('toast');
+  function toast(msg) { toastEl.textContent = msg; toastEl.classList.add('show'); clearTimeout(toastEl._t); toastEl._t = setTimeout(() => toastEl.classList.remove('show'), 1600); }
+  function sheet(phone, build) {
+    const w = document.getElementById('tplSheet').content.firstElementChild.cloneNode(true);
+    const s = w.querySelector('.sheet');
+    const close = () => w.remove();
+    w.querySelector('.scrim').onclick = close;
+    build(s, close);
+    phone.appendChild(w); w.classList.add('open');
+  }
+  function menu(phone, items) {
+    sheet(phone, (s, close) => {
+      items.forEach(([label, color]) => { const b = document.createElement('button'); b.className = 'item'; b.textContent = label; if (color) b.style.color = color; b.onclick = () => { close(); toast(label); }; s.appendChild(b); });
+      const c = document.createElement('button'); c.className = 'cancel'; c.textContent = 'Cancel'; c.onclick = close; s.appendChild(c);
+    });
+  }
+  function list(phone, key) {
+    const d = data[key];
+    sheet(phone, (s, close) => {
+      const h = document.createElement('div'); h.className = 'shead';
+      h.innerHTML = `<b>${d.title} · ${d.rows.length}</b>`;
+      const x = document.createElement('button'); x.className = 'circle'; x.setAttribute('aria-label', 'Close'); x.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>'; x.onclick = close; h.appendChild(x);
+      s.appendChild(h);
+      const l = document.createElement('div'); l.className = 'list';
+      d.rows.forEach(([n, sub, c, f]) => {
+        const r = document.createElement('div'); r.className = 'person';
+        const o = document.createElement('button'); o.className = 'open';
+        o.innerHTML = `<span class="pic" style="border-radius:${d.round};background:${c}"></span><span><b>${n}</b><small>${sub}</small></span>`;
+        o.onclick = () => { close(); toast('Opens ' + n + (key === 'artists' ? "'s artist page" : "'s profile")); };
+        const p = document.createElement('button'); p.className = 'pill' + (f ? '' : ' solid');
+        const set = (v) => { f = v; p.textContent = v ? 'Following' : (key === 'followers' ? 'Follow back' : 'Follow'); p.className = 'pill' + (v ? '' : ' solid'); };
+        set(f); p.onclick = () => set(!f);
+        r.append(o, p); l.appendChild(r);
+      });
+      s.appendChild(l);
+    });
+  }
+  document.querySelectorAll('.phone').forEach((phone) => {
+    phone.addEventListener('click', (e) => {
+      const t = e.target.closest('[data-open],[data-toast]'); if (!t || !phone.contains(t)) return;
+      if (t.dataset.toast) return toast(t.dataset.toast);
+      const k = t.dataset.open;
+      if (k === 'menuOwn') return menu(phone, [['Share profile'], ['Copy profile link']]);
+      if (k === 'menuOther') return menu(phone, [['Share profile'], ['Mute @toji'], ['Report', '#FCA5A5']]);
+      list(phone, k);
+    });
+  });
+  const fb = document.getElementById('followBtn'); let fol = true;
+  fb.onclick = () => { fol = !fol; fb.textContent = fol ? '✓ Following' : 'Follow'; fb.className = 'btn ' + (fol ? 'following' : 'follow'); };
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') document.querySelectorAll('.sheetwrap').forEach((w) => w.remove()); });
+</script>
+</body>
+</html>

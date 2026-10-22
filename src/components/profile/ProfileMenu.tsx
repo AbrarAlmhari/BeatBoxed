@@ -1,17 +1,18 @@
 import { useState } from 'react'
-import { BellOff, BellRing, MoreHorizontal, Share2 } from 'lucide-react'
+import { BellOff, BellRing, Flag, Link2, MoreHorizontal, Share2 } from 'lucide-react'
 import { Sheet } from '@/components/ui/Sheet'
 import { MuteConfirm, type MuteTarget } from '@/components/mutes/MuteConfirm'
+import { ReportSheet } from './ReportSheet'
 import { useAuth } from '@/lib/auth'
 import { unmute, useMutedIds } from '@/lib/mutes'
 import { useToast } from '@/lib/toast'
 import { cn } from '@/lib/cn'
 
 /**
- * The profile's "⋯": Share profile, and on someone else's profile Mute or
- * Unmute. (Report profile needs a table of its own and is listed in
- * TASKS.md.) Share uses the phone's share sheet where there is one, and
- * copies the link otherwise.
+ * The profile's "⋯", a square button beside Edit profile or Follow. Your
+ * own profile: Share profile and Copy profile link. Someone else's: Share
+ * profile, Mute (or Unmute) and Report. Share uses the phone's share sheet
+ * where there is one, and copies the link otherwise.
  */
 export function ProfileMenu({
   person,
@@ -27,6 +28,7 @@ export function ProfileMenu({
   const muted = useMutedIds(user?.id).has(person.id)
   const [open, setOpen] = useState(false)
   const [confirming, setConfirming] = useState<MuteTarget | null>(null)
+  const [reporting, setReporting] = useState<{ id: string; handle: string } | null>(null)
   const url = `${window.location.origin}/profile/${person.id}`
   const handle = person.username ? `@${person.username}` : person.name
 
@@ -41,6 +43,16 @@ export function ProfileMenu({
       // Closing the share sheet isn't an error worth reporting.
       if ((err as Error).name === 'AbortError') return
     }
+    try {
+      await navigator.clipboard.writeText(url)
+      toast.show({ message: 'Profile link copied' })
+    } catch {
+      toast.show({ message: `Profile link: ${url}` })
+    }
+  }
+
+  async function copyLink() {
+    setOpen(false)
     try {
       await navigator.clipboard.writeText(url)
       toast.show({ message: 'Profile link copied' })
@@ -71,7 +83,7 @@ export function ProfileMenu({
         aria-label="More options"
         aria-haspopup="dialog"
         aria-expanded={open}
-        className="grid size-11 place-items-center rounded-full bg-black/30 text-foreground backdrop-blur-md transition-colors duration-200 ease-soft hover:bg-black/45"
+        className="grid size-11 place-items-center rounded-button border border-line-strong bg-surface-2 text-foreground transition-colors duration-200 ease-soft hover:bg-white/10"
       >
         <MoreHorizontal className="size-5" strokeWidth={2} />
       </button>
@@ -80,6 +92,12 @@ export function ProfileMenu({
           <Share2 className="size-4 text-muted-foreground" strokeWidth={1.75} aria-hidden />
           Share profile
         </button>
+        {isOwn && (
+          <button type="button" onClick={() => void copyLink()} className={item}>
+            <Link2 className="size-4 text-muted-foreground" strokeWidth={1.75} aria-hidden />
+            Copy profile link
+          </button>
+        )}
         {!isOwn &&
           (muted ? (
             <button type="button" onClick={() => void doUnmute()} className={item}>
@@ -99,8 +117,22 @@ export function ProfileMenu({
               Mute {handle}
             </button>
           ))}
+        {!isOwn && (
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(false)
+              setReporting({ id: person.id, handle })
+            }}
+            className={cn(item, 'text-danger')}
+          >
+            <Flag className="size-4" strokeWidth={1.75} aria-hidden />
+            Report
+          </button>
+        )}
       </Sheet>
       <MuteConfirm target={confirming} onClose={() => setConfirming(null)} />
+      <ReportSheet target={reporting} onClose={() => setReporting(null)} />
     </div>
   )
 }

@@ -42,6 +42,7 @@ export function ProfileReviewsTab({
   onFilterChange,
   onWrite,
   reloadKey,
+  counts,
 }: {
   userId: string
   isOwn: boolean
@@ -53,6 +54,8 @@ export function ProfileReviewsTab({
   onWrite: () => void
   /** Bumped by the page after a new review is posted, to reload. */
   reloadKey: number
+  /** For the chips: all ratings, and written (null until counted). */
+  counts?: { all: number; written: number | null }
 }) {
   const { user } = useAuth()
   const [sort, setSort] = useState<ReviewSortKey>('recent')
@@ -115,6 +118,14 @@ export function ProfileReviewsTab({
   }
   const sentinel = useLoadMore(() => void more(), status === 'ready' && hasMore)
 
+  /** "All 19", "Written 12", "Ratings only 7"; nothing while uncounted. */
+  function chipCount(id: ReviewFilter): number | null {
+    if (!counts) return null
+    if (id === 'all') return counts.all
+    if (counts.written === null) return null
+    return id === 'written' ? counts.written : Math.max(0, counts.all - counts.written)
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-2">
@@ -122,6 +133,9 @@ export function ProfileReviewsTab({
           {FILTERS.map((f) => (
             <Chip key={f.id} active={filter === f.id} onClick={() => onFilterChange(f.id)} touchTarget>
               {f.label}
+              {chipCount(f.id) !== null && (
+                <span className="ml-1.5 tabular-nums opacity-75">{chipCount(f.id)!.toLocaleString()}</span>
+              )}
             </Chip>
           ))}
         </div>

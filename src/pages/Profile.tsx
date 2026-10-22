@@ -17,14 +17,16 @@ import { UserFollowButton } from '@/components/people/UserFollowButton'
 import { ReviewComposer } from '@/components/feed/ReviewComposer'
 import { useAuth } from '@/lib/auth'
 import { useToast } from '@/lib/toast'
-import { getFollowStates, getProfileDetail } from '@/lib/catalog'
+import { getFollowStates, getFollowedArtistsPage, getProfileDetail } from '@/lib/catalog'
 import { getWrittenReviewCount, type ReviewFilter } from '@/lib/profile'
-import type { FollowState, ProfileDetail } from '@/lib/types'
+import type { ArtistCardModel, FollowState, ProfileDetail } from '@/lib/types'
 
 const FILTERS: ReviewFilter[] = ['all', 'written', 'ratings']
 
 /**
- * A profile: header with counts, then Reviews · Playlists · Stats · Likes.
+ * A profile: header (followers · following, "Listens to"), then Reviews ·
+ * Playlists · Stats · Likes. The Reviews tab and its chips carry the review
+ * counts the header used to.
  *
  * The tab (and the Reviews filter) live in the URL, e.g.
  * /profile/:id?tab=likes, so links and the back button work.
@@ -48,6 +50,9 @@ export default function Profile() {
   const [followState, setFollowState] = useState<FollowState>('none')
   const [followKnown, setFollowKnown] = useState(false)
   const [writtenCount, setWrittenCount] = useState<number | null>(null)
+  /** Up to 4 followed artists for "Listens to". */
+  const [artists, setArtists] = useState<ArtistCardModel[]>([])
+  const [artistsKey, setArtistsKey] = useState(0)
   /** Edit profile, opened at the top or at "My music tags". */
   const [editing, setEditing] = useState<false | 'top' | 'tags'>(false)
   const [list, setList] = useState<ProfileList | null>(null)
@@ -153,6 +158,23 @@ export default function Profile() {
     }
   }, [profile, followKnown, locked, reloadKey])
 
+  // "Listens to": the first few artists, where they can be seen.
+  useEffect(() => {
+    setArtists([])
+    if (!profile || !followKnown || locked || profile.artistCount === 0) return
+    let cancelled = false
+    getFollowedArtistsPage(profile.id, { limit: 4 })
+      .then((a) => {
+        if (!cancelled) setArtists(a)
+      })
+      .catch((err) => console.warn('[beatboxed] listens-to failed:', err))
+    return () => {
+      cancelled = true
+    }
+    // artistCount is read only to skip the request when there are none.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.id, followKnown, locked, artistsKey])
+
   if (loading) return <ProfileSkeleton />
 
   if (!profile) {
@@ -189,7 +211,7 @@ export default function Profile() {
       <ProfileHero
         profile={profile}
         isOwn={isOwn}
-        writtenCount={locked ? null : writtenCount}
+        artists={artists}
         followState={followState}
         hideFollow={locked}
         onFollowChange={(next, previous) => {
@@ -202,11 +224,6 @@ export default function Profile() {
           }
         }}
         onOpenList={setList}
-        onShowReviews={(written) => {
-          if (locked) return
-          go('reviews', written ? 'written' : 'all')
-          tabsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-        }}
         onEdit={() => openEditor('top')}
         onEditTags={() => openEditor('tags')}
       />
@@ -229,7 +246,7 @@ export default function Profile() {
         </Card>
       ) : (
         <div ref={tabsRef} className="flex scroll-mt-16 flex-col gap-4">
-          <ProfileTabBar tab={tab} onChange={(t) => go(t)} />
+          <ProfileTabBar tab={tab} onChange={(t) => go(t)} reviewCount={profile.reviewCount} />
           <TabPanel idPrefix={PROFILE_TABS_ID} value={tab}>
             {tab === 'reviews' && (
               <ProfileReviewsTab
@@ -238,6 +255,7 @@ export default function Profile() {
                 handle={handle}
                 filter={filter}
                 onFilterChange={(f) => go('reviews', f)}
+                counts={{ all: profile.reviewCount, written: writtenCount }}
                 onWrite={() => setComposing(true)}
                 reloadKey={reloadKey}
               />
@@ -249,7 +267,25 @@ export default function Profile() {
         </div>
       )}
 
-      <ProfileListSheet list={list} userId={profile.id} onClose={() => setList(null)} />
+      <ProfileListSheet
+        list={list}
+        profile={{ id: profile.id, name }}
+        isOwn={isOwn}
+        locked={locked}
+        onClose={() => setList(null)}
+        onViewerChange={(what, delta) => {
+          // Your own counts move straight away; someone else's lists only
+          // change what you follow, which their header doesn't show.
+          if (!isOwn) return
+          setProfile((p) => {
+            if (!p) return p
+            if (what === 'people') return { ...p, followingCount: Math.max(0, p.followingCount + delta) }
+            if (what === 'followers') return { ...p, followerCount: Math.max(0, p.followerCount + delta) }
+            return { ...p, artistCount: Math.max(0, p.artistCount + delta) }
+          })
+          if (what === 'artists') setArtistsKey((n) => n + 1)
+        }}
+      />
 
       {isOwn && (
         <ReviewComposer

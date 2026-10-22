@@ -5,41 +5,43 @@ import { UserFollowButton } from '@/components/people/UserFollowButton'
 import { PageGlow } from '@/components/ui/PageGlow'
 import { tagLabel } from '@/lib/tags'
 import { ProfileMenu } from './ProfileMenu'
+import { cn } from '@/lib/cn'
 import { MuteBanner } from '@/components/mutes/MuteBanner'
 import type { ProfileList } from './ProfileListSheet'
-import type { FollowState, ProfileDetail } from '@/lib/types'
+import type { ArtistCardModel, FollowState, ProfileDetail } from '@/lib/types'
 
 /**
  * The top of the profile: a soft glow, the avatar with its gradient ring,
- * name and handle, the counts row, and the actions.
+ * name, handle and "6 followers · 8 following", then bio, tags, "Listens
+ * to", and the actions: Edit profile (or Follow) with a square "⋯" beside
+ * it.
  *
- * Phones get their own top bar here (back, when there's somewhere to go
- * back to, and "⋯"); the app's usual top bar is hidden on profile pages
- * below md. Desktop keeps the app's top bar and puts "⋯" beside the name.
+ * Settings (your own profile) is the gear in the top-right corner. Phones
+ * get their own top bar here (back, when there's somewhere to go back to,
+ * and the gear); the app's usual top bar is hidden on profile pages below
+ * md. Desktop keeps the app's top bar, puts the actions on the name's line
+ * and the gear at its far end.
  */
 export function ProfileHero({
   profile,
   isOwn,
-  writtenCount,
+  artists,
   followState,
   onFollowChange,
   hideFollow = false,
   onOpenList,
-  onShowReviews,
   onEdit,
   onEditTags,
 }: {
   profile: ProfileDetail
   isOwn: boolean
-  /** Written reviews; null where it can't be counted (a locked profile). */
-  writtenCount: number | null
+  /** Up to 4 followed artists for "Listens to"; empty where they can't be seen. */
+  artists: ArtistCardModel[]
   followState: FollowState
   onFollowChange: (next: FollowState, previous: FollowState) => void
   /** A locked profile's lock card carries the follow button instead. */
   hideFollow?: boolean
   onOpenList: (list: ProfileList) => void
-  /** Ratings and reviews switch to the Reviews tab, reviews to Written. */
-  onShowReviews: (written: boolean) => void
   onEdit: () => void
   /** Your own profile with no tags: opens Edit profile at the tags. */
   onEditTags?: () => void
@@ -51,25 +53,15 @@ export function ProfileHero({
   // opened directly, so there's nothing in the app to go back to.
   const canGoBack = ((window.history.state as { idx?: number } | null)?.idx ?? 0) > 0
 
-  const actions = isOwn ? (
-    <>
-      <button
-        type="button"
-        onClick={onEdit}
-        className="inline-flex min-h-11 items-center gap-2 rounded-button border border-line-strong bg-surface-2 px-4 text-button text-foreground transition-colors duration-200 ease-soft hover:bg-white/10"
-      >
-        <Pencil className="size-4" strokeWidth={1.75} aria-hidden />
-        Edit profile
-      </button>
-      <Link
-        to="/settings"
-        aria-label="Settings"
-        title="Settings"
-        className="grid size-11 shrink-0 place-items-center rounded-full border border-line-strong bg-surface-2 text-muted-foreground transition-colors duration-200 ease-soft hover:text-foreground"
-      >
-        <Settings className="size-[18px]" strokeWidth={1.75} />
-      </Link>
-    </>
+  const main = isOwn ? (
+    <button
+      type="button"
+      onClick={onEdit}
+      className="inline-flex min-h-11 items-center gap-2 rounded-button border border-line-strong bg-surface-2 px-4 text-button text-foreground transition-colors duration-200 ease-soft hover:bg-white/10"
+    >
+      <Pencil className="size-4" strokeWidth={1.75} aria-hidden />
+      Edit profile
+    </button>
   ) : hideFollow ? null : (
     <UserFollowButton
       personId={profile.id}
@@ -79,14 +71,31 @@ export function ProfileHero({
       size="lg"
     />
   )
+  // Edit profile (or Follow), then a square "⋯" of the same height.
+  const actions = (
+    <>
+      {main}
+      <ProfileMenu person={menuPerson} isOwn={isOwn} />
+    </>
+  )
+  const gear = (
+    <Link
+      to="/settings"
+      aria-label="Settings"
+      title="Settings"
+      className="grid size-11 shrink-0 place-items-center rounded-full bg-black/30 text-foreground backdrop-blur-md transition-colors duration-200 ease-soft hover:bg-black/45"
+    >
+      <Settings className="size-5" strokeWidth={1.75} />
+    </Link>
+  )
 
   return (
     <header className="relative flex flex-col gap-4">
       {/* Fades out before the tabs so they sit on the plain background. */}
       <PageGlow strength="hero" />
 
-      {/* Phones: back and "⋯". */}
-      <div className="flex items-center justify-between md:hidden">
+      {/* Phones: back, and the gear on your own profile. */}
+      <div className="flex min-h-11 items-center justify-between md:hidden">
         {canGoBack ? (
           <button
             type="button"
@@ -99,7 +108,7 @@ export function ProfileHero({
         ) : (
           <span />
         )}
-        <ProfileMenu person={menuPerson} isOwn={isOwn} />
+        {isOwn && gear}
       </div>
 
       <div className="flex items-center gap-4 md:gap-5">
@@ -109,13 +118,18 @@ export function ProfileHero({
             <h1 dir="auto" className="min-w-0 truncate text-[20px] font-bold leading-tight tracking-tight md:text-[26px]">
               {name}
             </h1>
-            {/* Desktop: actions on the name's line, "⋯" at the far end. */}
+            {/* Desktop: actions on the name's line, the gear at the far end. */}
             <div className="hidden items-center gap-2 md:flex">{actions}</div>
-            <ProfileMenu person={menuPerson} isOwn={isOwn} className="ml-auto hidden md:block" />
+            {isOwn && <div className="ml-auto hidden md:block">{gear}</div>}
           </div>
           {profile.username && (
             <p className="truncate text-secondary text-muted-foreground">@{profile.username}</p>
           )}
+          <FollowCounts
+            followers={profile.followerCount}
+            following={profile.followingCount}
+            onOpenList={onOpenList}
+          />
         </div>
       </div>
 
@@ -154,17 +168,9 @@ export function ProfileHero({
         )
       )}
 
-      <CountsRow
-        ratings={profile.reviewCount}
-        written={writtenCount}
-        followers={profile.followerCount}
-        following={profile.followingCount}
-        artists={profile.artistCount}
-        onShowReviews={onShowReviews}
-        onOpenList={onOpenList}
-      />
+      <ListensTo artists={artists} total={profile.artistCount} onOpen={() => onOpenList('artists')} />
 
-      {/* Phones: actions under the counts. */}
+      {/* Phones: actions at the end of the header. */}
       <div className="flex items-center gap-2 md:hidden">{actions}</div>
     </header>
   )
@@ -192,36 +198,98 @@ function Avatar({ url, name }: { url: string | null; name: string }) {
 }
 
 /**
- * "128 ratings · 34 reviews · 86 followers · 71 following · 6 artists".
- * Wraps rather than scrolling sideways. Each count is a 44px target.
+ * "6 followers · 8 following", under the handle. Each opens its own list;
+ * each is a 44px target.
  */
-function CountsRow({
-  ratings,
-  written,
+function FollowCounts({
   followers,
   following,
-  artists,
-  onShowReviews,
   onOpenList,
 }: {
-  ratings: number
-  written: number | null
   followers: number
   following: number
-  artists: number
-  onShowReviews: (written: boolean) => void
   onOpenList: (list: ProfileList) => void
 }) {
   return (
-    <ul className="-my-1 flex flex-wrap items-center gap-x-4" aria-label="Profile counts">
-      <Count value={ratings} label={ratings === 1 ? 'rating' : 'ratings'} onClick={() => onShowReviews(false)} />
-      {written !== null && (
-        <Count value={written} label={written === 1 ? 'review' : 'reviews'} onClick={() => onShowReviews(true)} />
-      )}
+    <ul className="-my-1.5 flex flex-wrap items-center gap-x-2" aria-label="Profile counts">
       <Count value={followers} label={followers === 1 ? 'follower' : 'followers'} onClick={() => onOpenList('followers')} />
+      <li aria-hidden className="text-muted-foreground">
+        ·
+      </li>
       <Count value={following} label="following" onClick={() => onOpenList('following')} />
-      <Count value={artists} label={artists === 1 ? 'artist' : 'artists'} onClick={() => onOpenList('artists')} />
     </ul>
+  )
+}
+
+/**
+ * "Listens to J. Cole, Jack Harlow and 8 more", with up to 4 of their
+ * pictures overlapping. Opens the Artists list. Hidden with no artists; on
+ * a private profile you can't see, just the number.
+ */
+function ListensTo({
+  artists,
+  total,
+  onOpen,
+}: {
+  artists: ArtistCardModel[]
+  total: number
+  onOpen: () => void
+}) {
+  if (total <= 0) return null
+  const named = artists.slice(0, 2)
+  const rest = total - named.length
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      data-listens-to
+      className="-my-1 flex min-h-11 w-fit max-w-full items-center gap-2.5 rounded-button text-left text-secondary text-muted-foreground transition-colors duration-200 ease-soft hover:text-foreground"
+    >
+      {artists.length > 0 && (
+        <span className="flex shrink-0" aria-hidden>
+          {artists.slice(0, 4).map((a, i) =>
+            a.imageUrl ? (
+              <img
+                key={a.id}
+                src={a.imageUrl}
+                alt=""
+                className={cn('size-8 rounded-full object-cover ring-2 ring-background', i > 0 && '-ml-2.5')}
+              />
+            ) : (
+              <span
+                key={a.id}
+                className={cn(
+                  'grid size-8 place-items-center rounded-full bg-surface-2 text-meta font-bold text-foreground ring-2 ring-background',
+                  i > 0 && '-ml-2.5'
+                )}
+              >
+                {a.name.charAt(0).toUpperCase()}
+              </span>
+            )
+          )}
+        </span>
+      )}
+      <span className="min-w-0">
+        Listens to{' '}
+        {named.length === 0 ? (
+          <b className="font-semibold text-foreground">
+            {total} {total === 1 ? 'artist' : 'artists'}
+          </b>
+        ) : (
+          <>
+            {named.map((a, i) => (
+              <span key={a.id}>
+                {i > 0 && (rest > 0 ? ', ' : ' and ')}
+                <b dir="auto" className="font-semibold text-foreground">
+                  {a.name}
+                </b>
+              </span>
+            ))}
+            {rest > 0 && ` and ${rest} more`}
+          </>
+        )}
+      </span>
+    </button>
   )
 }
 
@@ -235,7 +303,7 @@ function Count({ value, label, onClick }: { value: number; label: string; onClic
       >
         <span className="text-[15px] font-bold tabular-nums text-foreground">
           {value.toLocaleString()}
-        </span>
+        </span>{' '}
         {label}
       </button>
     </li>
