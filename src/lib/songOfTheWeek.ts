@@ -39,13 +39,22 @@ export function useSongOfTheWeek() {
   const [folded, setFolded] = useState(false)
   const [now, setNow] = useState(() => Date.now())
   const reloadedFor = useRef<string | null>(null)
+  /**
+   * The person and week the fold was last worked out for. Home can ask for
+   * the week more than once while signing in; a later answer for the same
+   * week mustn't fold up a week the person has just opened.
+   */
+  const foldDecidedFor = useRef<string | null>(null)
 
   const load = useCallback(async () => {
     try {
       const w = await getWeeklySong()
       setWeek(w)
       setNow(Date.now())
-      if (w && userId) setFolded(w.myRating !== null || readFold(userId) === w.weekStart)
+      if (w && userId && foldDecidedFor.current !== `${userId}:${w.weekStart}`) {
+        foldDecidedFor.current = `${userId}:${w.weekStart}`
+        setFolded(w.myRating !== null || readFold(userId) === w.weekStart)
+      }
     } catch (err) {
       console.warn('[beatboxed] song of the week failed:', err)
       setWeek(null)
