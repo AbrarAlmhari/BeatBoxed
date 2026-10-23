@@ -32,6 +32,9 @@ import { useAuth } from './auth'
  *
  * Hence: key on user.id (a string), keep `ready` monotonic per user, and never
  * let a failed or slow load render the control unusable.
+ *
+ * A tap while the set is still loading is kept: the loaded set arrives with
+ * the tap applied on top, rather than undoing it on screen.
  */
 type FollowsApi = {
   isFollowing: (artistId: string) => boolean
@@ -65,6 +68,8 @@ export function FollowsProvider({ children }: { children: ReactNode }) {
    * look like it was still saving.
    */
   const busy = useRef<Set<string>>(new Set())
+  /** Taps made while the set was loading, applied on top once it lands. */
+  const tappedDuringLoad = useRef<Map<string, boolean> | null>(null)
 
   useEffect(() => {
     // Signed out is a finished state with an empty set, not a pending one.
@@ -78,10 +83,16 @@ export function FollowsProvider({ children }: { children: ReactNode }) {
     let cancelled = false
     setLoading(true)
     setError(false)
+    const tapped = new Map<string, boolean>()
+    tappedDuringLoad.current = tapped
 
     getFollowedArtistIds(userId)
       .then((serverIds) => {
         if (cancelled) return
+        for (const [artistId, follow] of tapped) {
+          if (follow) serverIds.add(artistId)
+          else serverIds.delete(artistId)
+        }
         setIds(serverIds)
       })
       .catch((err) => {
@@ -90,11 +101,13 @@ export function FollowsProvider({ children }: { children: ReactNode }) {
         if (!cancelled) setError(true)
       })
       .finally(() => {
+        if (tappedDuringLoad.current === tapped) tappedDuringLoad.current = null
         if (!cancelled) setLoading(false)
       })
 
     return () => {
       cancelled = true
+      if (tappedDuringLoad.current === tapped) tappedDuringLoad.current = null
     }
     // userId is a string, so a refreshed token can't retrigger this.
   }, [userId, reloadKey])
@@ -110,6 +123,8 @@ export function FollowsProvider({ children }: { children: ReactNode }) {
 
       const next = !ids.has(artistId)
       busy.current.add(artistId)
+      const tapped = tappedDuringLoad.current
+      tapped?.set(artistId, next)
 
       setIds((prev) => {
         const copy = new Set(prev)
@@ -124,6 +139,7 @@ export function FollowsProvider({ children }: { children: ReactNode }) {
         return next
       } catch (err) {
         console.error('[beatboxed] follow write failed:', err)
+        if (tapped?.get(artistId) === next) tapped.delete(artistId)
         setIds((prev) => {
           const copy = new Set(prev)
           if (next) copy.delete(artistId)
