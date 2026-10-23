@@ -136,7 +136,12 @@ export default function Home() {
 
   // Scrolling past the 3rd review folds it.
   const canFold = Boolean(sotw.week) && !sotw.folded
+  /** The week whose arrival was checked against where the person already is. */
+  const checkedOnArrival = useRef<string | null>(null)
+  const weekStart = sotw.week?.weekStart ?? null
   useEffect(() => {
+    const justArrived = checkedOnArrival.current !== weekStart
+    checkedOnArrival.current = weekStart
     if (!canFold) return
     let frame = 0
     const check = () => {
@@ -154,13 +159,14 @@ export default function Home() {
       if (!frame) frame = requestAnimationFrame(check)
     }
     window.addEventListener('scroll', onScroll, { passive: true })
-    // Also once now: the week can arrive after the person already scrolled.
-    onScroll()
+    // Also once when the week first arrives: it can land after the person
+    // already scrolled. Not after unfolding, which scrolls back up itself.
+    if (justArrived) onScroll()
     return () => {
       window.removeEventListener('scroll', onScroll)
       cancelAnimationFrame(frame)
     }
-  }, [canFold, foldWeek])
+  }, [canFold, foldWeek, weekStart])
 
   // Right after folding, before the screen is drawn: keep the reader's
   // place (the full view above them is gone), then send the record into
