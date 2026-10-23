@@ -154,6 +154,13 @@ export default function Explore() {
     setError(null)
     setExpanded(new Set())
     setLyrics(null)
+    // An empty box browses: no search, and nothing left over to show under
+    // the first words typed.
+    if (!debouncedQuery.trim()) {
+      setResults(null)
+      setSearching(false)
+      return
+    }
 
     searchEverything(debouncedQuery, null, user?.id)
       .then(async (r) => {
