@@ -563,6 +563,8 @@ export const popularSearches = [
 
 /** Below this many local hits, reach out to Spotify and cache more. */
 const REMOTE_TOPUP_THRESHOLD = 5
+/** A top-up normally answers in about 2s. */
+const SPOTIFY_TOPUP_TIMEOUT_MS = 10_000
 
 /** Same columns, but inner-joined so we can filter on the artist's name. */
 const SONG_SELECT_BY_ARTIST =
@@ -726,9 +728,11 @@ async function topUpFromSpotify(
   type: 'track' | 'artist'
 ): Promise<TopUpResult> {
   try {
+    // Searches wait on this, so it can't be allowed to hang: past the limit
+    // the cached results show with the "couldn't reach Spotify" note.
     const { data, error } = await requireClient().functions.invoke(
       'spotify-search',
-      { body: { q: query, type } }
+      { body: { q: query, type }, timeout: SPOTIFY_TOPUP_TIMEOUT_MS }
     )
     if (error) {
       console.error('[beatboxed] spotify-search failed:', error)
