@@ -134,11 +134,22 @@ test.describe('Home tabs', () => {
   test('switching tabs opens the other tab at the very top', async ({ page }) => {
     await freshHome(page)
     await feedLoaded(page)
-    await scrollDown(page)
+    // Scrolling past the 3rd review folds the song of the week, on the next
+    // frame. Reviews vary in length and grow as their previews load, so
+    // scroll to wherever the 3rd one ends now until it has folded, rather
+    // than a fixed distance or switching tabs in the same instant.
+    await expect
+      .poll(async () => {
+        await page.locator('[data-feed-index="2"]').evaluate((el) =>
+          window.scrollTo({ top: Math.ceil(el.getBoundingClientRect().bottom + window.scrollY), behavior: 'instant' })
+        )
+        return mini(page).isVisible()
+      }, { timeout: 15_000 })
+      .toBe(true)
     await page.getByRole('tab', { name: 'Following' }).click()
     await expect(page).toHaveURL(/tab=following/)
     await expect.poll(() => scrollY(page)).toBe(0)
-    // Scrolling that far folded the song of the week; it stays folded here.
+    // It stays folded on the other tab.
     await expect(mini(page)).toBeInViewport()
   })
 
