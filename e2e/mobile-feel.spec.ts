@@ -169,6 +169,17 @@ test.describe('song of the week', () => {
     await freshHome(page)
     await feedLoaded(page)
     await expect(full(page)).toBeVisible()
+    // Reviews grow as their previews load; measure a settled page.
+    await page.waitForLoadState('networkidle')
+    let lastHeight = -1
+    await expect
+      .poll(async () => {
+        const h = await page.evaluate(() => document.documentElement.scrollHeight)
+        const same = h === lastHeight
+        lastHeight = h
+        return same
+      }, { intervals: [400] })
+      .toBe(true)
 
     // Get the tab row stuck first (it sits a little higher stuck than in
     // place), then scroll so the 3rd review has just gone under it.
