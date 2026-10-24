@@ -216,5 +216,30 @@ Deno.serve(async (req) => {
     limits: lastRateLimits(),
   }
   console.log('[song-vibes]', JSON.stringify(summary))
+
+  // Kept 30 days in song_vibe_runs (numbers only), for sizing DAILY_CAP.
+  // Runs that had nothing to do aren't worth a row.
+  if (songs.length > 0) {
+    const limits = summary.limits
+    const { error: runError } = await admin.from('song_vibe_runs').insert({
+      claimed: songs.length,
+      labelled: outcomes.labelled ?? 0,
+      failed: outcomes.failed ?? 0,
+      invalid: outcomes.invalid ?? 0,
+      busy: outcomes.busy ?? 0,
+      given_back: summary.given_back,
+      requeued: summary.requeued,
+      calls: tokens.calls,
+      prompt_tokens: tokens.prompt,
+      reasoning_tokens: tokens.thinking,
+      answer_tokens: tokens.answer,
+      requests_per_day: limits?.requestsPerDay ?? null,
+      requests_left_today: limits?.requestsLeftToday ?? null,
+      tokens_per_minute: limits?.tokensPerMinute ?? null,
+      tokens_left_this_minute: limits?.tokensLeftThisMinute ?? null,
+    })
+    if (runError) console.error('[song-vibes] run log failed:', runError.message)
+  }
+
   return Response.json(summary)
 })
