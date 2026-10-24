@@ -91,3 +91,16 @@ test.describe('no track twice', () => {
     expect(new Set(labels).size, `song links: ${hrefs.join(', ')}`).toBeLessThanOrEqual(1)
   })
 })
+
+test.describe('a slow Spotify', () => {
+  test('never holds up results: the catalogue answer shows, with a note', async ({ page }) => {
+    // Spotify is only asked when the catalogue has few matches; make it hang.
+    await page.route('**/functions/v1/spotify-search', () => new Promise(() => {}))
+    await login(page, user.email)
+    await page.goto('/explore')
+    await page.getByRole('searchbox', { name: 'Search' }).fill('karma police radiohead')
+    const main = page.getByRole('main')
+    await expect(main.getByText(/^Karma Police/).first()).toBeVisible({ timeout: 20_000 })
+    await expect(main.getByText("Couldn't reach Spotify for more results.")).toBeVisible()
+  })
+})
