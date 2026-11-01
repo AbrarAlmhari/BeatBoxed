@@ -511,15 +511,7 @@ export default function Song() {
                 ))}
               </Card>
             ) : lyrics?.status === 'found' ? (
-              <div className="flex flex-col gap-4">
-                {lyrics.synced && (
-                  <p className="text-meta text-muted-foreground">
-                    Timed lyrics are available, but line highlighting needs the
-                    player, which isn't built yet.
-                  </p>
-                )}
-                <LyricsView songId={song.id} lines={lyrics.lines} />
-              </div>
+              <LyricsView songId={song.id} lines={lyrics.lines} />
             ) : (
               <EmptyState
                 face="sad"
