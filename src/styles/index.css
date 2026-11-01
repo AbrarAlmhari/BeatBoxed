@@ -120,6 +120,8 @@
    * off under reduced motion (motion-reduce:animate-none).
    */
   --animate-beatie-bob: beatie-bob 1.6s ease-in-out infinite;
+  /* About page: a team member's record turning while hovered (computers only). */
+  --animate-record-spin: record-spin 3s linear infinite;
 }
 
 @keyframes page-in {
@@ -200,6 +202,12 @@
   }
   to {
     transform: none;
+  }
+}
+
+@keyframes record-spin {
+  to {
+    transform: rotate(360deg);
   }
 }
 
