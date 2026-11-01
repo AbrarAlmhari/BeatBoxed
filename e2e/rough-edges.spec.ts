@@ -199,20 +199,40 @@ test.describe('sheets', () => {
     const card = page.locator(`article[data-review-id="${reviewId}"]`)
     const button = card.getByRole('button', { name: 'Review options' })
     await expect(button).toBeVisible()
-    // Put the button 40px above the bottom edge.
+    // The ?review= link scrolls to the review smoothly once the page has
+    // loaded; wait for the page to stop moving first.
+    await expect
+      .poll(async () => {
+        const a = await page.evaluate(() => window.scrollY)
+        await page.waitForTimeout(400)
+        return (await page.evaluate(() => window.scrollY)) === a
+      })
+      .toBe(true)
+    // Put the button 40px above the bottom edge. The page may still be
+    // filling in above it, so keep nudging until it stays there.
     await page.evaluate(() => document.body.style.setProperty('min-height', '400vh'))
-    await button.evaluate((el) => {
-      const r = el.getBoundingClientRect()
-      window.scrollBy({ top: r.bottom - (window.innerHeight - 40), behavior: 'instant' })
-    })
-    const b = (await button.boundingBox())!
-    expect(b.y + b.height).toBeGreaterThan(page.viewportSize()!.height - 60)
+    const view = page.viewportSize()!
+    await expect
+      .poll(async () =>
+        button.evaluate((el) => {
+          const r = el.getBoundingClientRect()
+          window.scrollBy({ top: r.bottom - (window.innerHeight - 40), behavior: 'instant' })
+          return Math.round(el.getBoundingClientRect().bottom)
+        })
+      )
+      .toBe(view.height - 40)
     await button.evaluate((el) => (el as HTMLElement).click())
     const menu = page.getByRole('dialog', { name: 'Review options' })
     await expect(menu).toBeVisible()
-    await expect.poll(async () => (await menu.boundingBox())!.y + (await menu.boundingBox())!.height).toBeLessThanOrEqual(b.y)
+    // Above the button: the menu's bottom edge is no lower than the button's top.
+    await expect
+      .poll(async () => {
+        const m = (await menu.boundingBox())!
+        const b = (await button.boundingBox())!
+        return m.y + m.height - b.y
+      })
+      .toBeLessThanOrEqual(0)
     const m = (await menu.boundingBox())!
-    const view = page.viewportSize()!
     expect(m.y).toBeGreaterThanOrEqual(0)
     expect(m.x).toBeGreaterThanOrEqual(0)
     expect(m.x + m.width).toBeLessThanOrEqual(view.width)
@@ -272,6 +292,18 @@ test.describe('sheets', () => {
     await page.goto(`/profile/${author.id}`)
     // Fully loaded first: a page that appears resets the scroll to the top.
     await expect(page.getByRole('heading', { name: 'Rough Author', level: 1 })).toBeVisible()
+    // ...and done growing: sections that load after the heading change the
+    // page height, and the browser shifts the scroll to keep content in place.
+    await page.waitForLoadState('networkidle')
+    let lastHeight = -1
+    await expect
+      .poll(async () => {
+        const h = await page.evaluate(() => document.querySelector('main')?.scrollHeight ?? 0)
+        const same = h === lastHeight
+        lastHeight = h
+        return same
+      }, { intervals: [400] })
+      .toBe(true)
     await page.evaluate(() => document.body.style.setProperty('min-height', '400vh'))
     await page.evaluate(() => window.scrollTo({ top: 600, behavior: 'instant' }))
     await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(600)

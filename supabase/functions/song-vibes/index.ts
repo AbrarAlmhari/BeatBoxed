@@ -7,14 +7,21 @@
  * sends a private secret kept in the database's Vault. Without that exact
  * secret the function does nothing, so the public key alone can't start a
  * run. Each run labels at most BATCH songs, and the database stops handing
- * out songs at DAILY_CAP calls a day, failures included.
+ * out songs at DAILY_CAP calls a day. Calls that fail are given back
+ * (release_song_vibes, 0051), so only songs actually labelled use it up.
  *
- * Anything that goes wrong (the AI service busy or slow, a reply that isn't the
- * exact JSON asked for) saves nothing; the song stays in the queue and is
- * tried again later (claim_song_vibes sets when).
+ * Anything that goes wrong saves nothing; the song stays in the queue.
+ *   - The AI service busy (a 429, overloaded, or too slow): the run stops
+ *     there. That song and the ones not yet tried go back in the queue for
+ *     the next run, without counting as an attempt; hammering a rate limit
+ *     only makes it longer.
+ *   - Any other failure (a reply that isn't the exact JSON asked for, a
+ *     save that fails): the next song is tried. The failed song keeps its
+ *     attempt and back-off (claim_song_vibes sets when it's tried again),
+ *     so a song that never works gives up after 5 tries.
  */
 import { createClient } from 'jsr:@supabase/supabase-js@2'
-import { currentModel, generate } from '../beatie/groq.ts'
+import { currentModel, generate, lastRateLimits } from '../beatie/groq.ts'
 
 const BATCH = 5
 const DAILY_CAP = 150
@@ -94,7 +101,12 @@ function parseLabel(text: string): Label | null {
   return { lyrics_mood: lyrics_mood as Label['lyrics_mood'], energy: energy as Label['energy'], confidence }
 }
 
-async function labelOne(song: Claimed): Promise<string> {
+type Outcome = 'labelled' | 'busy' | 'failed' | 'invalid'
+
+/** Tokens a run used, for sizing the daily cap; reported in the run's summary. */
+type Tokens = { calls: number; prompt: number; thinking: number; answer: number }
+
+async function labelOne(song: Claimed, tokens: Tokens): Promise<Outcome> {
   const lyrics = await lyricsFor(song)
   const prompt = [
     `Title: ${song.title}`,
@@ -112,9 +124,15 @@ async function labelOne(song: Claimed): Promise<string> {
     timeoutMs: 30_000,
     label: `vibe ${song.song_id.slice(0, 8)}`,
   })
+  if (result.info) {
+    tokens.calls += 1
+    tokens.prompt += result.info.promptTokens ?? 0
+    tokens.thinking += result.info.thinkingTokens ?? 0
+    tokens.answer += result.info.answerTokens ?? 0
+  }
   if (!result.ok) {
     await fail(song.song_id, `${result.reason}: ${result.detail ?? ''}`.slice(0, 300))
-    return 'failed'
+    return result.reason === 'busy' ? 'busy' : 'failed'
   }
   const label = parseLabel(result.text)
   if (!label) {
@@ -161,14 +179,67 @@ Deno.serve(async (req) => {
   }
   const songs = (data ?? []) as Claimed[]
   const outcomes: Record<string, number> = {}
+  /** Tried and failed: the call is given back, the attempt stays. */
+  const failed: string[] = []
+  /** Busy, or never tried because the run stopped: back in the queue as if untouched. */
+  let requeue: string[] = []
+  const tokens: Tokens = { calls: 0, prompt: 0, thinking: 0, answer: 0 }
   // One at a time: gentle on Groq's rate limits and on lrclib.
-  for (const song of songs) {
-    const outcome = await labelOne(song).catch(async (err) => {
+  for (const [i, song] of songs.entries()) {
+    const outcome = await labelOne(song, tokens).catch(async (err): Promise<Outcome> => {
       await fail(song.song_id, `error: ${(err as Error).message}`.slice(0, 300))
       return 'failed'
     })
     outcomes[outcome] = (outcomes[outcome] ?? 0) + 1
+    if (outcome === 'busy') {
+      requeue = songs.slice(i).map((s) => s.song_id)
+      break
+    }
+    if (outcome !== 'labelled') failed.push(song.song_id)
   }
-  console.log('[song-vibes]', JSON.stringify({ claimed: songs.length, ...outcomes }))
-  return Response.json({ claimed: songs.length, ...outcomes })
+
+  // Only labelled songs count against today's cap.
+  for (const [ids, again] of [[failed, false], [requeue, true]] as const) {
+    if (ids.length === 0) continue
+    const { error: releaseError } = await admin.rpc('release_song_vibes', { song_ids: ids, requeue: again })
+    if (releaseError) console.error('[song-vibes] release failed:', releaseError.message)
+  }
+
+  // The cron job stores this answer (net._http_response): tokens and
+  // Groq's limits, for sizing DAILY_CAP.
+  const summary = {
+    claimed: songs.length,
+    ...outcomes,
+    given_back: failed.length + requeue.length,
+    requeued: requeue.length,
+    tokens,
+    limits: lastRateLimits(),
+  }
+  console.log('[song-vibes]', JSON.stringify(summary))
+
+  // Kept 30 days in song_vibe_runs (numbers only), for sizing DAILY_CAP.
+  // Runs that had nothing to do aren't worth a row.
+  if (songs.length > 0) {
+    const limits = summary.limits
+    const { error: runError } = await admin.from('song_vibe_runs').insert({
+      claimed: songs.length,
+      labelled: outcomes.labelled ?? 0,
+      failed: outcomes.failed ?? 0,
+      invalid: outcomes.invalid ?? 0,
+      busy: outcomes.busy ?? 0,
+      given_back: summary.given_back,
+      requeued: summary.requeued,
+      calls: tokens.calls,
+      prompt_tokens: tokens.prompt,
+      reasoning_tokens: tokens.thinking,
+      answer_tokens: tokens.answer,
+      requests_per_day: limits?.requestsPerDay ?? null,
+      requests_left_today: limits?.requestsLeftToday ?? null,
+      tokens_per_minute: limits?.tokensPerMinute ?? null,
+      tokens_left_this_minute: limits?.tokensLeftThisMinute ?? null,
+    })
+    if (runError) console.error('[song-vibes] run log failed:', runError.message)
+  }
+
+  return Response.json(summary)
 })

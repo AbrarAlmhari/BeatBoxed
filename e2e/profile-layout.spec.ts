@@ -111,7 +111,8 @@ test.describe('header', () => {
     // The old counts are gone from the header.
     await expect(counts.getByText(/ratings?|reviews?|artists?/)).toHaveCount(0)
     const listens = page.locator('[data-listens-to]')
-    await expect(listens).toContainText(`Listens to ${artists[0].name}, ${artists[1].name} and 4 more`)
+    // The most recently followed first: the last two followed in the setup.
+    await expect(listens).toContainText(`Listens to ${artists[5].name}, ${artists[4].name} and 4 more`)
     await expect(listens.locator('img')).toHaveCount(4)
     await expect(page.getByRole('tab', { name: /^Reviews\s*0$/ })).toBeVisible()
     await expect(page.getByRole('group', { name: 'Show' }).getByRole('button', { name: /^All\s*0$/ })).toBeVisible()

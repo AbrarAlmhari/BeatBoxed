@@ -51,6 +51,47 @@ const DEFAULT_TIMEOUT_MS = 40_000
  */
 const REASONING_HEADROOM = 1024
 
+/**
+ * Groq's rate limits as its last answer reported them (its x-ratelimit-*
+ * headers): requests per day, tokens per minute, and what's left of each.
+ * Null until a call has been made; a field is null when the header was
+ * missing.
+ */
+export type RateLimits = {
+  model: string
+  requestsPerDay: number | null
+  requestsLeftToday: number | null
+  requestsResetIn: string | null
+  tokensPerMinute: number | null
+  tokensLeftThisMinute: number | null
+  tokensResetIn: string | null
+  seenAt: string
+}
+
+let rateLimits: RateLimits | null = null
+
+export function lastRateLimits() {
+  return rateLimits
+}
+
+function readRateLimits(res: Response, model: string) {
+  const num = (name: string) => {
+    const v = res.headers.get(name)
+    return v === null || v === '' || Number.isNaN(Number(v)) ? null : Number(v)
+  }
+  if (!res.headers.has('x-ratelimit-limit-requests') && !res.headers.has('x-ratelimit-limit-tokens')) return
+  rateLimits = {
+    model,
+    requestsPerDay: num('x-ratelimit-limit-requests'),
+    requestsLeftToday: num('x-ratelimit-remaining-requests'),
+    requestsResetIn: res.headers.get('x-ratelimit-reset-requests'),
+    tokensPerMinute: num('x-ratelimit-limit-tokens'),
+    tokensLeftThisMinute: num('x-ratelimit-remaining-tokens'),
+    tokensResetIn: res.headers.get('x-ratelimit-reset-tokens'),
+    seenAt: new Date().toISOString(),
+  }
+}
+
 const isGptOss = (model: string) => model.startsWith('openai/gpt-oss')
 const isQwen = (model: string) => model.startsWith('qwen/')
 
@@ -144,6 +185,7 @@ export async function generate(
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(Math.max(1, options.timeoutMs ?? DEFAULT_TIMEOUT_MS)),
     })
+    readRateLimits(res, model)
     if (res.status === 429 || res.status >= 500) {
       console.error(`[beatie] groq ${label}: model=${model} HTTP ${res.status}`)
       return { ok: false, reason: 'busy', detail: `HTTP ${res.status}`, info: info() }

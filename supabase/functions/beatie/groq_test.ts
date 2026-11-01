@@ -1,6 +1,6 @@
 // Checks groq.ts against a fake Groq endpoint. No real calls.
 // Run from supabase/functions: deno run --allow-env beatie/groq_test.ts
-import { currentModel, fallbackModel, generate, wasCutOff } from './groq.ts'
+import { currentModel, fallbackModel, generate, lastRateLimits, wasCutOff } from './groq.ts'
 
 Deno.env.set('GROQ_API_KEY', 'test-key')
 const realFetch = globalThis.fetch
@@ -129,6 +129,28 @@ check('override does not stick: next call without model uses GROQ_MODEL', curren
 fake(() => new Response(sse([chunk('{"lyrics_mood": "sad"}'), chunk(null, 'stop'), '[DONE]'])))
 r = await generate('label', [{ role: 'user', text: 'x' }], { maxTokens: 120, temperature: 0.2, json: true })
 check('single non-array key left alone (parseLabel then rejects it)', r.ok && r.text === '{"lyrics_mood": "sad"}' && parseLabel(r.text) === null)
+
+// 6c. Groq's rate-limit headers are kept for the labeller's run summary.
+fake(() =>
+  new Response(sse([chunk('ok'), chunk(null, 'stop'), '[DONE]']), {
+    headers: {
+      'x-ratelimit-limit-requests': '14400',
+      'x-ratelimit-remaining-requests': '14350',
+      'x-ratelimit-reset-requests': '5m12s',
+      'x-ratelimit-limit-tokens': '8000',
+      'x-ratelimit-remaining-tokens': '7400',
+      'x-ratelimit-reset-tokens': '4.5s',
+    },
+  })
+)
+await generate('sys', [{ role: 'user', text: 'hi' }], { maxTokens: 10, temperature: 0.2, model: 'openai/gpt-oss-20b' })
+const limits = lastRateLimits()
+check(
+  'rate-limit headers are read',
+  limits?.requestsPerDay === 14400 && limits?.requestsLeftToday === 14350 && limits?.tokensPerMinute === 8000 &&
+    limits?.tokensLeftThisMinute === 7400 && limits?.requestsResetIn === '5m12s' && limits?.model === 'openai/gpt-oss-20b',
+  JSON.stringify(limits)
+)
 
 // 7. Missing key; model secrets.
 Deno.env.delete('GROQ_API_KEY')

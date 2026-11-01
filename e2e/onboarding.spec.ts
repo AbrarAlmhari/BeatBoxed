@@ -192,8 +192,11 @@ test.describe('onboarding', () => {
     await expect(page.getByText('2 of 8')).toBeVisible()
     await page.getByRole('button', { name: 'Remove Soul' }).click()
     await page.getByRole('button', { name: 'Save', exact: true }).click()
+    // Saved once the editor has closed; the database is then read until the
+    // write shows, rather than at the same instant as the click.
+    await expect(page.getByRole('heading', { name: 'Edit profile' })).toHaveCount(0)
     await expect(page.getByRole('list', { name: 'Music tags' }).getByText('Jazz')).toBeVisible()
-    expect((await profileRow(me.id)).favorite_genres).toEqual(['Jazz'])
+    await expect.poll(async () => (await profileRow(me.id)).favorite_genres).toEqual(['Jazz'])
 
     // The card is gone for good.
     await page.goto('/')

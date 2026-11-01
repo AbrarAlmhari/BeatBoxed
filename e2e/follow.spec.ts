@@ -79,6 +79,9 @@ test.describe('following an artist', () => {
     // 5. Unfollow somewhere else; the song page must agree.
     await page.goto('/library')
     await page.getByRole('tab', { name: 'Artists' }).click()
+    // Until the followed set loads, the button can't know it's followed and
+    // reads "Follow" (a tap then means follow); wait for it.
+    await expect(followButton(page).first()).toHaveText(/Following/)
     await awaitFollowWrite(page, 'DELETE', () => followButton(page).first().click())
     await expect(followButton(page)).toHaveCount(0)
 

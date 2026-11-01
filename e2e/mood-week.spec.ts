@@ -52,6 +52,9 @@ test.beforeAll(async () => {
 })
 
 test.afterAll(async () => {
+  // Clearing every test user plus the seeded catalog is many small requests;
+  // the default 60s isn't always enough on a busy run.
+  test.setTimeout(180_000)
   await deleteTestUsers()
   await deleteSeededCatalog()
 })

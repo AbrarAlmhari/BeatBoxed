@@ -348,8 +348,14 @@ export async function stubPreviewAudio(
   await page.route(/itunes\.apple\.com/, async (route) => {
     const url = new URL(route.request().url())
     const term = (url.searchParams.get('term') ?? '').toLowerCase()
+    // The song asked for: title and artist both in the search words, the
+    // longest title winning ("...Baby One More Time (from Kung Fu Panda 4)"
+    // also contains "...baby one more time"). A lookup by id has no search
+    // words and gets the first song.
     const song =
-      songs.find((s) => term.includes(s.title.toLowerCase())) ?? songs[0]
+      songs
+        .filter((s) => term.includes(s.title.toLowerCase()) && term.includes(s.artistName.toLowerCase()))
+        .sort((a, b) => b.title.length - a.title.length)[0] ?? songs[0]
 
     // An empty result set is exactly what iTunes returns for a song it
     // doesn't carry, so the app takes its real no-preview path.
@@ -866,6 +872,26 @@ export async function seedArtistWithAlbum(label: string): Promise<SeededArtist> 
       artistName: t.artistName,
     })),
   }
+}
+
+/**
+ * Songs with the given titles, by one test artist, straight in the
+ * database (same clean-up as seedArtistWithAlbum: deleteSeededCatalog).
+ */
+export async function seedSongs(label: string, titles: string[]) {
+  const stamp = `${TEST_SPOTIFY_PREFIX}${label}-${Date.now()}`
+  const post = async (path: string, body: unknown) => {
+    const res = await admin(path, { method: 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify(body) })
+    const rows = await res.json()
+    if (!Array.isArray(rows)) throw new Error(`seed failed on ${path}: ${JSON.stringify(rows)}`)
+    return rows as { id: string; title?: string }[]
+  }
+  const [artist] = await post('/rest/v1/artists', { spotify_id: `${stamp}-artist`, name: `Test Artist ${label}` })
+  const songs = await post(
+    '/rest/v1/songs',
+    titles.map((title, i) => ({ spotify_id: `${stamp}-track-${i}`, title, artist_id: artist.id, duration_ms: 180000, popularity: 1 }))
+  )
+  return titles.map((title) => ({ id: songs.find((s) => s.title === title)!.id, title }))
 }
 
 /** Removes every catalog row these tests created. */
