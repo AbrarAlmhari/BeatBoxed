@@ -12,9 +12,8 @@ export const panelIdFor = (prefix: string, id: string) => `${prefix}-panel-${id}
  * move between tabs, Home and End jump, and only the selected tab is in the
  * Tab order.
  *
- * - `sticky` keeps the bar under the top bar once scrolled past, on the
- *   see-through blurred bar (only while stuck). `stickyTop` is where it stops (the profile,
- *   whose phone top bar is its own, uses `top-0 md:top-16`).
+ * - `sticky` keeps the bar just under the top bar once scrolled past (see
+ *   StickyBar).
  * - `underline` off leaves the line to a parent row (Home, where the Ask
  *   Beatie pill shares it).
  * - `fill` shares the width between tabs on phones; on desktop they sit
@@ -29,7 +28,6 @@ export function Tabs<T extends string>({
   label,
   idPrefix,
   sticky = false,
-  stickyTop = 'top-16',
   fill = true,
   underline = true,
   className,
@@ -41,15 +39,12 @@ export function Tabs<T extends string>({
   label: string
   idPrefix: string
   sticky?: boolean
-  stickyTop?: string
   fill?: boolean
   /** The line under the bar. Off when the parent row draws it. */
   underline?: boolean
   className?: string
 }) {
   const refs = useRef<Partial<Record<string, HTMLButtonElement | null>>>({})
-  const bar = useRef<HTMLDivElement>(null)
-  const stuck = useStuck(bar, sticky)
 
   function onKey(e: KeyboardEvent<HTMLDivElement>) {
     const i = tabs.findIndex((t) => t.id === value)
@@ -65,18 +60,9 @@ export function Tabs<T extends string>({
     refs.current[id]?.focus()
   }
 
+  const Bar = sticky ? StickyBar : 'div'
   return (
-    <div
-      ref={bar}
-      className={cn(
-        underline && 'border-b border-line-strong',
-        sticky && cn('sticky z-10 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8', stickyTop),
-        // The glass only once it's stuck, so it doesn't cut a band through
-        // the page's glow while it's still in place.
-        stuck && 'glass-bar',
-        className
-      )}
-    >
+    <Bar className={cn(STILL, underline && 'border-b border-line-strong', sticky && 'px-4 sm:px-6 lg:px-8', className)}>
       <div role="tablist" aria-label={label} onKeyDown={onKey} className="flex md:gap-2">
         {tabs.map((t) => {
           const active = t.id === value
@@ -100,6 +86,36 @@ export function Tabs<T extends string>({
           )
         })}
       </div>
+    </Bar>
+  )
+}
+
+/**
+ * For bars that fit the screen: a sideways drag that starts on one does
+ * nothing (no sway or bounce), while scrolling the page up and down from it,
+ * and pinch zoom, still work.
+ */
+export const STILL = 'touch-pan-y touch-pinch-zoom'
+
+/**
+ * A bar that stays just under the app's top bar while the page scrolls (on
+ * the profile, whose phone top bar is hidden, at the very top). Edge to edge,
+ * so give it the page's side padding inside; solid only once stuck, so it
+ * doesn't cut a band through the page's glow while it's still in place.
+ */
+export function StickyBar({ className, children }: { className?: string; children: ReactNode }) {
+  const bar = useRef<HTMLDivElement>(null)
+  const stuck = useStuck(bar, true)
+  return (
+    <div
+      ref={bar}
+      className={cn(
+        'sticky top-[var(--topbar-h,68px)] z-10 -mx-4 sm:-mx-6 lg:-mx-8',
+        stuck && 'bg-background',
+        className
+      )}
+    >
+      {children}
     </div>
   )
 }

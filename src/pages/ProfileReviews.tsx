@@ -6,7 +6,8 @@ import { ListPageShell } from '@/components/profile/ListPageShell'
 import { useAuth } from '@/lib/auth'
 import { getProfileDetail, getReviewsByUserPage, type ReviewSort } from '@/lib/catalog'
 import type { ReviewWithSong } from '@/lib/types'
-import { ScrollRow } from '@/components/ui/ScrollRow'
+import { StickyBar, STILL } from '@/components/ui/Tabs'
+import { cn } from '@/lib/cn'
 
 const PAGE = 30
 
@@ -77,19 +78,19 @@ export default function ProfileReviews() {
     <ListPageShell
       title={isOwn ? 'Your reviews' : `${name ?? 'Listener'}'s reviews`}
       toolbar={
-        <ScrollRow
-          as="div"
-          size="sm"
-          className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
-          role="group"
-          aria-label="Sort reviews"
-        >
-          {SORTS.map((s) => (
-            <Chip key={s.value} active={sort === s.value} onClick={() => setSort(s.value)}>
-              {s.label}
-            </Chip>
-          ))}
-        </ScrollRow>
+        <StickyBar className="-my-2 py-2">
+          <div
+            role="group"
+            aria-label="Sort reviews"
+            className={cn(STILL, 'flex flex-wrap gap-2 px-4 sm:px-6 lg:px-8')}
+          >
+            {SORTS.map((s) => (
+              <Chip key={s.value} active={sort === s.value} onClick={() => setSort(s.value)}>
+                {s.label}
+              </Chip>
+            ))}
+          </div>
+        </StickyBar>
       }
       loading={loading}
       isEmpty={reviews.length === 0}

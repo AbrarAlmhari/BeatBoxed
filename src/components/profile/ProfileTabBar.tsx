@@ -15,7 +15,8 @@ export const panelId = (t: ProfileTab) => panelIdFor(PROFILE_TABS_ID, t)
 
 /**
  * Reviews · Playlists · Stats · Likes: the shared Tabs, sticky. On phones the
- * app's top bar is hidden on the profile, so the bar sticks at the very top.
+ * app's top bar is hidden on the profile, so the bar sticks at the very top
+ * (the top bar's height reads 0 there).
  */
 export function ProfileTabBar({
   tab,
@@ -50,7 +51,6 @@ export function ProfileTabBar({
       label="Profile"
       idPrefix={PROFILE_TABS_ID}
       sticky
-      stickyTop="top-0 md:top-16"
     />
   )
 }

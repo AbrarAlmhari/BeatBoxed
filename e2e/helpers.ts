@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { deflateSync } from 'node:zlib'
-import type { Page } from '@playwright/test'
+import { expect, type Page } from '@playwright/test'
 
 /** Service-role REST helper, used only to create and destroy test fixtures. */
 export const env = Object.fromEntries(
@@ -993,4 +993,16 @@ export async function readLoggedOut(path: string) {
     headers: { apikey: env.VITE_SUPABASE_ANON_KEY },
   })
   return (await res.json()) as unknown[]
+}
+
+/** The notifications page's filter sheet (a menu on a computer). */
+export function notificationFilters(page: Page) {
+  return page.getByRole('dialog', { name: 'Filter notifications' })
+}
+
+/** Picks a notification filter: opens the filter button's sheet, taps the row. */
+export async function filterNotifications(page: Page, label: string) {
+  await page.getByRole('button', { name: /^Filter notifications/ }).click()
+  await notificationFilters(page).getByRole('radio', { name: new RegExp(`^${label}(\\s|$)`) }).click()
+  await expect(notificationFilters(page)).toHaveCount(0)
 }

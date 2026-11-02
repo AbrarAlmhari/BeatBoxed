@@ -30,7 +30,7 @@ import type {
   LyricMatch,
   UnifiedResults,
 } from '@/lib/types'
-import { ScrollRow } from '@/components/ui/ScrollRow'
+import { StickyBar, STILL } from '@/components/ui/Tabs'
 
 /** Router state set by the Home search button; see src/pages/Home.tsx. */
 type ExploreNavState = { autoFocus?: boolean } | null
@@ -269,9 +269,21 @@ export default function Explore() {
           )}
         </div>
 
-        {/* The filters only filter search results, so they appear with a
-            search and go with it. The row opens out (rather than popping
-            in) and fades, so the page below moves smoothly, not in a jump. */}
+        </div>
+
+      </div>
+
+      {/* The filters only filter search results, so they appear with a
+          search and go with it. The row opens out (rather than popping in)
+          and fades, so the page below moves smoothly, not in a jump. A child
+          of the page itself so it can stay under the top bar the whole way
+          down; the negative margin cancels the page's gap while it's closed. */}
+      <StickyBar
+        className={cn(
+          '-mt-8 transition-[margin] duration-200 ease-soft motion-reduce:transition-none',
+          hasSearch && '-mb-2'
+        )}
+      >
         <div
           data-search-filters
           inert={!hasSearch}
@@ -282,12 +294,10 @@ export default function Explore() {
           )}
         >
           <div className="min-h-0 overflow-hidden">
-            <ScrollRow
-              as="div"
-              size="sm"
-              className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 pt-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
+            <div
               role="group"
               aria-label="Filter results"
+              className={cn(STILL, 'flex flex-wrap gap-x-1.5 gap-y-2 px-4 pt-4 pb-2 sm:gap-x-2 sm:px-6 lg:px-8')}
             >
               {FILTERS.map((f) => (
                 <Chip
@@ -298,12 +308,10 @@ export default function Explore() {
                   {f.label}
                 </Chip>
               ))}
-            </ScrollRow>
+            </div>
           </div>
         </div>
-        </div>
-
-      </div>
+      </StickyBar>
 
       {isBrowsing ? (
         <>

@@ -114,6 +114,14 @@ export function Sheet({
     }
   }, [open, phone, align])
 
+  // On a computer the menu stays hidden until it's placed, and a hidden
+  // element can't take focus, so focus moves in once it's showing.
+  const shown = open && (phone || place !== null)
+  useEffect(() => {
+    const el = panel.current
+    if (shown && el && !el.contains(document.activeElement)) el.focus()
+  }, [shown])
+
   return (
     <>
       <span ref={marker} hidden />
