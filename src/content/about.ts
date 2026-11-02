@@ -133,7 +133,7 @@ export const ABOUT = {
         initials: 'GA',
         color: '#4F46E5',
         role: 'Developer · Design & Notifications',
-        bio: 'Designed the BeatBoxed logo, keeps every screen looking like one app, and built notifications so you never miss a reply or a new follower.',
+        bio: 'Designed the BeatBoxed logo, keeps every screen looking like one app, and built notifications so you never miss a reply or a new follower. The queen of multitasking.',
         skills: ['Logo & branding', 'Design system', 'UI design', 'Notifications'],
       },
     ] satisfies TeamMember[] as TeamMember[],
