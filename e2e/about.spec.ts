@@ -86,7 +86,59 @@ test('all seven team cards show, Abrar first as team lead', async ({ page }, inf
   expect(rowOf(0)).toBe(1)
   expect(rowOf(1)).toBe(info.project.name === 'mobile' ? 1 : 3)
   if (info.project.name === 'desktop') expect(boxes[0].width).toBeGreaterThan(boxes[1].width * 2.5)
+  // Cards sharing a row are the same height, and no bio is cut off.
+  for (let i = 1; i < boxes.length; i++) {
+    const row = boxes.filter((b) => Math.abs(b.top - boxes[i].top) < 2)
+    for (const b of row) expect(Math.abs(b.height - boxes[i].height)).toBeLessThan(1)
+  }
+  const clipped = await teamCards(page).evaluateAll((els) =>
+    els.flatMap((el) => [el, ...el.querySelectorAll('*')]).filter((n) => n.scrollWidth > n.clientWidth + 1 || n.scrollHeight > n.clientHeight + 1).length
+  )
+  expect(clipped).toBe(0)
   await noSidewaysScroll(page)
+})
+
+test('every member has a profile picture with alt text', async ({ page }) => {
+  await page.goto('/about')
+  const pictures = page.locator('[data-team-card] img')
+  await expect(pictures).toHaveCount(7)
+  await expect(pictures.first()).toHaveAttribute('alt', 'Profile picture of Abrar Saeed Almhari')
+  for (const img of await pictures.all()) {
+    await img.scrollIntoViewIfNeeded()
+    await expect.poll(() => img.evaluate((el: HTMLImageElement) => el.complete && el.naturalWidth)).toBe(400)
+  }
+})
+
+test('falls back to the initials when a picture fails to load', async ({ page }) => {
+  await page.route('**/team/*.jpg', (route) => route.abort())
+  await page.goto('/about')
+  const first = teamCards(page).first()
+  await first.scrollIntoViewIfNeeded()
+  await expect(first.getByRole('img', { name: 'Profile picture of Abrar Saeed Almhari' })).toHaveText('AA')
+  await expect(page.locator('[data-team-card] img')).toHaveCount(0)
+})
+
+test('on hover only the grooves spin, and nothing spins with reduced motion', async ({ page }, info) => {
+  test.skip(info.project.name === 'mobile', 'Phones have no hover')
+  const animations = (card: ReturnType<typeof teamCards>) =>
+    card.evaluate((el) => {
+      const img = el.querySelector('img')!
+      const photoChain: string[] = []
+      for (let n: Element | null = img; n && n !== el; n = n.parentElement) photoChain.push(getComputedStyle(n).animationName)
+      const grooves = img.parentElement!.previousElementSibling!
+      return { grooves: getComputedStyle(grooves).animationName, photo: photoChain }
+    })
+
+  await page.goto('/about')
+  const card = teamCards(page).nth(1)
+  await card.hover()
+  await expect.poll(async () => (await animations(card)).grooves).toBe('record-spin')
+  expect((await animations(card)).photo.every((a) => a === 'none')).toBe(true)
+
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.mouse.move(0, 0)
+  await card.hover()
+  expect((await animations(card)).grooves).toBe('none')
 })
 
 test('the song page has no note about line highlighting', async ({ page }) => {

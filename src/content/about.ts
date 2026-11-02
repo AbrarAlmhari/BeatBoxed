@@ -7,7 +7,9 @@ export type AboutIcon = 'star' | 'people' | 'chat'
 
 export type TeamMember = {
   name: string
-  /** Shown in the middle of the record. */
+  /** Square picture in the middle of the record, served from public/team/. */
+  photo: string
+  /** Shown instead of the picture if it fails to load. */
   initials: string
   /** The record's label colour. */
   color: string
@@ -68,9 +70,11 @@ export const ABOUT = {
     title: 'Meet the team',
     body: 'Seven students from the College of Computer Science and Information Technology at Imam Abdulrahman Bin Faisal University, who designed, built and tested BeatBoxed together as our Software Engineering (CSC 305) project.',
     leadBadge: 'Team lead',
+    photoAlt: (name: string) => `Profile picture of ${name}`,
     members: [
       {
         name: 'Abrar Saeed Almhari',
+        photo: '/team/abrar.jpg',
         initials: 'AA',
         color: '#7C3AED',
         role: 'Project Manager & Developer',
@@ -80,6 +84,7 @@ export const ABOUT = {
       },
       {
         name: 'Aseel Ehab Alashqar',
+        photo: '/team/aseel-ehab.jpg',
         initials: 'AE',
         color: '#DB2777',
         role: 'Developer · Accounts & Reviews',
@@ -88,6 +93,7 @@ export const ABOUT = {
       },
       {
         name: 'Aseel Atif Aljazzar',
+        photo: '/team/aseel-atif.jpg',
         initials: 'AA',
         color: '#0891B2',
         role: 'Developer · Profiles & Social',
@@ -96,6 +102,7 @@ export const ABOUT = {
       },
       {
         name: 'Saja Saad Almajid',
+        photo: '/team/saja.jpg',
         initials: 'SA',
         color: '#CA8A04',
         role: 'Developer of Explore & Settings',
@@ -104,6 +111,7 @@ export const ABOUT = {
       },
       {
         name: 'Retaj Hadi Al Mebti',
+        photo: '/team/retaj.jpg',
         initials: 'RA',
         color: '#059669',
         role: 'Developer · Song Page & Beatie',
@@ -112,6 +120,7 @@ export const ABOUT = {
       },
       {
         name: 'Fatimah Fadil Aldubibi',
+        photo: '/team/fatimah.jpg',
         initials: 'FA',
         color: '#EA580C',
         role: 'Developer · Home & Player',
@@ -120,6 +129,7 @@ export const ABOUT = {
       },
       {
         name: 'Ghadah Yahay Alzahrani',
+        photo: '/team/ghadah.jpg',
         initials: 'GA',
         color: '#4F46E5',
         role: 'Developer · Design & Notifications',

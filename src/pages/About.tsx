@@ -1,4 +1,4 @@
-import { useEffect, type CSSProperties } from 'react'
+import { useEffect, useState, type CSSProperties } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { ArrowLeft, MessageCircle, Star, Users, type LucideIcon } from 'lucide-react'
 import { ABOUT, type AboutIcon, type TeamMember } from '@/content/about'
@@ -114,7 +114,7 @@ export default function About() {
         <Section title={team.title} body={team.body}>
           <ul aria-label="Team" className="grid gap-3.5 md:grid-cols-2 lg:grid-cols-3">
             {team.members.map((m) => (
-              <MemberCard key={m.name} member={m} badge={team.leadBadge} />
+              <MemberCard key={m.name} member={m} badge={team.leadBadge} altFor={team.photoAlt} />
             ))}
           </ul>
         </Section>
@@ -149,7 +149,42 @@ function Section({ title, body, children }: { title: string; body?: string; chil
   )
 }
 
-function MemberCard({ member, badge }: { member: TeamMember; badge: string }) {
+/** The grooves spin on hover; the picture in the middle stays still. */
+function Record({ member, alt }: { member: TeamMember; alt: string }) {
+  const [failed, setFailed] = useState(false)
+  return (
+    <span className="relative grid size-[88px] shrink-0 place-items-center">
+      <span
+        aria-hidden
+        style={GROOVES}
+        className="absolute inset-0 rounded-full shadow-[0_0_0_2px_rgb(255_255_255/0.08)] motion-safe:group-hover:animate-record-spin"
+      />
+      <span
+        className="relative grid size-[53px] place-items-center overflow-hidden rounded-full"
+        style={{ background: member.color, boxShadow: `0 0 0 2px ${member.color}` }}
+      >
+        {failed ? (
+          <span role="img" aria-label={alt} className="text-[0.85rem] font-bold tracking-[0.02em] text-white">
+            {member.initials}
+          </span>
+        ) : (
+          <img
+            src={member.photo}
+            alt={alt}
+            width={53}
+            height={53}
+            loading="lazy"
+            decoding="async"
+            onError={() => setFailed(true)}
+            className="size-full object-cover"
+          />
+        )}
+      </span>
+    </span>
+  )
+}
+
+function MemberCard({ member, badge, altFor }: { member: TeamMember; badge: string; altFor: (name: string) => string }) {
   return (
     <li
       data-team-card
@@ -161,18 +196,7 @@ function MemberCard({ member, badge }: { member: TeamMember; badge: string }) {
       )}
     >
       <div className="flex items-center gap-3.5">
-        <span
-          aria-hidden
-          style={GROOVES}
-          className="grid size-[68px] shrink-0 place-items-center rounded-full shadow-[0_0_0_2px_rgb(255_255_255/0.08)] motion-safe:group-hover:animate-record-spin"
-        >
-          <span
-            className="grid size-[34px] place-items-center rounded-full text-[0.78rem] font-bold tracking-[0.02em] text-white"
-            style={{ background: member.color }}
-          >
-            {member.initials}
-          </span>
-        </span>
+        <Record member={member} alt={altFor(member.name)} />
         <div className="flex min-w-0 flex-col">
           <h3 className="text-card-title text-foreground">
             {member.name}
