@@ -98,8 +98,8 @@ export const ABOUT = {
         name: 'Saja Saad Almajid',
         initials: 'SA',
         color: '#CA8A04',
-        role: 'Developer · Explore & Settings',
-        bio: 'Built Explore and search across songs, artists, people and lyrics, the Trending lists, and the Settings and privacy controls.',
+        role: 'Developer of Explore & Settings',
+        bio: 'Developed the Explore experience, enabling users to discover and search for songs, artists, and people. Also worked on trending content, filtering functionality, and user settings and privacy controls to create a smooth and intuitive browsing experience.',
         skills: ['Search', 'Trending', 'Settings & privacy', 'Filtering'],
       },
       {
@@ -107,7 +107,7 @@ export const ABOUT = {
         initials: 'RA',
         color: '#059669',
         role: 'Developer · Song Page & Beatie',
-        bio: 'Built the song page and lyrics, and brought Beatie to life: explaining lines, translating songs and chatting about the music.',
+        bio: "Built the song page and lyrics, and brought Beatie to life: explaining lines, translating songs and chatting about the music. Abrar's right hand and biggest support throughout the project.",
         skills: ['AI integration', 'Lyrics', 'APIs', 'Prompt design'],
       },
       {
