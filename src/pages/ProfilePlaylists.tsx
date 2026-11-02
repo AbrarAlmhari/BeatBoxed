@@ -15,7 +15,8 @@ import {
   type PlaylistSort,
   type PlaylistSummary,
 } from '@/lib/playlists'
-import { ScrollRow } from '@/components/ui/ScrollRow'
+import { StickyBar, STILL } from '@/components/ui/Tabs'
+import { cn } from '@/lib/cn'
 
 const PAGE = 30
 
@@ -124,7 +125,7 @@ export default function ProfilePlaylists() {
     <ListPageShell
       title={title}
       toolbar={
-        <div className="flex flex-col gap-3">
+        <>
           {isOwn &&
             (creating ? (
               <Card className="sm:max-w-md">
@@ -157,32 +158,37 @@ export default function ProfilePlaylists() {
               </button>
             ))}
 
-          <ScrollRow
-            as="div"
-            size="sm"
-            className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
-            role="group"
-            aria-label="Sort playlists"
-          >
-            {SORTS.map((s) => (
-              <Chip
-                key={s.value}
-                active={sort === s.value}
-                onClick={() => setSort(s.value)}
-              >
-                {s.label}
-              </Chip>
-            ))}
-          </ScrollRow>
+          {/* Straight in the page's column (not a wrapper) so the sort row
+              can stay under the top bar the whole way down; the negative
+              margins keep the toolbar's tighter spacing. */}
+          <StickyBar className={cn('-my-2 py-2', isOwn && '-mt-5')}>
+            <div
+              role="group"
+              aria-label="Sort playlists"
+              className={cn(STILL, 'flex flex-wrap gap-2 px-4 sm:px-6 lg:px-8')}
+            >
+              {SORTS.map((s) => (
+                <Chip
+                  key={s.value}
+                  active={sort === s.value}
+                  onClick={() => setSort(s.value)}
+                >
+                  {s.label}
+                </Chip>
+              ))}
+            </div>
+          </StickyBar>
 
           {playlists.length > 0 && (
-            <FilterBox
-              value={filter}
-              onChange={setFilter}
-              placeholder="Filter by title"
-            />
+            <div className="-mt-3">
+              <FilterBox
+                value={filter}
+                onChange={setFilter}
+                placeholder="Filter by title"
+              />
+            </div>
           )}
-        </div>
+        </>
       }
       loading={loading}
       isEmpty={shown.length === 0}

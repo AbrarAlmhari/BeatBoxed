@@ -129,11 +129,13 @@ test.describe('sideways rows', () => {
   test('a row that fits shows no arrows', async ({ page }, info) => {
     test.skip(info.project.name !== 'desktop', 'mouse only')
     await login(page, viewer.email)
-    // The filter chips show once there's a search.
+    // The filter chips show once there's a search. They fit, so they're a
+    // plain row rather than one that scrolls.
     await page.goto('/explore?q=radiohead')
-    const chips = page.locator('[data-scroll-row]').filter({ has: page.getByRole('group', { name: 'Filter results' }) })
+    const chips = page.getByRole('group', { name: 'Filter results' })
     await chips.hover()
-    await expect(chips.locator('[data-row-arrow]')).toHaveCount(0)
+    await expect(page.locator('[data-scroll-row]').filter({ has: chips })).toHaveCount(0)
+    await expect(page.locator('[data-search-filters] [data-row-arrow]')).toHaveCount(0)
   })
 
   test('no arrows on a phone; swiping still scrolls', async ({ page }, info) => {

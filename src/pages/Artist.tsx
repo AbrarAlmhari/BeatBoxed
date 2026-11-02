@@ -279,6 +279,7 @@ export default function Artist() {
           label="Discography"
           idPrefix="discography"
           fill={false}
+          sticky
         />
 
         <TabPanel idPrefix="discography" value={tab}>

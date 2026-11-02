@@ -9,7 +9,7 @@ import { EmptyState, emptyActionClass, emptySecondaryActionClass } from '@/compo
 import { PageGlow } from '@/components/ui/PageGlow'
 import { SectionHeader } from '@/components/ui/SectionHeader'
 import { Skeleton } from '@/components/ui/Skeleton'
-import { tabClass, useStuck } from '@/components/ui/Tabs'
+import { STILL, tabClass, useStuck } from '@/components/ui/Tabs'
 import { COVER_FALLBACK, useCoverColors } from '@/lib/coverColors'
 import { FollowButton } from '@/components/ui/FollowButton'
 import { AddToPlaylistButton } from '@/components/playlist/AddToPlaylistButton'
@@ -426,16 +426,17 @@ export default function Song() {
         </div>
       </header>
 
-      {/* Quick-jump nav. Docks under the sticky TopBar (~64px tall) and sits
-          below it in z-order. It looks like the shared tabs but stays a set
-          of jump links: every section is on the page at once. The glass
-          background only shows once it's stuck. */}
+      {/* Quick-jump nav. Docks just under the sticky TopBar and sits below
+          it in z-order. It looks like the shared tabs but stays a set of jump
+          links: every section is on the page at once. The four share the
+          width and the bar never moves sideways; solid only once stuck. */}
       <nav
         ref={navRef}
         aria-label="Jump to section"
         className={cn(
-          'no-scrollbar sticky top-16 z-10 -mx-4 flex overflow-x-auto border-b border-line-strong px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8',
-          navStuck && 'glass-bar'
+          'sticky top-[var(--topbar-h,68px)] z-10 -mx-4 flex border-b border-line-strong px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8',
+          STILL,
+          navStuck && 'bg-background'
         )}
       >
         {SECTIONS.map((s) => (
