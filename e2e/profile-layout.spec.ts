@@ -8,6 +8,7 @@ import {
   makeFollow,
   nameUser,
   setPrivate,
+  filterSheet,
 } from './helpers'
 
 /**
@@ -115,7 +116,9 @@ test.describe('header', () => {
     await expect(listens).toContainText(`Listens to ${artists[5].name}, ${artists[4].name} and 4 more`)
     await expect(listens.locator('img')).toHaveCount(4)
     await expect(page.getByRole('tab', { name: /^Reviews\s*0$/ })).toBeVisible()
-    await expect(page.getByRole('group', { name: 'Show' }).getByRole('button', { name: /^All\s*0$/ })).toBeVisible()
+    await page.getByRole('button', { name: /^Filter reviews/ }).click()
+    await expect(filterSheet(page, 'Filter reviews').getByRole('radio', { name: /^All\s*0$/ })).toBeVisible()
+    await page.keyboard.press('Escape')
 
     await page.getByRole('link', { name: 'Settings' }).locator('visible=true').click()
     await expect(page).toHaveURL(/\/settings$/)

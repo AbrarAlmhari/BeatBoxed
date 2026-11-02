@@ -6,7 +6,7 @@ import { cn } from '@/lib/cn'
 export type FilterOption = {
   value: string
   label: string
-  /** A count at the row's end (see the section's `counts`); nothing when null or 0. */
+  /** A count at the row's end (see the section's `counts`); nothing when null. */
   count?: number | null
 }
 
@@ -18,7 +18,7 @@ export type FilterSection = {
   /** What Clear goes back to, and what counts as "not filtered". */
   defaultValue: string
   onChange: (next: string) => void
-  /** `unread`: purple badges, read out as "3 unread". `total` (default): a quiet number. */
+  /** `unread`: purple badges, read out as "3 unread", none at 0. `total` (default): a quiet number, 0 included. */
   counts?: 'unread' | 'total'
 }
 
@@ -57,12 +57,15 @@ export function FilterButton({
   const several = sections.length > 1
 
   // Says what the dot or the face shows: "Filter notifications, showing
-  // Mentions"; the value face's text leads its name ("Filter results: Songs").
+  // Mentions", "…, sort by Highest rated"; the value face's text leads its
+  // name ("Filter results: Songs").
+  const describe = (s: FilterSection) =>
+    `${s === sections[0] ? 'showing' : s.title.toLowerCase()} ${chosen(s).label}`
   const name =
     face === 'value'
       ? `${title}: ${chosen(sections[0]).label}`
       : changed.length
-        ? `${title}, showing ${changed.map((s) => chosen(s).label).join(', ')}`
+        ? `${title}, ${changed.map(describe).join(', ')}`
         : title
 
   function pick(s: FilterSection, value: string) {
@@ -139,14 +142,15 @@ export function FilterButton({
                   >
                     <span className="flex-1">{o.label}</span>
                     {o.count != null &&
-                      o.count > 0 &&
                       (s.counts === 'unread' ? (
+                        o.count > 0 && (
                         <span
                           aria-label={`${o.count} unread`}
                           className="grid min-w-6 place-items-center rounded-full bg-primary px-1.5 py-0.5 text-meta font-semibold leading-none text-white"
                         >
                           {o.count}
                         </span>
+                        )
                       ) : (
                         <span className="text-secondary tabular-nums text-muted-foreground">
                           {o.count.toLocaleString()}

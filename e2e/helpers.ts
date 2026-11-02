@@ -995,14 +995,30 @@ export async function readLoggedOut(path: string) {
   return (await res.json()) as unknown[]
 }
 
+/** A filter button's sheet (a menu on a computer), by its title. */
+export function filterSheet(page: Page, title: string) {
+  return page.getByRole('dialog', { name: title })
+}
+
+/**
+ * Opens the filter button titled `title`, taps an option (a row's name starts
+ * with its label; a count may follow), and waits for the sheet to close.
+ */
+export async function chooseFilter(page: Page, title: string, label: string, section?: string) {
+  await page.getByRole('button', { name: new RegExp(`^${title}`) }).click()
+  const scope = section
+    ? filterSheet(page, title).getByRole('radiogroup', { name: section })
+    : filterSheet(page, title)
+  await scope.getByRole('radio', { name: new RegExp(`^${label}(\\s|$)`) }).click()
+  await expect(filterSheet(page, title)).toHaveCount(0)
+}
+
 /** The notifications page's filter sheet (a menu on a computer). */
 export function notificationFilters(page: Page) {
-  return page.getByRole('dialog', { name: 'Filter notifications' })
+  return filterSheet(page, 'Filter notifications')
 }
 
 /** Picks a notification filter: opens the filter button's sheet, taps the row. */
 export async function filterNotifications(page: Page, label: string) {
-  await page.getByRole('button', { name: /^Filter notifications/ }).click()
-  await notificationFilters(page).getByRole('radio', { name: new RegExp(`^${label}(\\s|$)`) }).click()
-  await expect(notificationFilters(page)).toHaveCount(0)
+  await chooseFilter(page, 'Filter notifications', label)
 }

@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Check, ChevronDown, Loader2, PenLine } from 'lucide-react'
-import { Chip } from '@/components/ui/Chip'
-import { Sheet } from '@/components/ui/Sheet'
+import { Loader2, PenLine } from 'lucide-react'
+import { FilterButton } from '@/components/ui/FilterButton'
 import { StarRating } from '@/components/ui/StarRating'
 import { FeedCard, timeAgo } from '@/components/feed/FeedCard'
 import { Artwork } from '@/components/feed/Artwork'
@@ -16,7 +15,6 @@ import {
   type ReviewSortKey,
 } from '@/lib/profile'
 import type { FeedReview } from '@/lib/feed'
-import { cn } from '@/lib/cn'
 
 const FILTERS: { id: ReviewFilter; label: string }[] = [
   { id: 'all', label: 'All' },
@@ -25,7 +23,7 @@ const FILTERS: { id: ReviewFilter; label: string }[] = [
 ]
 
 const SORTS: { id: ReviewSortKey; label: string }[] = [
-  { id: 'recent', label: 'Recent' },
+  { id: 'recent', label: 'Newest' },
   { id: 'highest', label: 'Highest rated' },
   { id: 'liked', label: 'Most liked' },
 ]
@@ -54,7 +52,7 @@ export function ProfileReviewsTab({
   onWrite: () => void
   /** Bumped by the page after a new review is posted, to reload. */
   reloadKey: number
-  /** For the chips: all ratings, and written (null until counted). */
+  /** For the Show rows: all ratings, and written (null until counted). */
   counts?: { all: number; written: number | null }
 }) {
   const { user } = useAuth()
@@ -128,18 +126,35 @@ export function ProfileReviewsTab({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <div role="group" aria-label="Show" className="flex flex-wrap gap-2">
-          {FILTERS.map((f) => (
-            <Chip key={f.id} active={filter === f.id} onClick={() => onFilterChange(f.id)} touchTarget>
-              {f.label}
-              {chipCount(f.id) !== null && (
-                <span className="ml-1.5 tabular-nums opacity-75">{chipCount(f.id)!.toLocaleString()}</span>
-              )}
-            </Chip>
-          ))}
-        </div>
-        <SortMenu sort={sort} onChange={setSort} />
+      <div className="flex items-center gap-3">
+        <p data-filter-note className="min-w-0 flex-1 text-secondary text-muted-foreground">
+          {[
+            filter !== 'all' && `Showing: ${FILTERS.find((f) => f.id === filter)?.label}`,
+            sort !== 'recent' && `Sorted by ${SORTS.find((s) => s.id === sort)?.label.toLowerCase()}`,
+          ]
+            .filter(Boolean)
+            .join(' · ')}
+        </p>
+        <FilterButton
+          title="Filter reviews"
+          clearLabel="Clear filter"
+          sections={[
+            {
+              title: 'Show',
+              options: FILTERS.map((f) => ({ value: f.id, label: f.label, count: chipCount(f.id) })),
+              value: filter,
+              defaultValue: 'all',
+              onChange: (v) => onFilterChange(v as ReviewFilter),
+            },
+            {
+              title: 'Sort by',
+              options: SORTS.map((o) => ({ value: o.id, label: o.label })),
+              value: sort,
+              defaultValue: 'recent',
+              onChange: (v) => setSort(v as ReviewSortKey),
+            },
+          ]}
+        />
       </div>
 
       {status === 'error' ? (
@@ -236,46 +251,6 @@ function RatingRow({ review }: { review: FeedReview }) {
         <span className="text-meta text-muted-foreground">{timeAgo(review.createdAt)}</span>
       </span>
     </Link>
-  )
-}
-
-function SortMenu({ sort, onChange }: { sort: ReviewSortKey; onChange: (s: ReviewSortKey) => void }) {
-  const [open, setOpen] = useState(false)
-  const label = SORTS.find((s) => s.id === sort)?.label ?? 'Recent'
-  return (
-    <div className="relative ml-auto">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        aria-label={`Sort: ${label}`}
-        className="inline-flex min-h-11 items-center gap-1.5 rounded-button px-3 text-button text-muted-foreground transition-colors duration-200 ease-soft hover:text-foreground"
-      >
-        {label}
-        <ChevronDown className="size-4" strokeWidth={2} aria-hidden />
-      </button>
-      <Sheet open={open} onClose={() => setOpen(false)} title="Sort reviews" className="sm:w-52">
-        {SORTS.map((s) => (
-          <button
-            key={s.id}
-            type="button"
-            aria-pressed={s.id === sort}
-            onClick={() => {
-              onChange(s.id)
-              setOpen(false)
-            }}
-            className={cn(
-              'flex min-h-11 w-full items-center justify-between gap-3 rounded-button px-3 text-left text-body hover:bg-white/5',
-              s.id === sort ? 'text-foreground' : 'text-muted-foreground'
-            )}
-          >
-            {s.label}
-            {s.id === sort && <Check className="size-4 text-primary" strokeWidth={2.25} aria-hidden />}
-          </button>
-        ))}
-      </Sheet>
-    </div>
   )
 }
 
