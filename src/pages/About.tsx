@@ -14,9 +14,15 @@ import { cn } from '@/lib/cn'
 
 const ICONS: Record<AboutIcon, LucideIcon> = { star: Star, people: Users, chat: MessageCircle }
 
-/** Record grooves, as on the song of the week. */
+/**
+ * Record grooves, as on the song of the week, under two light streaks: plain
+ * rings look the same at every angle, so the streaks are what shows the spin.
+ */
 const GROOVES: CSSProperties = {
-  background: 'repeating-radial-gradient(circle at center, #121216 0 2px, #22222A 2px 4px)',
+  background: [
+    'conic-gradient(from 20deg, transparent 0 25deg, rgb(255 255 255 / 0.22) 45deg, transparent 65deg 205deg, rgb(255 255 255 / 0.14) 225deg, transparent 245deg)',
+    'repeating-radial-gradient(circle at center, #121216 0 2px, #22222A 2px 4px)',
+  ].join(', '),
 }
 
 /** Sets the tab title and description while the page is open. */
