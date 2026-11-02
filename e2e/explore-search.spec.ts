@@ -17,7 +17,16 @@ test.afterAll(async () => {
   await deleteTestUsers(user.email)
 })
 
-const filters = (page: Page) => page.getByRole('group', { name: 'Filter results' })
+/** The type button beside the search box ("All ⌄"), shown only with a search. */
+const filters = (page: Page) => page.getByRole('button', { name: /^Filter results/ })
+const typeSheet = (page: Page) => page.getByRole('dialog', { name: 'Filter results' })
+
+/** Opens the type sheet and taps a type; the sheet closes on the tap. */
+async function pickType(page: Page, label: string) {
+  await filters(page).click()
+  await typeSheet(page).getByRole('radio', { name: label, exact: true }).click()
+  await expect(typeSheet(page)).toHaveCount(0)
+}
 
 /** Title + artist of each card in a list, as shown. */
 async function tracks(list: ReturnType<Page['getByRole']>) {
@@ -35,7 +44,7 @@ test.describe('search filters', () => {
 
     await page.getByRole('searchbox', { name: 'Search' }).fill('radiohead')
     await expect(filters(page)).toBeVisible()
-    await filters(page).getByRole('button', { name: 'Artists' }).click()
+    await pickType(page, 'Artists')
     await expect(page).toHaveURL(/filter=artists/)
 
     await page.getByRole('button', { name: 'Clear search' }).click()
@@ -46,7 +55,7 @@ test.describe('search filters', () => {
 
     // Typing again starts from All.
     await page.getByRole('searchbox', { name: 'Search' }).fill('radiohead')
-    await expect(filters(page).getByRole('button', { name: 'All' })).toHaveAttribute('aria-pressed', 'true')
+    await expect(filters(page)).toHaveAccessibleName('Filter results: All')
 
     // Deleting the text by hand works the same as Clear.
     await page.getByRole('searchbox', { name: 'Search' }).fill('')
@@ -57,6 +66,50 @@ test.describe('search filters', () => {
     await login(page, user.email)
     await page.goto('/explore?q=radiohead')
     await expect(filters(page)).toBeVisible()
+  })
+
+  test('switching types many times in a row: results follow, and the page keeps scrolling', async ({ page }, info) => {
+    test.setTimeout(180_000)
+    await login(page, user.email)
+    // Short, so every result list is taller than the screen.
+    await page.setViewportSize({ width: page.viewportSize()!.width, height: 480 })
+    await page.goto('/explore?q=love')
+    await expect(page.getByRole('heading', { name: 'Songs' })).toBeVisible()
+
+    const sections = ['Songs', 'Artists', 'People', 'Lyrics']
+    const types = ['Songs', 'Artists', 'All', 'Lyrics', 'People', 'Songs', 'All', 'Artists', 'Lyrics', 'All']
+    for (const type of [...types, ...types]) {
+      await page.evaluate(() => window.scrollTo(0, 0))
+      await pickType(page, type)
+      await expect(filters(page)).toHaveAccessibleName(`Filter results: ${type}`)
+      if (type === 'All') {
+        await expect(page).not.toHaveURL(/filter=/)
+        await expect(page.getByRole('heading', { name: /^Songs/ })).toBeVisible()
+      } else {
+        await expect(page).toHaveURL(new RegExp(`filter=${type.toLowerCase()}`))
+        for (const other of sections.filter((s) => s !== type)) {
+          await expect(page.getByRole('heading', { name: new RegExp(`^${other}`) })).toHaveCount(0)
+        }
+      }
+
+      // The sheet let go of the page, and a finger or wheel still scrolls it.
+      expect(await page.evaluate(() => document.documentElement.style.overflow)).not.toBe('hidden')
+      const tall = await page.evaluate(() => document.documentElement.scrollHeight > window.innerHeight + 40)
+      if (!tall) continue
+      if (info.project.name === 'mobile') {
+        const cdp = await page.context().newCDPSession(page)
+        const touch = (type: 'touchStart' | 'touchMove' | 'touchEnd', y = 380) =>
+          cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x: 200, y }] })
+        await touch('touchStart')
+        for (let i = 1; i <= 10; i++) await touch('touchMove', 380 - i * 25)
+        await touch('touchEnd')
+        await cdp.detach()
+      } else {
+        await page.mouse.move(400, 380)
+        await page.mouse.wheel(0, 300)
+      }
+      await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0)
+    }
   })
 })
 

@@ -30,7 +30,7 @@ import type {
   LyricMatch,
   UnifiedResults,
 } from '@/lib/types'
-import { StickyBar, STILL } from '@/components/ui/Tabs'
+import { FilterButton } from '@/components/ui/FilterButton'
 
 /** Router state set by the Home search button; see src/pages/Home.tsx. */
 type ExploreNavState = { autoFocus?: boolean } | null
@@ -238,8 +238,8 @@ export default function Explore() {
       <div className="flex flex-col gap-4">
         <h1 className="text-page-title">Explore</h1>
 
-        <div>
-        <div className="relative">
+        <div className="flex items-stretch">
+        <div className="relative min-w-0 flex-1">
           <Search
             className="pointer-events-none absolute left-3.5 top-1/2 size-[18px] -translate-y-1/2 text-muted-foreground"
             strokeWidth={1.75}
@@ -252,7 +252,7 @@ export default function Explore() {
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search songs, artists, people, or lyrics..."
             aria-label="Search"
-            className="w-full rounded-button border border-line-strong bg-surface-2 py-3 pl-11 pr-11 text-body text-foreground transition-colors duration-200 ease-soft placeholder:text-muted-foreground/70 hover:border-white/20 focus:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary/25"
+            className="w-full rounded-button border border-line-strong bg-surface-2 py-3 pl-11 pr-11 text-body [&::-webkit-search-cancel-button]:appearance-none text-foreground transition-colors duration-200 ease-soft placeholder:text-muted-foreground/70 hover:border-white/20 focus:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary/25"
           />
           {query && (
             <button
@@ -269,49 +269,36 @@ export default function Explore() {
           )}
         </div>
 
-        </div>
-
-      </div>
-
-      {/* The filters only filter search results, so they appear with a
-          search and go with it. The row opens out (rather than popping in)
-          and fades, so the page below moves smoothly, not in a jump. A child
-          of the page itself so it can stay under the top bar the whole way
-          down; the negative margin cancels the page's gap while it's closed. */}
-      <StickyBar
-        className={cn(
-          '-mt-8 transition-[margin] duration-200 ease-soft motion-reduce:transition-none',
-          hasSearch && '-mb-2'
-        )}
-      >
+        {/* The types only filter search results, so the button appears with a
+            search and goes with it, sliding in so the box shrinks smoothly. */}
         <div
           data-search-filters
           inert={!hasSearch}
           aria-hidden={!hasSearch}
           className={cn(
-            'grid transition-[grid-template-rows,opacity] duration-200 ease-soft motion-reduce:transition-none',
-            hasSearch ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+            'flex transition-[max-width,opacity,margin] duration-200 ease-soft motion-reduce:transition-none',
+            hasSearch ? 'ml-2 max-w-40 opacity-100' : 'ml-0 max-w-0 overflow-hidden opacity-0'
           )}
         >
-          <div className="min-h-0 overflow-hidden">
-            <div
-              role="group"
-              aria-label="Filter results"
-              className={cn(STILL, 'flex flex-wrap gap-x-1.5 gap-y-2 px-4 pt-4 pb-2 sm:gap-x-2 sm:px-6 lg:px-8')}
-            >
-              {FILTERS.map((f) => (
-                <Chip
-                  key={f.value}
-                  active={filter === f.value}
-                  onClick={() => setFilter(f.value)}
-                >
-                  {f.label}
-                </Chip>
-              ))}
-            </div>
-          </div>
+          <FilterButton
+            title="Filter results"
+            face="value"
+            className="flex"
+            buttonClassName="h-full"
+            sections={[
+              {
+                title: 'Show',
+                options: FILTERS,
+                value: filter,
+                defaultValue: 'all',
+                onChange: (v) => setFilter(v as Filter),
+              },
+            ]}
+          />
         </div>
-      </StickyBar>
+        </div>
+
+      </div>
 
       {isBrowsing ? (
         <>

@@ -40,6 +40,7 @@ export function FilterButton({
   face = 'icon',
   clearLabel,
   className,
+  buttonClassName,
 }: {
   /** Titles the sheet and names the button for screen readers. */
   title: string
@@ -47,6 +48,8 @@ export function FilterButton({
   face?: 'icon' | 'value'
   clearLabel?: string
   className?: string
+  /** For the button itself, e.g. to match a search box's height. */
+  buttonClassName?: string
 }) {
   const [open, setOpen] = useState(false)
   const chosen = (s: FilterSection) => s.options.find((o) => o.value === s.value) ?? s.options[0]
@@ -84,7 +87,8 @@ export function FilterButton({
           'relative rounded-button border border-line-strong bg-surface-2 text-foreground transition-colors duration-200 ease-soft hover:bg-white/10',
           face === 'icon'
             ? 'grid size-11 place-items-center'
-            : 'inline-flex min-h-11 items-center gap-1.5 pl-3.5 pr-2.5 text-button'
+            : 'inline-flex min-h-11 items-center gap-1.5 pl-3.5 pr-2.5 text-button',
+          buttonClassName
         )}
       >
         {face === 'icon' ? (
