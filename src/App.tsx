@@ -30,6 +30,7 @@ import ProfilePlaylists from '@/pages/ProfilePlaylists'
 import ProfileReviews from '@/pages/ProfileReviews'
 import NowPlaying from '@/pages/NowPlaying'
 import NotFound from '@/pages/NotFound'
+import About from '@/pages/About'
 
 export default function App() {
   return (
@@ -41,6 +42,8 @@ export default function App() {
           <Route path="/signup" element={<SignUp />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
+          {/* Public, signed in or not. */}
+          <Route path="/about" element={<About />} />
 
           <Route element={<RequireAuth />}>
             {/* Setup and tour state for the signed-in user, read once. */}

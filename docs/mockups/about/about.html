@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>About BeatBoxed</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root { --bg:#0D0D12; --panel:#15151C; --line:rgba(255,255,255,.08); --text:#fff; --muted:#B4B4BD; --dim:#A1A1AA; --accent:#8B5CF6; --accent2:#7C3AED; --soft:rgba(139,92,246,.16); }
+  * { box-sizing: border-box; }
+  body { margin: 0; overflow-x: hidden; position: relative; background: var(--bg); color: var(--text); font-family: Inter, system-ui, sans-serif; line-height: 1.55; }
+  a { color: #C4B5FD; }
+  .glow { position: absolute; left: 50%; top: -240px; width: min(900px, 100%); height: 600px; transform: translateX(-50%); background: radial-gradient(closest-side, rgba(124,58,237,.35), rgba(124,58,237,0)); pointer-events: none; }
+  .wrap { position: relative; max-width: 1080px; margin: 0 auto; padding: 0 16px 64px; }
+  header.top { display: flex; align-items: center; justify-content: space-between; padding: 14px 0; }
+  .back { width: 44px; height: 44px; border-radius: 999px; background: rgba(255,255,255,.07); display: grid; place-items: center; color: #fff; text-decoration: none; }
+  .join { height: 40px; padding: 0 16px; border-radius: 999px; background: var(--accent2); color: #fff; font-weight: 700; font-size: 14px; display: flex; align-items: center; text-decoration: none; }
+  .hero { text-align: center; padding: 28px 0 36px; }
+  .eyebrow { font-size: 12px; font-weight: 800; letter-spacing: .12em; color: #C4B5FD; text-transform: uppercase; }
+  .hero h1 { margin: 10px 0 12px; font-size: clamp(34px, 7vw, 56px); letter-spacing: -.03em; line-height: 1.05; }
+  .hero h1 span { background: linear-gradient(90deg, #C4B5FD, #F0ABFC); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .hero p { margin: 0 auto; max-width: 620px; color: var(--muted); font-size: 17px; }
+  section { margin-top: 44px; }
+  h2 { font-size: 24px; letter-spacing: -.02em; margin: 0 0 6px; }
+  .sub { color: var(--muted); margin: 0 0 20px; max-width: 700px; }
+  .pillars { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); gap: 14px; }
+  .pillar { background: var(--panel); border: 1px solid var(--line); border-radius: 20px; padding: 20px; }
+  .pillar .ic { width: 44px; height: 44px; border-radius: 14px; background: var(--soft); display: grid; place-items: center; color: #C4B5FD; margin-bottom: 12px; }
+  .pillar h3 { margin: 0 0 6px; font-size: 17px; }
+  .pillar p { margin: 0; color: var(--muted); font-size: 14.5px; }
+  .story { background: var(--panel); border: 1px solid var(--line); border-radius: 20px; padding: 22px; color: #D4D4D8; font-size: 15.5px; }
+  .story p { margin: 0 0 10px; } .story p:last-child { margin: 0; }
+  .team { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr)); gap: 14px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 22px; padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+  .card.lead { grid-column: 1 / -1; border-color: rgba(139,92,246,.55); background: linear-gradient(180deg, rgba(139,92,246,.10), var(--panel) 60%); }
+  .who { display: flex; align-items: center; gap: 14px; }
+  .rec { width: 68px; height: 68px; border-radius: 999px; flex-shrink: 0; background: repeating-radial-gradient(circle at center, #121216 0 2px, #26262E 2px 4px); display: grid; place-items: center; box-shadow: 0 0 0 2px rgba(255,255,255,.08); }
+  .rec span { width: 34px; height: 34px; border-radius: 999px; display: grid; place-items: center; font-size: 12.5px; font-weight: 800; color: #fff; letter-spacing: .02em; }
+  .card:hover .rec { animation: spin 3s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .card:hover .rec { animation: none; } }
+  .who b { display: block; font-size: 17px; }
+  .role { font-size: 13px; color: #C4B5FD; font-weight: 600; }
+  .badge { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 999px; background: var(--accent2); color: #fff; font-size: 11px; font-weight: 700; vertical-align: 2px; }
+  .card p { margin: 0; color: #D4D4D8; font-size: 14.5px; }
+  .skills { display: flex; flex-wrap: wrap; gap: 6px; }
+  .skills span { padding: 4px 10px; border-radius: 999px; background: rgba(255,255,255,.06); border: 1px solid var(--line); font-size: 12.5px; color: #E4E4E7; }
+  .built { display: flex; flex-wrap: wrap; gap: 8px; }
+  .built span { padding: 7px 12px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); font-size: 13.5px; color: #E4E4E7; }
+  footer { margin-top: 48px; padding-top: 20px; border-top: 1px solid var(--line); color: var(--dim); font-size: 13.5px; display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: space-between; }
+</style>
+</head>
+<body>
+<div class="glow" aria-hidden="true"></div>
+<div class="wrap">
+  <header class="top">
+    <a class="back" href="#" aria-label="Back"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></a>
+    <a class="join" href="#">Join BeatBoxed</a>
+  </header>
+
+  <div class="hero">
+    <div class="eyebrow">About us</div>
+    <h1>Music sounds better<br><span>when you talk about it.</span></h1>
+    <p>BeatBoxed is a community where music lovers rate songs, write reviews, follow people with the same taste, and finally understand the lyrics behind the music.</p>
+  </div>
+
+  <section aria-labelledby="what">
+    <h2 id="what">What is BeatBoxed?</h2>
+    <p class="sub">Not another streaming app. BeatBoxed is the place you go after the song ends, to share what it made you feel.</p>
+    <div class="pillars">
+      <div class="pillar"><div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/></svg></div><h3>Rate and review</h3><p>Give any song one to five stars, write what you think, and see how the community feels about it.</p></div>
+      <div class="pillar"><div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M21.5 20a6.5 6.5 0 0 0-4-6"/></svg></div><h3>Discover together</h3><p>Follow friends and people with your taste, find what's trending, and rate the Song of the Week with everyone.</p></div>
+      <div class="pillar"><div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/><path d="M9 10h6M9 14h4"/></svg></div><h3>Understand the lyrics</h3><p>Ask Beatie, our AI assistant, to explain a line, translate a song, or tell you what it's really about.</p></div>
+    </div>
+  </section>
+
+  <section aria-labelledby="why">
+    <h2 id="why">Why we built it</h2>
+    <div class="story">
+      <p>We kept running into the same problem: streaming apps are great for listening, but there's nowhere good to talk about music. Reviews are scattered, lyrics in other languages are hard to follow, and finding people with your taste is mostly luck.</p>
+      <p>So we built the app we wanted: a home for honest reviews, real conversations about songs, and lyrics anyone can understand, in English, Arabic and beyond.</p>
+    </div>
+  </section>
+
+  <section aria-labelledby="team">
+    <h2 id="team">Meet the team</h2>
+    <p class="sub">Seven students from the College of Computer Science and Information Technology at Imam Abdulrahman Bin Faisal University, who designed, built and tested BeatBoxed together as our Software Engineering (CSC 305) project.</p>
+    <div class="team">
+      <article class="card lead">
+        <div class="who"><div class="rec"><span style="background:#7C3AED">AA</span></div><div><b>Abrar Saeed Almhari <span class="badge">Team lead</span></b><span class="role">Project Manager &amp; Developer</span></div></div>
+        <p>Keeps the whole project moving: planning, the database, connecting everyone's work and getting it live, and reviewing every change before it ships. Also built playlists and the artist and album pages.</p>
+        <div class="skills"><span>Project management</span><span>Database design</span><span>React &amp; TypeScript</span><span>Supabase</span><span>Deployment</span></div>
+      </article>
+      <article class="card">
+        <div class="who"><div class="rec"><span style="background:#DB2777">AE</span></div><div><b>Aseel Ehab Alashqar</b><span class="role">Developer · Accounts &amp; Reviews</span></div></div>
+        <p>Built the heart of BeatBoxed: sign-up and log-in, ratings and reviews, comments and likes, and the onboarding that welcomes new members.</p>
+        <div class="skills"><span>Authentication</span><span>Reviews system</span><span>Onboarding</span><span>UX flows</span></div>
+      </article>
+      <article class="card">
+        <div class="who"><div class="rec"><span style="background:#0891B2">AA</span></div><div><b>Aseel Atif Aljazzar</b><span class="role">Developer · Profiles &amp; Social</span></div></div>
+        <p>Made BeatBoxed social: profiles, following, private accounts and follow requests, and the Stats charts that show your music taste.</p>
+        <div class="skills"><span>Profiles</span><span>Social features</span><span>Data visualisation</span><span>Privacy</span></div>
+      </article>
+      <article class="card">
+        <div class="who"><div class="rec"><span style="background:#CA8A04">SA</span></div><div><b>Saja Saad Almajid</b><span class="role">Developer · Explore &amp; Settings</span></div></div>
+        <p>Built Explore and search across songs, artists, people and lyrics, the Trending lists, and the Settings and privacy controls.</p>
+        <div class="skills"><span>Search</span><span>Trending</span><span>Settings &amp; privacy</span><span>Filtering</span></div>
+      </article>
+      <article class="card">
+        <div class="who"><div class="rec"><span style="background:#059669">RA</span></div><div><b>Retaj Hadi Al Mebti</b><span class="role">Developer · Song Page &amp; Beatie</span></div></div>
+        <p>Built the song page and lyrics, and brought Beatie to life: explaining lines, translating songs and chatting about the music.</p>
+        <div class="skills"><span>AI integration</span><span>Lyrics</span><span>APIs</span><span>Prompt design</span></div>
+      </article>
+      <article class="card">
+        <div class="who"><div class="rec"><span style="background:#EA580C">FA</span></div><div><b>Fatimah Fadil Aldubibi</b><span class="role">Developer · Home &amp; Player</span></div></div>
+        <p>Built the Home feed with For You and Following, the music player and song previews, and the Library where your music lives.</p>
+        <div class="skills"><span>Home feed</span><span>Music player</span><span>Library</span><span>Frontend</span></div>
+      </article>
+      <article class="card">
+        <div class="who"><div class="rec"><span style="background:#4F46E5">GA</span></div><div><b>Ghadah Yahya Alzahrani</b><span class="role">Developer · Design &amp; Notifications</span></div></div>
+        <p>Designed the BeatBoxed logo, keeps every screen looking like one app, and built notifications so you never miss a reply or a new follower.</p>
+        <div class="skills"><span>Logo &amp; branding</span><span>Design system</span><span>UI design</span><span>Notifications</span></div>
+      </article>
+    </div>
+  </section>
+
+  <section aria-labelledby="built">
+    <h2 id="built">Built with</h2>
+    <div class="built"><span>React</span><span>TypeScript</span><span>Tailwind CSS</span><span>Supabase</span><span>PostgreSQL</span><span>Vercel</span><span>Spotify Web API</span><span>lrclib</span><span>Groq</span><span>Playwright</span></div>
+  </section>
+
+  <footer>
+    <span>BeatBoxed · CSC 305 Software Engineering · Imam Abdulrahman Bin Faisal University · 2026</span>
+    <span>Made with love for music.</span>
+  </footer>
+</div>
+</body>
+</html>

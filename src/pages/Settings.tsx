@@ -245,6 +245,19 @@ export default function Settings() {
         </div>
       </Section>
 
+      <Section title="BeatBoxed">
+        <Link
+          to="/about"
+          className="flex min-h-14 items-center gap-3 py-1 transition-colors duration-200 ease-soft hover:text-accent"
+        >
+          <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+            <span className="text-body text-foreground">About BeatBoxed</span>
+            <span className="text-meta text-muted-foreground">What BeatBoxed is and the team who built it.</span>
+          </span>
+          <ChevronRight className="size-4 shrink-0 text-muted-foreground" strokeWidth={2} aria-hidden />
+        </Link>
+      </Section>
+
       <Section title="Account">
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-0.5">

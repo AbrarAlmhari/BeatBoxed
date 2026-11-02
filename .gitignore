@@ -18,3 +18,6 @@ blob-report/
 # Local, personal tool settings and notes (never committed)
 .claude/settings.local.json
 CLAUDE.md
+
+# Uncropped team photos, kept locally
+public/team/originals/
