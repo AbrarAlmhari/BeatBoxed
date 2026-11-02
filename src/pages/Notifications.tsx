@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ChevronRight, Heart, Users } from 'lucide-react'
-import { Chip } from '@/components/ui/Chip'
+import { Check, CheckCheck, ChevronRight, Heart, SlidersHorizontal, Users } from 'lucide-react'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { SkeletonList } from '@/components/ui/Skeleton'
 import {
@@ -25,7 +24,7 @@ import {
 import { setCommentLike } from '@/lib/conversations'
 import { cn } from '@/lib/cn'
 import type { NotificationCenter, UpdateItem } from '@/lib/types'
-import { ScrollRow } from '@/components/ui/ScrollRow'
+import { Sheet } from '@/components/ui/Sheet'
 
 type Filter = 'all' | NotificationCategory
 
@@ -70,6 +69,7 @@ export default function Notifications() {
   const [ctx, setCtx] = useState<RenderContext>(EMPTY_CTX)
   const [counts, setCounts] = useState<Record<string, number>>({})
   const [filter, setFilter] = useState<Filter>('all')
+  const [choosing, setChoosing] = useState(false)
 
   const load = useCallback(async () => {
     if (!user) return
@@ -221,49 +221,106 @@ export default function Notifications() {
     ] as [string, Display[]][]
   ).filter(([, items]) => items.length > 0)
 
-  const emptyText = FILTERS.find((f) => f.value === filter)?.empty ?? ''
+  const current = FILTERS.find((f) => f.value === filter) ?? FILTERS[0]
+  const emptyText = current.empty
+
+  function choose(next: Filter) {
+    setFilter(next)
+    setChoosing(false)
+  }
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-5 pt-2">
       <div className="flex items-center gap-2">
-        <h1 className="flex-1 text-page-title">Notifications</h1>
+        <div className="flex min-w-0 flex-1 flex-col">
+          <h1 className="text-page-title">Notifications</h1>
+          {filter !== 'all' && (
+            <p data-filter-note className="text-secondary text-muted-foreground">
+              Showing: <span className="text-foreground">{current.label}</span>
+            </p>
+          )}
+        </div>
+        {/* Just the icon on the narrowest phones, so the title keeps its line. */}
         {hasUnread && (
           <button
             type="button"
             onClick={() => void handleMarkAll()}
-            className="min-h-11 shrink-0 rounded-chip bg-surface-2 px-4 text-button text-muted-foreground transition-colors duration-200 ease-soft hover:text-foreground"
+            className="grid min-h-11 min-w-11 shrink-0 place-items-center rounded-chip bg-surface-2 text-button text-muted-foreground transition-colors duration-200 ease-soft hover:text-foreground min-[400px]:px-4"
           >
-            Mark all read
+            <CheckCheck className="size-5 min-[400px]:hidden" strokeWidth={2} aria-hidden />
+            <span className="sr-only min-[400px]:not-sr-only">Mark all read</span>
           </button>
         )}
-      </div>
-
-      <ScrollRow
-        as="div"
-        size="sm"
-        className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0"
-        role="group"
-        aria-label="Filter notifications"
-      >
-        {FILTERS.map((f) => {
-          const n = chipCount(f.value)
-          return (
-            <Chip key={f.value} solid active={filter === f.value} onClick={() => setFilter(f.value)}>
-              <span className="flex items-center gap-2">
-                {f.label}
-                {n > 0 && (
-                  <span
-                    aria-label={`${n} unread`}
-                    className="grid min-w-6 place-items-center rounded-full bg-primary px-1.5 py-0.5 text-meta font-semibold leading-none text-white"
+        {/* The filters: a bottom sheet on phones, a menu under the button on
+            a computer. Seven of them don't fit a phone's width as chips. */}
+        <div className="relative shrink-0">
+          <button
+            type="button"
+            onClick={() => setChoosing((v) => !v)}
+            aria-label={filter === 'all' ? 'Filter notifications' : `Filter notifications, showing ${current.label}`}
+            aria-haspopup="dialog"
+            aria-expanded={choosing}
+            className="relative grid size-11 place-items-center rounded-button border border-line-strong bg-surface-2 text-foreground transition-colors duration-200 ease-soft hover:bg-white/10"
+          >
+            <SlidersHorizontal className="size-5" strokeWidth={2} aria-hidden />
+            {filter !== 'all' && (
+              <span
+                data-filter-dot
+                aria-hidden
+                className="absolute right-2 top-2 size-2.5 rounded-full bg-primary ring-2 ring-surface-2"
+              />
+            )}
+          </button>
+          <Sheet open={choosing} onClose={() => setChoosing(false)} title="Filter notifications" className="sm:max-h-[calc(100dvh-16px)] sm:w-64">
+            <div role="radiogroup" aria-label="Show" className="flex flex-col gap-1">
+              {FILTERS.map((f) => {
+                const n = chipCount(f.value)
+                const on = f.value === filter
+                return (
+                  <button
+                    key={f.value}
+                    type="button"
+                    role="radio"
+                    aria-checked={on}
+                    onClick={() => choose(f.value)}
+                    className={cn(
+                      'flex min-h-11 w-full items-center gap-3 rounded-button px-3 text-left text-body transition-colors duration-200 ease-soft',
+                      on ? 'bg-primary/15 text-foreground' : 'text-foreground/90 hover:bg-white/5'
+                    )}
                   >
-                    {n}
-                  </span>
-                )}
-              </span>
-            </Chip>
-          )
-        })}
-      </ScrollRow>
+                    <span className="flex-1">{f.label}</span>
+                    {n > 0 && (
+                      <span
+                        aria-label={`${n} unread`}
+                        className="grid min-w-6 place-items-center rounded-full bg-primary px-1.5 py-0.5 text-meta font-semibold leading-none text-white"
+                      >
+                        {n}
+                      </span>
+                    )}
+                    <Check
+                      className={cn('size-4 shrink-0 text-accent', !on && 'invisible')}
+                      strokeWidth={2.25}
+                      aria-hidden
+                    />
+                  </button>
+                )
+              })}
+            </div>
+            {filter !== 'all' && (
+              <>
+                <span aria-hidden className="mx-3 my-1 h-px bg-line" />
+                <button
+                  type="button"
+                  onClick={() => choose('all')}
+                  className="flex min-h-11 w-full items-center rounded-button px-3 text-left text-button text-accent transition-colors duration-200 ease-soft hover:bg-white/5"
+                >
+                  Clear filter
+                </button>
+              </>
+            )}
+          </Sheet>
+        </div>
+      </div>
 
       {requests.length > 0 && (filter === 'all' || filter === 'follows') && (
         <Link

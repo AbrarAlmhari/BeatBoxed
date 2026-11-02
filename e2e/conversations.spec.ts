@@ -16,6 +16,8 @@ import {
   setPrivate,
   tokenFor,
   type PlayableSong,
+  filterNotifications,
+  notificationFilters,
 } from './helpers'
 
 /**
@@ -276,12 +278,14 @@ test('notifications: badges, quote, filters with counts, an empty filter, and Re
   await expect(likes).toHaveCount(1)
   await expect(likes).toContainText('and 1 other liked your comment')
 
-  await expect(page.getByRole('button', { name: /^Mentions/ })).toContainText('1')
-  await page.getByRole('button', { name: /^Likes/ }).click()
+  await page.getByRole('button', { name: /^Filter notifications/ }).click()
+  await expect(notificationFilters(page).getByRole('radio', { name: /^Mentions/ })).toContainText('1')
+  await page.keyboard.press('Escape')
+  await filterNotifications(page, 'Likes')
   await expect(page.locator('li[data-notification-type]')).toHaveCount(1)
-  await page.getByRole('button', { name: /^Artists/ }).click()
+  await filterNotifications(page, 'Artists')
   await expect(page.getByText('No artists yet')).toBeVisible()
-  await page.getByRole('button', { name: /^All/ }).click()
+  await filterNotifications(page, 'All')
 
   // Like right from the notification.
   await replyRow.getByRole('button', { name: 'Like this comment' }).click()

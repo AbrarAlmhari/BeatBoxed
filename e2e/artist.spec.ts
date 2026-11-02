@@ -16,6 +16,7 @@ import {
   stubPreviewAudio,
   waitForPlaying,
   type SeededArtist,
+  filterNotifications,
 } from './helpers'
 
 /**
@@ -195,10 +196,10 @@ test.describe('artist and album pages', () => {
       (await notificationsOf(other.id)).filter((n) => n.type === 'artist_release')
     ).toHaveLength(0)
 
-    // It renders under the Artists chip and opens the album.
+    // It renders under the Artists filter and opens the album.
     await login(page, user.email)
     await page.goto('/notifications')
-    await page.getByRole('button', { name: 'Artists' }).click()
+    await filterNotifications(page, 'Artists')
     await expect(page.getByText(`New release from ${seeded.name}`)).toBeVisible()
 
     // Only one per user per album, however many times the sync runs.
