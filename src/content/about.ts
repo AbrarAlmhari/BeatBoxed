@@ -128,7 +128,7 @@ export const ABOUT = {
         skills: ['Home feed', 'Music player', 'Library', 'Frontend'],
       },
       {
-        name: 'Ghadah Yahay Alzahrani',
+        name: 'Ghadah Yahya Alzahrani',
         photo: '/team/ghadah.jpg',
         initials: 'GA',
         color: '#4F46E5',
