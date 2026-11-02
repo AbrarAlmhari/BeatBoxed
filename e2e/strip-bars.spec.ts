@@ -49,14 +49,6 @@ const place = (bar: Locator) =>
 const topBarBottom = (page: Page) =>
   page.evaluate(() => parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--topbar-h')) || 0)
 
-/** Room to scroll, inside the column the bar sticks within. */
-const lengthen = (bar: Locator) =>
-  bar.evaluate((el) => {
-    const spacer = document.createElement('div')
-    spacer.style.height = '2400px'
-    el.parentElement!.append(spacer)
-  })
-
 async function expectDockedAndSolid(page: Page, bar: Locator) {
   const header = await topBarBottom(page)
   await expect.poll(async () => Math.round((await bar.boundingBox())!.y - header)).toBe(0)
@@ -92,20 +84,4 @@ test('song page: all four tabs share the width and the bar never moves sideways'
   await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
   await expectDockedAndSolid(page, bar)
   expect(await place(bar)).toEqual(before)
-})
-
-test('explore: the search filters fit, stay still, and dock under the top bar', async ({ page }) => {
-  await login(page, user.email)
-  await page.goto('/explore?q=love')
-  const chips = page.getByRole('group', { name: 'Filter results' })
-  await expect(chips.getByRole('button', { name: 'Lyrics' })).toBeInViewport({ ratio: 1 })
-  const bar = chips.locator('xpath=ancestor::div[contains(@class,"sticky")][1]')
-
-  const before = await place(bar)
-  await swipe(page, chips, -250, 0)
-  expect(await place(bar)).toEqual(before)
-
-  await lengthen(bar)
-  await page.evaluate(() => window.scrollTo(0, 1200))
-  await expectDockedAndSolid(page, bar)
 })

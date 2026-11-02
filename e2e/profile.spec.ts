@@ -9,6 +9,8 @@ import {
   makeFollow,
   setPrivate,
   type PlayableSong,
+  chooseFilter,
+  filterSheet,
 } from './helpers'
 
 /**
@@ -102,10 +104,12 @@ test.describe('profile', () => {
     // 2 ratings, 1 of them written.
     await expect(page.getByRole('tab', { name: /^Reviews\s*2$/ })).toBeVisible()
     await tab(page, 'Reviews').click()
-    const chips = page.getByRole('group', { name: 'Show' })
-    await expect(chips.getByRole('button', { name: /^All\s*2$/ })).toBeVisible()
-    await expect(chips.getByRole('button', { name: /^Written\s*1$/ })).toBeVisible()
-    await expect(chips.getByRole('button', { name: /^Ratings only\s*1$/ })).toBeVisible()
+    await page.getByRole('button', { name: /^Filter reviews/ }).click()
+    const show = filterSheet(page, 'Filter reviews').getByRole('radiogroup', { name: 'Show' })
+    await expect(show.getByRole('radio', { name: /^All\s*2$/ })).toBeVisible()
+    await expect(show.getByRole('radio', { name: /^Written\s*1$/ })).toBeVisible()
+    await expect(show.getByRole('radio', { name: /^Ratings only\s*1$/ })).toBeVisible()
+    await page.keyboard.press('Escape')
   })
 
   test('Reviews: written ones are cards, ratings-only ones are compact rows, and the filters work', async ({
@@ -123,18 +127,17 @@ test.describe('profile', () => {
     // Covers carry alt text.
     await expect(row.getByRole('img', { name: `Cover of ${songs[1].title}` })).toBeVisible()
 
-    await page.getByRole('button', { name: 'Written' }).click()
+    await chooseFilter(page, 'Filter reviews', 'Written', 'Show')
     await expect(panel.getByText(WRITTEN)).toBeVisible()
     await expect(row).toHaveCount(0)
 
-    await page.getByRole('button', { name: 'Ratings only' }).click()
+    await chooseFilter(page, 'Filter reviews', 'Ratings only', 'Show')
     await expect(panel.getByText(WRITTEN)).toHaveCount(0)
     await expect(row).toBeVisible()
 
     // Sort: highest rated puts the 5-star review first.
-    await page.getByRole('button', { name: /^All\s*\d+$/ }).click()
-    await page.getByRole('button', { name: /^Sort:/ }).click()
-    await page.getByRole('button', { name: 'Highest rated' }).click()
+    await chooseFilter(page, 'Filter reviews', 'All', 'Show')
+    await chooseFilter(page, 'Filter reviews', 'Highest rated', 'Sort by')
     await expect(panel.locator('li').first()).toContainText(songs[0].title)
   })
 
@@ -149,8 +152,8 @@ test.describe('profile', () => {
       await new Promise((r) => setTimeout(r, 1500))
       await route.continue()
     })
-    await page.getByRole('button', { name: 'Written' }).click()
-    await page.getByRole('button', { name: 'Ratings only' }).click()
+    await chooseFilter(page, 'Filter reviews', 'Written', 'Show')
+    await chooseFilter(page, 'Filter reviews', 'Ratings only', 'Show')
 
     const row = panel.locator(`a[href*="/song/${songs[1].id}?review="]`)
     await expect(row).toBeVisible()
