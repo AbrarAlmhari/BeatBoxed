@@ -1,13 +1,15 @@
 import { supabase } from './supabase'
 import { REVIEW_SELECT, toReviewModel, type ReviewRow } from './catalog'
+import { readSeenReviews } from './seenReviews'
 import type { PersonCardModel, ReviewWithAuthor, SongCardModel } from './types'
 
 /**
  * Home's review feed: For You and Following.
  *
  * Which reviews, in what order, and who may see them are all decided in the
- * database (0028's feed_for_you / feed_following, under the reviews RLS
- * policy). This file pages through those ids and turns them into cards.
+ * database (0055's feed_for_you_mixed / 0028's feed_following, under the
+ * reviews RLS policy). This file pages through those ids and turns them into
+ * cards.
  */
 
 /**
@@ -35,13 +37,24 @@ export type FeedReview = ReviewWithAuthor & {
 }
 
 /**
- * Where the next page starts. For You pages by score with the time fixed at
- * the first load (so scores don't drift between pages); Following pages by
- * date. Both carry the id as a tiebreak.
+ * Where the next page starts. For You pages by score; the first load fixes
+ * the time, a random seed for the small shuffle and this device's seen list,
+ * and every later page sends the same three, so scores don't change between
+ * pages and nothing repeats or goes missing. A new load (a refresh) starts a
+ * new session. Following pages by date. Both carry the id as a tiebreak.
  */
 export type FeedCursor =
-  | { tab: 'for-you'; asOf: string; score: number; id: string }
+  | { tab: 'for-you'; asOf: string; seed: number; seen: string[]; score: number; id: string }
   | { tab: 'following'; at: string; id: string }
+
+/** A whole number Postgres's int holds (0 to 2^31 - 1). */
+function newSeed() {
+  try {
+    return crypto.getRandomValues(new Uint32Array(1))[0] >>> 1
+  } catch {
+    return Math.floor(Math.random() * 2 ** 31)
+  }
+}
 
 export type FeedPage = { items: FeedReview[]; next: FeedCursor | null }
 
@@ -155,9 +168,13 @@ export async function getFeedPage(
   const after = cursor?.tab === 'for-you' ? cursor : null
   // Fixed at the first page and carried through every later one.
   const asOf = after?.asOf ?? new Date().toISOString()
-  const { data, error } = await c.rpc('feed_for_you', {
+  const seed = after?.seed ?? newSeed()
+  const seen = after?.seen ?? readSeenReviews(viewerId)
+  const { data, error } = await c.rpc('feed_for_you_mixed', {
     min_chars: FEED_MIN_BODY_CHARS,
     as_of: asOf,
+    seed,
+    seen_ids: seen,
     after_score: after?.score ?? null,
     after_id: after?.id ?? null,
     page_size: FEED_PAGE_SIZE,
@@ -169,7 +186,7 @@ export async function getFeedPage(
     items: await hydrate(rows.map((r) => r.review_id), viewerId),
     next:
       rows.length === FEED_PAGE_SIZE && last
-        ? { tab: 'for-you', asOf, score: last.score, id: last.review_id }
+        ? { tab: 'for-you', asOf, seed, seen, score: last.score, id: last.review_id }
         : null,
   }
 }

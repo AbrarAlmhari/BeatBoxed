@@ -32,6 +32,7 @@ import {
   feedLength,
 } from '@/lib/feed'
 import { cn } from '@/lib/cn'
+import { markReviewsSeen } from '@/lib/seenReviews'
 
 /**
  * Home is the review feed: what people are saying about music, not a place
@@ -271,6 +272,39 @@ export default function Home() {
     return () => io.disconnect()
   }, [current.next, current.moreError, loadMore])
 
+  // For You: cards scrolled up past the top of the screen are noted (on this
+  // device only) so the next visit sinks them a little. One observer for the
+  // tab, no scroll handler; cards are added to it as pages load (re-creating
+  // it would drop what it hadn't reported yet), and notes are saved in
+  // batches.
+  const list = useRef<HTMLElement>(null)
+  const seenObserver = useRef<IntersectionObserver | null>(null)
+  useEffect(() => {
+    if (!user || tab !== 'for-you' || typeof IntersectionObserver === 'undefined') return
+    const io = new IntersectionObserver((entries) => {
+      const passed: string[] = []
+      for (const e of entries) {
+        if (e.isIntersecting || e.boundingClientRect.bottom > (e.rootBounds?.top ?? 0)) continue
+        const id = (e.target as HTMLElement).dataset.feedReview
+        if (id) passed.push(id)
+        io.unobserve(e.target)
+      }
+      markReviewsSeen(user.id, passed)
+    })
+    seenObserver.current = io
+    return () => {
+      io.disconnect()
+      seenObserver.current = null
+    }
+  }, [user, tab])
+  useEffect(() => {
+    const io = seenObserver.current
+    const root = list.current
+    if (!io || !root) return
+    // Observing a card twice is a no-op, so new pages just add theirs.
+    for (const el of root.querySelectorAll('[data-feed-review]')) io.observe(el)
+  }, [user, tab, current.items.length])
+
   // The tab you're on: back to the top. The other one: opens at the top
   // of the page (song of the week and check-in in view).
   function setTab(next: FeedTab) {
@@ -406,6 +440,7 @@ export default function Home() {
         // Busy until the first load has answered, including the render
         // before it starts, so nothing reads an empty tab as "no reviews".
         aria-busy={current.status === 'idle' || current.status === 'loading'}
+        ref={list}
         className="flex flex-col gap-4"
       >
         {current.status === 'error' ? (
@@ -434,7 +469,12 @@ export default function Home() {
           <>
             {visible.map((r, i) => (
               // The first card is the tour's "This is your feed".
-              <div key={r.id} data-tour={i === 0 ? 'feed-review' : undefined} data-feed-index={i}>
+              <div
+                key={r.id}
+                data-tour={i === 0 ? 'feed-review' : undefined}
+                data-feed-index={i}
+                data-feed-review={r.id}
+              >
                 <FeedCard review={r} highlight={r.id === highlightId} onDeleted={handleDeleted} />
               </div>
             ))}
