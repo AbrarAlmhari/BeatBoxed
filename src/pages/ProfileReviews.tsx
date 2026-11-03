@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { Chip } from '@/components/ui/Chip'
+import { FilterButton } from '@/components/ui/FilterButton'
 import { ProfileReviewCard } from '@/components/profile/ProfileReviewCard'
 import { ListPageShell } from '@/components/profile/ListPageShell'
 import { useAuth } from '@/lib/auth'
@@ -79,16 +79,20 @@ export default function ProfileReviews() {
       title={isOwn ? 'Your reviews' : `${name ?? 'Listener'}'s reviews`}
       toolbar={
         <StickyBar className="-my-2 py-2">
-          <div
-            role="group"
-            aria-label="Sort reviews"
-            className={cn(STILL, 'flex flex-wrap gap-2 px-4 sm:px-6 lg:px-8')}
-          >
-            {SORTS.map((s) => (
-              <Chip key={s.value} active={sort === s.value} onClick={() => setSort(s.value)}>
-                {s.label}
-              </Chip>
-            ))}
+          <div className={cn(STILL, 'flex px-4 sm:px-6 lg:px-8')}>
+            <FilterButton
+              title="Sort reviews"
+              face="value"
+              sections={[
+                {
+                  title: 'Sort by',
+                  options: SORTS,
+                  value: sort,
+                  defaultValue: 'newest',
+                  onChange: (v) => setSort(v as ReviewSort),
+                },
+              ]}
+            />
           </div>
         </StickyBar>
       }

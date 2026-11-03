@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { Lock, Plus } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
-import { Chip } from '@/components/ui/Chip'
+import { FilterButton } from '@/components/ui/FilterButton'
 import { PlaylistGrid } from '@/components/playlist/PlaylistGrid'
 import { PlaylistForm } from '@/components/playlist/PlaylistForm'
 import { ListPageShell, FilterBox } from '@/components/profile/ListPageShell'
@@ -21,7 +21,7 @@ import { cn } from '@/lib/cn'
 const PAGE = 30
 
 const SORTS: { value: PlaylistSort; label: string }[] = [
-  { value: 'recent', label: 'Recently updated' },
+  { value: 'recent', label: 'Newest' },
   { value: 'az', label: 'A–Z' },
   { value: 'songs', label: 'Most songs' },
 ]
@@ -158,24 +158,24 @@ export default function ProfilePlaylists() {
               </button>
             ))}
 
-          {/* Straight in the page's column (not a wrapper) so the sort row
+          {/* Straight in the page's column (not a wrapper) so the sort button
               can stay under the top bar the whole way down; the negative
               margins keep the toolbar's tighter spacing. */}
           <StickyBar className={cn('-my-2 py-2', isOwn && '-mt-5')}>
-            <div
-              role="group"
-              aria-label="Sort playlists"
-              className={cn(STILL, 'flex flex-wrap gap-2 px-4 sm:px-6 lg:px-8')}
-            >
-              {SORTS.map((s) => (
-                <Chip
-                  key={s.value}
-                  active={sort === s.value}
-                  onClick={() => setSort(s.value)}
-                >
-                  {s.label}
-                </Chip>
-              ))}
+            <div className={cn(STILL, 'flex px-4 sm:px-6 lg:px-8')}>
+              <FilterButton
+                title="Sort playlists"
+                face="value"
+                sections={[
+                  {
+                    title: 'Sort by',
+                    options: SORTS,
+                    value: sort,
+                    defaultValue: 'recent',
+                    onChange: (v) => setSort(v as PlaylistSort),
+                  },
+                ]}
+              />
             </div>
           </StickyBar>
 
