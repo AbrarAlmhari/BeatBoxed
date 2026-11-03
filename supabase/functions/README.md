@@ -8,7 +8,7 @@ beatie reads personality.md at startup; supabase/config.toml lists it under stat
 | --- | --- | --- |
 | `GROQ_API_KEY` | beatie | Groq API key. |
 | `GROQ_MODEL` | beatie | Beatie's model. Default `openai/gpt-oss-120b`. |
-| `GROQ_FALLBACK_MODEL` | beatie | Tried once when the main model is busy (overloaded, rate limited, down or too slow) and there's time left; it counts against the daily cap. Default `qwen/qwen3.8-27b`. |
+| `GROQ_FALLBACK_MODEL` | beatie | Tried once when the main model is busy (overloaded, rate limited, down or too slow) or gone (unknown or retired) and there's time left; it counts against the daily cap. Default `qwen/qwen3.8-27b`. |
 | `VIBES_GROQ_MODEL` | song-vibes | The labelling model. Default `openai/gpt-oss-20b`. No backup. |
 
 The model secrets are read on every request, so changing one with `supabase secrets set` takes effect without a redeploy. `GEMINI_API_KEY` and `GEMINI_MODEL` are no longer read by anything (beatie/provider.ts is kept but unused).

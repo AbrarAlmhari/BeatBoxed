@@ -6,9 +6,15 @@
  * it is: song-vibes still uses it, with Gemini, and nothing here touches it
  * beyond borrowing its types.
  */
-import type { CallInfo, ChatMessage, GenerateOptions as BaseOptions, GenerateResult } from './provider.ts'
+import type { CallInfo, ChatMessage, GenerateOptions as BaseOptions, GenerateResult as BaseResult } from './provider.ts'
 
-export type { CallInfo, ChatMessage, GenerateResult }
+export type { CallInfo, ChatMessage }
+
+/**
+ * provider.ts's result, plus `modelGone` on a failure: Groq says the model
+ * doesn't exist or has been retired, so the backup is worth a try.
+ */
+export type GenerateResult = BaseResult & { modelGone?: boolean }
 
 /**
  * provider.ts's options, plus `model`: a caller can pick its own model
@@ -24,7 +30,7 @@ const KEY_SECRET = 'GROQ_API_KEY'
 /**
  * The models come from secrets, read per request, so they can be changed
  * with `supabase secrets set` and no redeploy. The backup is tried once
- * when the primary is busy (index.ts decides when).
+ * when the primary is busy or Groq says it's gone (index.ts decides when).
  */
 const MODEL_SECRET = 'GROQ_MODEL'
 const FALLBACK_MODEL_SECRET = 'GROQ_FALLBACK_MODEL'
@@ -94,6 +100,19 @@ function readRateLimits(res: Response, model: string) {
 
 const isGptOss = (model: string) => model.startsWith('openai/gpt-oss')
 const isQwen = (model: string) => model.startsWith('qwen/')
+
+/**
+ * Groq's answer when the model name is unknown (404, model_not_found) or
+ * the model has been retired (400, model_decommissioned).
+ */
+function isModelGone(status: number, body: string) {
+  return status === 404 || /model_not_found|decommissioned/i.test(body)
+}
+
+/** Whether the backup model is worth a try after this result. */
+export function backupWorthTrying(result: GenerateResult) {
+  return !result.ok && (result.reason === 'busy' || result.modelGone === true)
+}
 
 /** True when the service stopped because it ran out of room. */
 export function wasCutOff(info: CallInfo) {
@@ -191,9 +210,11 @@ export async function generate(
       return { ok: false, reason: 'busy', detail: `HTTP ${res.status}`, info: info() }
     }
     if (!res.ok || !res.body) {
-      const detail = `HTTP ${res.status}: ${(await res.text()).slice(0, 300)}`
+      const text = res.ok ? '' : await res.text()
+      const detail = `HTTP ${res.status}: ${text.slice(0, 300)}`
       console.error(`[beatie] groq ${label}: model=${model} ${detail}`)
-      return { ok: false, reason: 'error', detail, info: info() }
+      const modelGone = !res.ok && isModelGone(res.status, text)
+      return { ok: false, reason: 'error', detail, info: info(), ...(modelGone ? { modelGone } : {}) }
     }
 
     // Server-sent events: each "data: {...}" line is a piece of the answer;

@@ -1,6 +1,7 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { corsHeaders, json } from '../_shared/cors.ts'
 import {
+  backupWorthTrying,
   currentModel,
   fallbackModel,
   generate,
@@ -380,9 +381,10 @@ async function takeQuota(userId: string | null): Promise<Code | null> {
 
 /**
  * One call to the primary model, and when it's busy (down, overloaded,
- * rate limiting or too slow) one call to the backup model, if at least
- * MIN_RETRY_MS of the budget is left. The backup is a real extra call, so
- * it takes from today's app-wide cap first, as the retries do.
+ * rate limiting or too slow) or gone (Groq doesn't know it or has retired
+ * it), one call to the backup model, if at least MIN_RETRY_MS of the
+ * budget is left. The backup is a real extra call, so it takes from
+ * today's app-wide cap first, as the retries do.
  */
 async function generateWithBackup(
   system: string,
@@ -391,7 +393,7 @@ async function generateWithBackup(
   deadline: number
 ): Promise<GenerateResult | { ok: false; reason: Code; detail: string }> {
   const first = await generate(system, messages, options)
-  if (first.ok || first.reason !== 'busy') return first
+  if (!backupWorthTrying(first)) return first
   const backup = fallbackModel()
   if (backup === currentModel()) return first
   if (deadline - Date.now() < MIN_RETRY_MS) {
@@ -400,7 +402,8 @@ async function generateWithBackup(
   }
   const capped = await takeQuota(null)
   if (capped) return { ok: false, reason: capped, detail: 'quota' }
-  console.warn(`[beatie] primary model busy; trying ${backup} (${options.label ?? 'call'})`)
+  const why = !first.ok && first.modelGone ? 'not found or retired' : 'busy'
+  console.warn(`[beatie] primary model ${why}; trying ${backup} (${options.label ?? 'call'})`)
   return generate(system, messages, {
     ...options,
     model: backup,
