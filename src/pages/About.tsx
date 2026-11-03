@@ -1,8 +1,9 @@
-import { useEffect, useState, type CSSProperties } from 'react'
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { ArrowLeft, MessageCircle, Star, Users, type LucideIcon } from 'lucide-react'
 import { ABOUT, type AboutIcon, type TeamMember } from '@/content/about'
 import { useAuth } from '@/lib/auth'
+import { pauseAppPlayer } from '@/lib/player'
 import { cardClass } from '@/components/ui/Card'
 import { PageGlow } from '@/components/ui/PageGlow'
 import { cn } from '@/lib/cn'
@@ -39,6 +40,69 @@ function usePageMeta(title: string, description: string) {
   }, [title, description])
 }
 
+/**
+ * The team's songs: one preview at a time, on its own audio element. Tapping
+ * the one playing stops it; tapping another switches. It stops when the
+ * preview ends or the page is left. A link that won't play changes nothing
+ * on screen, since a record only counts as playing once its audio starts.
+ */
+function useTeamSongs() {
+  const audio = useRef<HTMLAudioElement | null>(null)
+  const wanted = useRef<string | null>(null)
+  const [playing, setPlaying] = useState<string | null>(null)
+
+  useEffect(() => {
+    const a = new Audio()
+    a.preload = 'none'
+    audio.current = a
+    const onPlaying = () => setPlaying(wanted.current)
+    const onEnded = () => {
+      wanted.current = null
+      setPlaying(null)
+    }
+    const onError = () => {
+      onEnded()
+      a.pause()
+    }
+    a.addEventListener('playing', onPlaying)
+    a.addEventListener('ended', onEnded)
+    a.addEventListener('error', onError)
+    return () => {
+      a.removeEventListener('playing', onPlaying)
+      a.removeEventListener('ended', onEnded)
+      a.removeEventListener('error', onError)
+      a.pause()
+      a.removeAttribute('src')
+      a.load()
+      audio.current = null
+    }
+  }, [])
+
+  const toggle = useCallback((member: TeamMember) => {
+    const a = audio.current
+    if (!a || !member.song) return
+    if (wanted.current === member.name) {
+      wanted.current = null
+      a.pause()
+      setPlaying(null)
+      return
+    }
+    // The app's own player (still going if the page was opened from the
+    // app) pauses rather than playing underneath.
+    pauseAppPlayer()
+    wanted.current = member.name
+    setPlaying(null)
+    a.src = member.song.previewUrl
+    a.play().catch(() => {
+      if (wanted.current !== member.name) return
+      wanted.current = null
+      a.pause()
+    })
+  }, [])
+
+  return { playing, toggle }
+}
+
 export default function About() {
   const { user, loading } = useAuth()
   const navigate = useNavigate()
@@ -52,6 +116,7 @@ export default function About() {
   }
 
   const { intro, what, why, team, builtWith, footer } = ABOUT
+  const songs = useTeamSongs()
 
   return (
     <div className="relative isolate min-h-dvh overflow-x-clip bg-background">
@@ -120,7 +185,14 @@ export default function About() {
         <Section title={team.title} body={team.body}>
           <ul aria-label="Team" className="grid gap-3.5 md:grid-cols-2 lg:grid-cols-3">
             {team.members.map((m) => (
-              <MemberCard key={m.name} member={m} badge={team.leadBadge} altFor={team.photoAlt} />
+              <MemberCard
+                key={m.name}
+                member={m}
+                badge={team.leadBadge}
+                altFor={team.photoAlt}
+                playing={songs.playing === m.name}
+                onPlay={() => songs.toggle(m)}
+              />
             ))}
           </ul>
         </Section>
@@ -155,15 +227,32 @@ function Section({ title, body, children }: { title: string; body?: string; chil
   )
 }
 
-/** The grooves spin on hover; the picture in the middle stays still. */
-function Record({ member, alt }: { member: TeamMember; alt: string }) {
+/**
+ * The grooves spin on hover, and keep spinning while the member's song
+ * plays; the picture in the middle stays still. With reduced motion nothing
+ * spins, and a small bars badge says the song is playing instead.
+ */
+function Record({
+  member,
+  alt,
+  playing,
+  onPlay,
+}: {
+  member: TeamMember
+  alt: string
+  playing: boolean
+  onPlay: () => void
+}) {
   const [failed, setFailed] = useState(false)
-  return (
-    <span className="relative grid size-[88px] shrink-0 place-items-center">
+  const face = (
+    <>
       <span
         aria-hidden
         style={GROOVES}
-        className="absolute inset-0 rounded-full shadow-[0_0_0_2px_rgb(255_255_255/0.08)] motion-safe:group-hover:animate-record-spin"
+        className={cn(
+          'absolute inset-0 rounded-full shadow-[0_0_0_2px_rgb(255_255_255/0.08)] motion-safe:group-hover:animate-record-spin',
+          playing && 'motion-safe:animate-record-spin'
+        )}
       />
       <span
         className="relative grid size-[53px] place-items-center overflow-hidden rounded-full"
@@ -186,11 +275,49 @@ function Record({ member, alt }: { member: TeamMember; alt: string }) {
           />
         )}
       </span>
-    </span>
+      {playing && (
+        <span
+          data-playing-badge
+          aria-hidden
+          className="absolute -right-0.5 -bottom-0.5 hidden h-6 items-end gap-[2px] rounded-full bg-primary px-1.5 pb-1.5 pt-1.5 ring-2 ring-surface motion-reduce:flex"
+        >
+          <span className="h-2 w-[3px] rounded-full bg-white" />
+          <span className="h-3 w-[3px] rounded-full bg-white" />
+          <span className="h-1.5 w-[3px] rounded-full bg-white" />
+        </span>
+      )}
+    </>
+  )
+
+  if (!member.song) {
+    return <span className="relative grid size-[88px] shrink-0 place-items-center">{face}</span>
+  }
+  return (
+    <button
+      type="button"
+      onClick={onPlay}
+      aria-label={playing ? 'Stop' : `Play ${member.name}'s song`}
+      data-record-button
+      className="relative grid size-[88px] shrink-0 cursor-pointer place-items-center rounded-full"
+    >
+      {face}
+    </button>
   )
 }
 
-function MemberCard({ member, badge, altFor }: { member: TeamMember; badge: string; altFor: (name: string) => string }) {
+function MemberCard({
+  member,
+  badge,
+  altFor,
+  playing,
+  onPlay,
+}: {
+  member: TeamMember
+  badge: string
+  altFor: (name: string) => string
+  playing: boolean
+  onPlay: () => void
+}) {
   return (
     <li
       data-team-card
@@ -202,7 +329,7 @@ function MemberCard({ member, badge, altFor }: { member: TeamMember; badge: stri
       )}
     >
       <div className="flex items-center gap-3.5">
-        <Record member={member} alt={altFor(member.name)} />
+        <Record member={member} alt={altFor(member.name)} playing={playing} onPlay={onPlay} />
         <div className="flex min-w-0 flex-col">
           <h3 className="text-card-title text-foreground">
             {member.name}
