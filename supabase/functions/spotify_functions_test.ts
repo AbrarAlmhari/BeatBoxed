@@ -22,9 +22,10 @@ const jsonResponse = (body: unknown, status = 200, headers: Record<string, strin
 
 /* --------------------------------------------------------- the fakes */
 
-const ref = { id: 'artist-1', name: 'Fake Artist' }
+// Real Spotify ids are 22 letters and digits.
+const ref = { id: 'artist0000000000000001', name: 'Fake Artist' }
 const album = {
-  id: 'album-1',
+  id: 'album00000000000000001',
   name: 'Fake Album',
   images: [],
   release_date: '2020-01-01',
@@ -59,6 +60,10 @@ let outsideCalls = 0
 const saved = new Map<string, Map<string, Record<string, unknown>>>()
 const savedRow = (table: string, id: string) => saved.get(table)?.get(id)
 let deezerRanks: Record<string, number> = {}
+let databaseFails = false
+let lrclibAnswer = () => jsonResponse({ trackName: 'Fake Track', artistName: 'Fake Artist', plainLyrics: 'la la' })
+const DB_DETAIL = 'duplicate key on hidden_internal_column'
+const GENERIC = 'Something went wrong. Please try again.'
 const unexpected: string[] = []
 const realFetch = globalThis.fetch
 
@@ -79,7 +84,7 @@ globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) =>
   }
   if (url.host === 'lrclib.net') {
     outsideCalls++
-    return jsonResponse({ trackName: 'Fake Track', artistName: 'Fake Artist', plainLyrics: 'la la' })
+    return lrclibAnswer()
   }
   if (url.host === 'query.wikidata.org') {
     outsideCalls++
@@ -96,6 +101,7 @@ globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) =>
         ? jsonResponse({ id: 'user-1', aud: 'authenticated', role: 'authenticated', email: 'fake@beatboxed.test' })
         : jsonResponse({ message: 'invalid JWT' }, 401)
     }
+    if (databaseFails) return jsonResponse({ code: '23505', message: DB_DETAIL }, 500)
     if (request.method === 'GET') {
       return jsonResponse(url.searchParams.get('id') === `eq.${genreArtist.id}` ? [genreArtist] : [])
     }
@@ -127,7 +133,7 @@ globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) =>
 
 const logged: string[] = []
 const realConsoleError = console.error
-console.error = (...args: unknown[]) => void logged.push(args.map(String).join(' '))
+console.error = (...args: unknown[]) => void logged.push(args.map((arg) => (typeof arg === 'string' ? arg : Deno.inspect(arg))).join(' '))
 
 const realServe = Deno.serve
 const servers: { shutdown(): Promise<void> }[] = []
@@ -176,6 +182,8 @@ function reset() {
   writes.length = 0
   saved.clear()
   deezerRanks = {}
+  databaseFails = false
+  lrclibAnswer = () => jsonResponse({ trackName: 'Fake Track', artistName: 'Fake Artist', plainLyrics: 'la la' })
   logged.length = 0
 }
 
@@ -282,8 +290,8 @@ check('search: an unknown type is a 400 and calls nobody', r.status === 400 && s
 reset()
 spotify = premiumRefusal
 r = await post(searchUrl, { q: 'x' })
-check('search: Premium refusal is a 502 with the reason', r.status === 502 && r.json.error === `Spotify search failed: 403. ${PREMIUM}`, r.json)
-check('search: the details are passed along', r.json.spotify?.status === 403 && r.json.spotify?.reason === PREMIUM && r.json.spotify?.retryAfterSeconds === null, r.json)
+check('search: Premium refusal is a 502 saying Spotify is unavailable', r.status === 502 && r.json.error === 'Spotify is unavailable right now.', r.json)
+check('search: the browser gets the status, not the reason', r.json.spotify?.status === 403 && r.json.spotify?.retryAfterSeconds === null && !r.text.includes('premium'), r.json)
 check('search: the refusal is logged', logged.join(' ').includes('Active premium'), logged)
 check('search: a refusal makes one call and writes nothing', spotifyCalls === 1 && writes.length === 0, { spotifyCalls, writes })
 
@@ -295,7 +303,7 @@ check('search: rate limit passes Retry-After along', r.status === 502 && r.json.
 reset()
 tokenAnswer = () => jsonResponse({ error: 'invalid_client', error_description: 'Invalid client secret' }, 400)
 r = await post(searchUrl, { q: 'x' })
-check('search: a refused token is a 502 with the reason', r.status === 502 && r.json.error === 'Spotify token request failed: 400. Invalid client secret', r.json)
+check('search: a refused token is a 502, with the reason only in the logs', r.status === 502 && !r.text.includes('client secret') && logged.join(' ').includes('Invalid client secret'), { json: r.json, logged })
 check('search: a refused token never asks for results', spotifyCalls === 0)
 check('search: the answer holds no secret', !r.text.includes(CLIENT_SECRET) && !r.text.includes('test-service-role'), r.text)
 
@@ -316,15 +324,15 @@ check('artist: a missing id is a 400', r.status === 400, r.json)
 reset()
 spotify = premiumRefusal
 r = await post(artistUrl, { action: 'discography', spotifyId: ref.id })
-check('artist: Premium refusal is a 502 with the reason', r.status === 502 && r.json.error === `Spotify artist lookup failed: 403. ${PREMIUM}`, r.json)
-check('artist: the details are passed along', r.json.spotify?.status === 403 && r.json.spotify?.reason === PREMIUM, r.json)
+check('artist: Premium refusal is a 502 saying Spotify is unavailable', r.status === 502 && r.json.error === 'Spotify is unavailable right now.', r.json)
+check('artist: the browser gets the status, not the reason', r.json.spotify?.status === 403 && !r.text.includes('premium'), r.json)
 check('artist: the refusal is logged', logged.join(' ').includes('Active premium'), logged)
 check('artist: a refusal stops at the first call and writes nothing', spotifyCalls === 1 && writes.length === 0, { spotifyCalls, writes })
 
 reset()
 spotify = premiumRefusal
 r = await post(artistUrl, { action: 'album', spotifyId: album.id })
-check('album: Premium refusal is a 502 with the reason', r.status === 502 && r.json.spotify?.reason === PREMIUM, r.json)
+check('album: Premium refusal is a 502 without the reason', r.status === 502 && r.json.spotify?.status === 403 && !r.text.includes('premium'), r.json)
 
 reset()
 spotify = (url) =>
@@ -335,7 +343,7 @@ check('album: a refusal partway through is passed along', r.status === 502 && r.
 reset()
 tokenAnswer = () => new Response('<html>Bad gateway</html>', { status: 502 })
 r = await post(artistUrl, { action: 'discography', spotifyId: ref.id })
-check('artist: a meaningless token answer gives just the status', r.status === 502 && r.json.error === 'Spotify token request failed: 502' && r.json.spotify?.reason === null, r.json)
+check('artist: a meaningless token answer gives just the status', r.status === 502 && r.json.spotify?.status === 502, r.json)
 check('artist: the answer holds no secret', !r.text.includes(CLIENT_SECRET) && !r.text.includes(ACCESS_TOKEN), r.text)
 
 reset()
@@ -351,6 +359,55 @@ check('album: it saved the song', writes.some((w) => w.path === '/rest/v1/songs'
 reset()
 r = await post(artistUrl, { action: 'bio', spotifyId: ref.id })
 check('bio: a miss is stamped, without calling Spotify', r.status === 200 && r.json.bio === null && spotifyCalls === 0 && writes.some((w) => w.method === 'PATCH'), { json: r.json, spotifyCalls, writes })
+
+// spotifyId
+for (const [label, bad] of [
+  ['too short', 'abc'],
+  ['too long', ref.id + 'x'],
+  ['a path', '../../v1/me000000000000'],
+  ['a query', '"} UNION SELECT ?x WHERE'],
+  ['not text', 12345],
+] as const) {
+  for (const action of ['discography', 'album', 'bio']) {
+    reset()
+    r = await post(artistUrl, { action, spotifyId: bad })
+    check(`spotifyId: ${label} is a 400 for ${action} and calls nobody`, r.status === 400 && spotifyCalls === 0 && outsideCalls === 0 && writes.length === 0, { json: r.json, spotifyCalls, outsideCalls, writes })
+  }
+}
+
+reset()
+r = await post(genresUrl, { artistId: 'not-a-uuid' })
+check('genres: an id that is not a uuid is a 400', r.status === 400 && outsideCalls === 0, r.json)
+
+// Plain errors in the browser, details in the logs
+const failing: [string, string, unknown][] = [
+  ['search', searchUrl, { q: 'x' }],
+  ['artist', artistUrl, { action: 'discography', spotifyId: ref.id }],
+  ['genres', genresUrl, { artistId: genreArtist.id }],
+]
+for (const [name, url, body] of failing) {
+  reset()
+  databaseFails = true
+  r = await post(url, body)
+  check(`${name}: a database error gives the browser a plain message`, r.status === 500 && r.json.error === GENERIC && !r.text.includes(DB_DETAIL), r.json)
+  check(`${name}: the details go to the logs`, logged.join(' ').includes(DB_DETAIL), logged)
+}
+
+reset()
+lrclibAnswer = () => new Response('secret upstream page', { status: 500 })
+r = await post(lyricsUrl, { artist: 'a', track: 'b' })
+check('lyrics: an outside failure gives a plain message', r.status === 502 && r.json.error === GENERIC, r.json)
+check('lyrics: the details go to the logs', logged.join(' ').includes('lrclib returned 500'), logged)
+
+reset()
+lrclibAnswer = () => new Response('not found', { status: 404 })
+r = await post(lyricsUrl, { artist: 'a', track: 'b' })
+check('lyrics: no lyrics is still a normal answer', r.status === 200 && r.json.found === false, r.json)
+
+reset()
+const broken = await globalThis.fetch(searchUrl, { method: 'POST', headers: { Authorization: `Bearer ${USER_TOKEN}` }, body: 'not json' })
+const brokenText = await broken.text()
+check('search: a broken request gets no internal details', broken.status === 500 && JSON.parse(brokenText).error === GENERIC, brokenText)
 
 check('nothing else was called', unexpected.length === 0, unexpected)
 

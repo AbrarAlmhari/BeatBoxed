@@ -1,6 +1,6 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { callerOf, notLoggedIn } from '../_shared/auth.ts'
-import { corsHeaders, json } from '../_shared/cors.ts'
+import { corsHeaders, json, serverError } from '../_shared/cors.ts'
 import { upsertByShape } from '../_shared/upsertByShape.ts'
 import { getSpotifyToken, pickImage } from '../_shared/spotify.ts'
 import { fetchDeezerRanks } from '../_shared/deezer.ts'
@@ -278,8 +278,10 @@ Deno.serve(async (req) => {
       ranked: ranks.size,
     })
   } catch (err) {
-    console.error('[spotify-search]', err)
-    if (err instanceof SpotifyRefused) return json(spotifyFailureBody(err.what, err.failure), 502)
-    return json({ error: (err as Error).message }, 500)
+    if (err instanceof SpotifyRefused) {
+      console.error('[spotify-search]', err)
+      return json(spotifyFailureBody(err.failure), 502)
+    }
+    return serverError('spotify-search', err)
   }
 })

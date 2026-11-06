@@ -192,7 +192,7 @@ export function discographyIsStale(syncedAt: string | null) {
 /**
  * Fire-and-forget: the page already has whatever was cached, and a refresh
  * landing a moment later is picked up on the next read. A failure is logged
- * with Spotify's reason and answers null, so the page can say what's shown is
+ * with the function's answer and answers null, so the page can say what's shown is
  * only what's saved.
  */
 export async function syncDiscography(spotifyId: string) {

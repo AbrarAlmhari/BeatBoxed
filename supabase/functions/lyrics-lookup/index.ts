@@ -1,5 +1,5 @@
 import { callerOf, notLoggedIn } from '../_shared/auth.ts'
-import { corsHeaders, json } from '../_shared/cors.ts'
+import { corsHeaders, json, serverError } from '../_shared/cors.ts'
 
 /**
  * Proxies lrclib.net so the browser never hits it directly (CORS), per
@@ -35,7 +35,7 @@ Deno.serve(async (req) => {
     // when it simply has nothing to show.
     if (!res.ok) {
       if (res.status >= 500 && res.status !== 503) {
-        return json({ error: `lrclib returned ${res.status}` }, 502)
+        return serverError('lyrics-lookup', `lrclib returned ${res.status}`, 502)
       }
       return json({ found: false, plainLyrics: null, syncedLyrics: null })
     }
@@ -50,7 +50,6 @@ Deno.serve(async (req) => {
       syncedLyrics: data.syncedLyrics ?? null,
     })
   } catch (err) {
-    console.error('[lyrics-lookup]', err)
-    return json({ error: (err as Error).message }, 500)
+    return serverError('lyrics-lookup', err)
   }
 })

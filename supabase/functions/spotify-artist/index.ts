@@ -1,8 +1,8 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { callerOf, notLoggedIn } from '../_shared/auth.ts'
-import { corsHeaders, json } from '../_shared/cors.ts'
+import { corsHeaders, json, serverError } from '../_shared/cors.ts'
 import { upsertByShape } from '../_shared/upsertByShape.ts'
-import { getSpotifyToken, pickImage } from '../_shared/spotify.ts'
+import { getSpotifyToken, isSpotifyId, pickImage } from '../_shared/spotify.ts'
 import { readSpotifyFailure, SpotifyRefused, spotifyFailureBody } from '../_shared/spotifyFailure.ts'
 
 /**
@@ -383,7 +383,7 @@ Deno.serve(async (req) => {
       action?: string
       spotifyId?: string
     }
-    if (!spotifyId) return json({ error: 'spotifyId is required' }, 400)
+    if (!isSpotifyId(spotifyId)) return json({ error: 'spotifyId is not valid' }, 400)
 
     const token = await getSpotifyToken()
 
@@ -409,8 +409,10 @@ Deno.serve(async (req) => {
 
     return json(await syncDiscography(spotifyId, token))
   } catch (err) {
-    console.error('[spotify-artist]', err)
-    if (err instanceof SpotifyRefused) return json(spotifyFailureBody(err.what, err.failure), 502)
-    return json({ error: err instanceof Error ? err.message : String(err) }, 502)
+    if (err instanceof SpotifyRefused) {
+      console.error('[spotify-artist]', err)
+      return json(spotifyFailureBody(err.failure), 502)
+    }
+    return serverError('spotify-artist', err)
   }
 })
