@@ -297,7 +297,7 @@ function ArtistTile({ artist, rank }: { artist: StatsArtist; rank: number }) {
           {rank}
         </span>
       </span>
-      <b dir="auto" className="w-full truncate text-secondary font-semibold">
+      <b dir="auto" className="w-full truncate font-heading text-secondary font-semibold">
         {artist.name}
       </b>
       <small className="whitespace-nowrap text-meta tabular-nums text-muted-foreground">

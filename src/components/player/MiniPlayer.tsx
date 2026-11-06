@@ -67,7 +67,7 @@ export function MiniPlayer() {
             <Link
               to="/now-playing"
               dir="auto"
-              className="truncate text-secondary text-foreground"
+              className="truncate font-heading text-secondary font-semibold text-foreground"
             >
               {current.title}
             </Link>

@@ -81,7 +81,7 @@ export function CommentsSheet({
               <div className="mx-4 mb-3 flex items-center gap-3 rounded-inset bg-surface-2 p-2.5">
                 <Artwork src={song.coverUrl} seed={song.id} className="size-10" />
                 <div className="flex min-w-0 flex-1 flex-col">
-                  <p className="truncate text-secondary font-semibold">
+                  <p className="truncate font-heading text-secondary font-semibold">
                     {song.title} · {song.artistName}
                   </p>
                   {reviewText && (

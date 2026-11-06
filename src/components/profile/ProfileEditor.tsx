@@ -172,7 +172,7 @@ export function ProfileEditor({
         {shown ? (
           <img src={shown} alt="" className="size-20 rounded-full object-cover" />
         ) : (
-          <span className="grid size-20 place-items-center rounded-full bg-gradient-to-br from-primary/60 to-primary text-[30px] font-bold text-white">
+          <span className="grid size-20 place-items-center rounded-full bg-gradient-to-br from-primary/60 to-primary font-heading text-[30px] font-bold text-white">
             {(displayName || profile.username || '?').charAt(0).toUpperCase()}
           </span>
         )}
@@ -223,7 +223,7 @@ export function ProfileEditor({
 
       <section ref={tagsRef} tabIndex={-1} aria-labelledby="edit-tags-title" className="flex scroll-mt-24 flex-col gap-3 focus:outline-none">
         <div className="flex items-baseline justify-between">
-          <h3 id="edit-tags-title" className="text-secondary font-medium text-muted-foreground">
+          <h3 id="edit-tags-title" className="font-sans text-secondary font-medium text-muted-foreground">
             My music tags
           </h3>
           <span className="text-secondary text-muted-foreground tabular-nums">
@@ -250,7 +250,7 @@ export function ProfileEditor({
           <p className="text-secondary text-muted-foreground">No tags yet. Add a few below.</p>
         )}
 
-        <h3 className="mt-2 text-secondary font-medium text-muted-foreground">Add more</h3>
+        <h3 className="mt-2 font-sans text-secondary font-medium text-muted-foreground">Add more</h3>
         <div role="group" aria-label="Add a music tag" className="flex flex-wrap gap-2.5">
           {more.map((t) => (
             <Chip key={t} onClick={full ? undefined : () => addTag(t)}>

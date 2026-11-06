@@ -98,7 +98,7 @@ export const SongOfTheWeekFull = forwardRef<
         <Link
           to="/week"
           dir="auto"
-          className="line-clamp-2 text-[21px] font-bold leading-[1.1] tracking-[-0.02em] transition-colors duration-200 ease-soft hover:text-accent"
+          className="line-clamp-2 font-heading text-[21px] font-bold leading-[1.1] tracking-[-0.01em] transition-colors duration-200 ease-soft hover:text-accent"
         >
           {s.title}
         </Link>

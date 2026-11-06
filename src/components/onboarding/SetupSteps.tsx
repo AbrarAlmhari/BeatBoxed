@@ -189,7 +189,7 @@ export function StepProfile({ userId, profile, setProfile, next, back }: StepPro
           {avatarUrl ? (
             <img src={avatarUrl} alt="" className="size-full rounded-full object-cover" />
           ) : (
-            <span className="grid size-full place-items-center rounded-full bg-gradient-to-br from-primary/60 to-primary text-[44px] font-bold text-white">
+            <span className="grid size-full place-items-center rounded-full bg-gradient-to-br from-primary/60 to-primary font-heading text-[44px] font-bold text-white">
               {initial}
             </span>
           )}
@@ -545,7 +545,7 @@ export function StepArtists({ profile, next, back }: StepProps) {
                       {a.imageUrl ? (
                         <img src={a.imageUrl} alt="" loading="lazy" className="size-full object-cover" />
                       ) : (
-                        <span className="grid size-full place-items-center bg-surface-2 text-[26px] font-bold">
+                        <span className="grid size-full place-items-center bg-surface-2 font-heading text-[26px] font-bold">
                           {initials(a.name)}
                         </span>
                       )}
@@ -556,7 +556,7 @@ export function StepArtists({ profile, next, back }: StepProps) {
                       </span>
                     )}
                   </span>
-                  <span dir="auto" className="line-clamp-2 text-secondary font-semibold">
+                  <span dir="auto" className="line-clamp-2 font-heading text-secondary font-semibold">
                     {a.name}
                   </span>
                 </button>

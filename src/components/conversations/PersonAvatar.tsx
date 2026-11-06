@@ -20,7 +20,7 @@ export function PersonAvatar({
     <span
       aria-hidden
       className={cn(
-        'grid shrink-0 place-items-center rounded-full bg-primary/25 font-semibold text-foreground',
+        'grid shrink-0 place-items-center rounded-full bg-primary/25 font-heading font-semibold text-foreground',
         className
       )}
     >
