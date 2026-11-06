@@ -1,6 +1,7 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { corsHeaders, json } from '../_shared/cors.ts'
 import { getSpotifyToken, pickImage } from '../_shared/spotify.ts'
+import { readSpotifyFailure, SpotifyRefused, spotifyFailureBody } from '../_shared/spotifyFailure.ts'
 
 /**
  * Fills the artist and album pages' cache.
@@ -73,7 +74,7 @@ const NEW_RELEASE_DAYS = 14
 async function spotify(url: string, token: string) {
   const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
   if (!res.ok) {
-    throw new Error(`Spotify ${res.status} on ${new URL(url).pathname}`)
+    throw new SpotifyRefused('Spotify artist lookup', await readSpotifyFailure(res))
   }
   return res.json()
 }
@@ -409,6 +410,7 @@ Deno.serve(async (req) => {
     return json(await syncDiscography(spotifyId, token))
   } catch (err) {
     console.error('[spotify-artist]', err)
+    if (err instanceof SpotifyRefused) return json(spotifyFailureBody(err.what, err.failure), 502)
     return json({ error: err instanceof Error ? err.message : String(err) }, 502)
   }
 })

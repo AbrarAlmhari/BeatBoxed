@@ -1,3 +1,5 @@
+import { readSpotifyFailure, SpotifyRefused } from './spotifyFailure.ts'
+
 /**
  * Client Credentials token, cached at module scope. Edge Function isolates are
  * reused between invocations, so this avoids a token request per call; when an
@@ -29,7 +31,7 @@ export async function getSpotifyToken(): Promise<string> {
   })
 
   if (!res.ok) {
-    throw new Error(`Spotify token request failed: ${res.status} ${await res.text()}`)
+    throw new SpotifyRefused('Spotify token request', await readSpotifyFailure(res))
   }
 
   const data = await res.json() as { access_token: string; expires_in: number }

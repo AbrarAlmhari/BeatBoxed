@@ -40,6 +40,19 @@ export async function readSpotifyFailure(res: Response): Promise<SpotifyFailure>
   }
 }
 
+/** Thrown when Spotify refuses, so each function can answer with the reason. */
+export class SpotifyRefused extends Error {
+  what: string
+  failure: SpotifyFailure
+
+  constructor(what: string, failure: SpotifyFailure) {
+    super(spotifyFailureBody(what, failure).error)
+    this.name = 'SpotifyRefused'
+    this.what = what
+    this.failure = failure
+  }
+}
+
 /** The function's answer: `error` to read at a glance, `spotify` for the details. */
 export function spotifyFailureBody(what: string, failure: SpotifyFailure) {
   const summary = `${what} failed: ${failure.status}`
