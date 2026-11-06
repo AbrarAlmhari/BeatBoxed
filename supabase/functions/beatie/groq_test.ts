@@ -1,6 +1,6 @@
 // Checks groq.ts against a fake Groq endpoint. No real calls.
 // Run from supabase/functions: deno run --allow-env beatie/groq_test.ts
-import { currentModel, fallbackModel, generate, lastRateLimits, wasCutOff } from './groq.ts'
+import { backupWorthTrying, currentModel, fallbackModel, generate, lastRateLimits, wasCutOff } from './groq.ts'
 
 Deno.env.set('GROQ_API_KEY', 'test-key')
 const realFetch = globalThis.fetch
@@ -67,12 +67,30 @@ for (const status of [429, 500, 503]) {
   r = await generate('sys', [{ role: 'user', text: 'hi' }], { maxTokens: 10, temperature: 0.7 })
   check(`HTTP ${status} is busy`, !r.ok && r.reason === 'busy')
 }
-fake(() => new Response('{"error":{"message":"model not found"}}', { status: 404 }))
-r = await generate('sys', [{ role: 'user', text: 'hi' }], { maxTokens: 10, temperature: 0.7 })
-check('HTTP 404 is an error', !r.ok && r.reason === 'error')
+for (const status of [429, 503]) {
+  fake(() => new Response('nope', { status }))
+  r = await generate('sys', [{ role: 'user', text: 'hi' }], { maxTokens: 10, temperature: 0.7 })
+  check(`HTTP ${status}: the backup is worth a try`, backupWorthTrying(r))
+}
 fake(() => new Response('bad', { status: 400 }))
 r = await generate('sys', [{ role: 'user', text: 'hi' }], { maxTokens: 10, temperature: 0.7 })
 check('HTTP 400 is an error', !r.ok && r.reason === 'error')
+check('a plain 400 is not a missing model: no backup', !r.ok && !r.modelGone && !backupWorthTrying(r))
+
+// 3b. The model is unknown or retired: the backup takes over.
+const notFound = '{"error":{"message":"The model `openai/gpt-oss-120b` does not exist or you do not have access to it.","type":"invalid_request_error","code":"model_not_found"}}'
+fake(() => new Response(notFound, { status: 404 }))
+r = await generate('sys', [{ role: 'user', text: 'hi' }], { maxTokens: 10, temperature: 0.7 })
+check('HTTP 404 model_not_found is an error, marked gone', !r.ok && r.reason === 'error' && r.modelGone === true)
+check('model not found: the backup is worth a try', backupWorthTrying(r))
+const retired = '{"error":{"message":"The model `openai/gpt-oss-120b` has been decommissioned and is no longer supported.","type":"invalid_request_error","code":"model_decommissioned"}}'
+fake(() => new Response(retired, { status: 400 }))
+r = await generate('sys', [{ role: 'user', text: 'hi' }], { maxTokens: 10, temperature: 0.7 })
+check('HTTP 400 model_decommissioned is marked gone', !r.ok && r.reason === 'error' && r.modelGone === true)
+check('retired model: the backup is worth a try', backupWorthTrying(r))
+fake(() => new Response(sse([chunk('fine'), chunk(null, 'stop'), '[DONE]'])))
+r = await generate('sys', [{ role: 'user', text: 'hi' }], { maxTokens: 10, temperature: 0.7 })
+check('a good answer: no backup', r.ok && !backupWorthTrying(r))
 
 // 4. Timeout and network failure.
 fake(() => new Promise<Response>(() => {}))
