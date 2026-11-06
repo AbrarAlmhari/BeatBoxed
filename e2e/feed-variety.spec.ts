@@ -255,6 +255,47 @@ test.describe('the app', () => {
     expect(sent[0].seen_ids).toEqual(expect.arrayContaining(firstIds))
   })
 
+  test('a card swapped in by a reload of the same length is still remembered', async ({ page }) => {
+    await login(page, viewer.email)
+    // Development loads the first page twice. Make the second answer (last to
+    // arrive) bring in a card the first lacked, at the same number of cards.
+    let call = 0
+    let swappedIn = ''
+    await page.route('**/rpc/feed_for_you_mixed', async (route) => {
+      const body = JSON.parse(route.request().postData() ?? '{}')
+      if (body.after_score !== null) return route.continue()
+      const nth = ++call
+      const res = await route.fetch({
+        postData: JSON.stringify({ ...body, page_size: body.page_size + 1, seed: 7, seen_ids: [] }),
+      })
+      const rows = (await res.json()) as Row[]
+      if (nth === 1) return route.fulfill({ response: res, json: rows.filter((_, i) => i !== 2) })
+      await new Promise((r) => setTimeout(r, 1500))
+      swappedIn = rows[2].review_id
+      return route.fulfill({ response: res, json: rows.slice(0, -1) })
+    })
+    await page.goto('/')
+    const cards = page.locator('article[data-review-id]')
+    await expect.poll(() => swappedIn, { timeout: 30_000 }).not.toBe('')
+    await expect(cards.nth(2)).toHaveAttribute('data-review-id', swappedIn)
+
+    await page.mouse.move(200, 400)
+    for (let i = 0; i < 14; i++) {
+      await page.mouse.wheel(0, 250)
+      await page.waitForTimeout(120)
+    }
+    await expect
+      .poll(
+        () =>
+          page.evaluate(
+            (key) => Object.keys(JSON.parse(localStorage.getItem(key) ?? '{}')),
+            `beatboxed:seen-reviews:${viewer.id}`
+          ),
+        { timeout: 10_000 }
+      )
+      .toContain(swappedIn)
+  })
+
   test('with storage blocked, the feed still loads, scrolls and pages', async ({ page }) => {
     // Only the seen list's storage fails (signing in keeps its own).
     await page.addInitScript(() => {
