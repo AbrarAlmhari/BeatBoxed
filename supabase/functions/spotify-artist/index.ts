@@ -1,6 +1,7 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { callerOf, notLoggedIn } from '../_shared/auth.ts'
 import { corsHeaders, json } from '../_shared/cors.ts'
+import { upsertByShape } from '../_shared/upsertByShape.ts'
 import { getSpotifyToken, pickImage } from '../_shared/spotify.ts'
 import { readSpotifyFailure, SpotifyRefused, spotifyFailureBody } from '../_shared/spotifyFailure.ts'
 
@@ -100,12 +101,8 @@ async function upsertArtists(
     cached_at: new Date().toISOString(),
   }))
 
-  const { data, error } = await admin
-    .from('artists')
-    .upsert(rows, { onConflict: 'spotify_id' })
-    .select('id, spotify_id')
-  if (error) throw error
-  for (const row of data ?? []) map.set(row.spotify_id, row.id)
+  const saved = await upsertByShape<{ id: string; spotify_id: string }>(admin, 'artists', rows, 'id, spotify_id')
+  for (const row of saved) map.set(row.spotify_id, row.id)
   return map
 }
 

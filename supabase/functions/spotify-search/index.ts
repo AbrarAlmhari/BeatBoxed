@@ -1,6 +1,7 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { callerOf, notLoggedIn } from '../_shared/auth.ts'
 import { corsHeaders, json } from '../_shared/cors.ts'
+import { upsertByShape } from '../_shared/upsertByShape.ts'
 import { getSpotifyToken, pickImage } from '../_shared/spotify.ts'
 import { fetchDeezerRanks } from '../_shared/deezer.ts'
 import { readSpotifyFailure, SpotifyRefused, spotifyFailureBody } from '../_shared/spotifyFailure.ts'
@@ -81,9 +82,7 @@ async function fetchArtistImages(
 /**
  * Upsert artists by spotify_id, returning spotify_id -> our uuid.
  *
- * Rows are split by whether we have an image: PostgREST only updates the
- * columns present in the payload, so omitting image_url for imageless rows
- * preserves an image a previous call already stored instead of nulling it.
+ * An image or genres we don't have are left out, so what's already saved stays.
  */
 async function upsertArtists(
   artists: SpotifyArtist[],
@@ -96,31 +95,20 @@ async function upsertArtists(
   const byId = new Map(artists.map((a) => [a.id, a]))
   const now = new Date().toISOString()
 
-  const withImage: Record<string, unknown>[] = []
-  const withoutImage: Record<string, unknown>[] = []
-
-  for (const a of byId.values()) {
-    const image = pickImage(a.images) ?? images?.get(a.id) ?? null
-    const base = {
+  const rows = [...byId.values()].map((a) => {
+    const image = pickImage(a.images) ?? images?.get(a.id)
+    const genres = a.genres?.length ? a.genres : genre ? [genre] : null
+    return {
       spotify_id: a.id,
       name: a.name,
-      genres: a.genres?.length ? a.genres : genre ? [genre] : [],
       cached_at: now,
+      ...(image ? { image_url: image } : {}),
+      ...(genres ? { genres } : {}),
     }
-    if (image) withImage.push({ ...base, image_url: image })
-    else withoutImage.push(base)
-  }
+  })
 
-  for (const rows of [withImage, withoutImage]) {
-    if (rows.length === 0) continue
-    const { data, error } = await admin
-      .from('artists')
-      .upsert(rows, { onConflict: 'spotify_id' })
-      .select('id, spotify_id')
-    if (error) throw error
-    for (const row of data ?? []) map.set(row.spotify_id, row.id)
-  }
-
+  const saved = await upsertByShape<{ id: string; spotify_id: string }>(admin, 'artists', rows, 'id, spotify_id')
+  for (const row of saved) map.set(row.spotify_id, row.id)
   return map
 }
 
@@ -165,27 +153,30 @@ async function upsertSongs(
   ranks: Map<string, number>
 ) {
   const rows = tracks
-    .map((t) => ({
-      spotify_id: t.id,
-      title: t.name,
-      artist_id: artistIds.get(t.artists[0]?.id) ?? null,
-      album_id: albumIds.get(t.album.id) ?? null,
-      duration_ms: t.duration_ms,
-      genre,
-      popularity: ranks.get(t.id) ?? null,
-      cached_at: new Date().toISOString(),
-    }))
+    .map((t) => {
+      const popularity = ranks.get(t.id)
+      return {
+        spotify_id: t.id,
+        title: t.name,
+        artist_id: artistIds.get(t.artists[0]?.id) ?? null,
+        album_id: albumIds.get(t.album.id) ?? null,
+        duration_ms: t.duration_ms,
+        cached_at: new Date().toISOString(),
+        // Left out when unknown, so a saved genre or popularity stays.
+        ...(genre ? { genre } : {}),
+        ...(popularity != null ? { popularity } : {}),
+      }
+    })
     .filter((r) => r.artist_id && r.album_id)
 
   if (rows.length === 0) return []
 
-  const { data, error } = await admin
-    .from('songs')
-    .upsert(rows, { onConflict: 'spotify_id' })
-    .select('id, spotify_id, title, artist_id, album_id, duration_ms, genre, popularity')
-
-  if (error) throw error
-  return data ?? []
+  return await upsertByShape(
+    admin,
+    'songs',
+    rows,
+    'id, spotify_id, title, artist_id, album_id, duration_ms, genre, popularity'
+  )
 }
 
 Deno.serve(async (req) => {

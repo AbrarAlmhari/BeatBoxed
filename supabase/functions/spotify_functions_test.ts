@@ -55,6 +55,10 @@ let tokenAnswer = () => jsonResponse({ access_token: ACCESS_TOKEN, expires_in: 0
 let spotifyCalls = 0
 const writes: { method: string; path: string; body?: unknown }[] = []
 let outsideCalls = 0
+/** What the fake database holds, by table and then spotify_id. */
+const saved = new Map<string, Map<string, Record<string, unknown>>>()
+const savedRow = (table: string, id: string) => saved.get(table)?.get(id)
+let deezerRanks: Record<string, number> = {}
 const unexpected: string[] = []
 const realFetch = globalThis.fetch
 
@@ -68,7 +72,11 @@ globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) =>
     spotifyCalls++
     return spotify(url)
   }
-  if (url.host === 'api.deezer.com') return jsonResponse({ data: [] })
+  if (url.host === 'api.deezer.com') {
+    const q = url.searchParams.get('q') ?? ''
+    const hit = Object.keys(deezerRanks).find((title) => q.startsWith(title))
+    return jsonResponse({ data: hit ? [{ rank: deezerRanks[hit] }] : [] })
+  }
   if (url.host === 'lrclib.net') {
     outsideCalls++
     return jsonResponse({ trackName: 'Fake Track', artistName: 'Fake Artist', plainLyrics: 'la la' })
@@ -97,7 +105,19 @@ globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) =>
     }
     const rows = (await request.json()) as { spotify_id: string }[]
     writes.push({ method: request.method, path: url.pathname, body: rows })
-    return jsonResponse(rows.map((row) => ({ ...row, id: `id-${row.spotify_id}` })), 201)
+    // Like the real database: rows in one request share a column list, and a
+    // row missing a listed column gets null for it.
+    const table = url.pathname.split('/').pop()!
+    const columns = url.searchParams.get('columns')?.replace(/"/g, '').split(',') ?? Object.keys(rows[0])
+    const stored = saved.get(table) ?? new Map<string, Record<string, unknown>>()
+    saved.set(table, stored)
+    const answer = rows.map((row) => {
+      const next: Record<string, unknown> = { id: `id-${row.spotify_id}`, ...stored.get(row.spotify_id) }
+      for (const column of columns) next[column] = (row as Record<string, unknown>)[column] ?? null
+      stored.set(row.spotify_id, next)
+      return next
+    })
+    return jsonResponse(answer, 201)
   }
   unexpected.push(url.href)
   throw new Error(`Unexpected call to ${url.href}`)
@@ -154,6 +174,8 @@ function reset() {
   spotifyCalls = 0
   outsideCalls = 0
   writes.length = 0
+  saved.clear()
+  deezerRanks = {}
   logged.length = 0
 }
 
@@ -184,6 +206,66 @@ check('search: a user cannot label songs or artists with a genre', !JSON.stringi
 reset()
 const seeded = await post(searchUrl, { q: 'x', genre: 'rock' }, SERVICE_KEY)
 check('search: the seed script still can', seeded.status === 200 && JSON.stringify(writes).includes('rock'), { json: seeded.json, writes })
+
+// Keeping what's saved
+const other = { id: 'artist-2', name: 'Other Artist' }
+const otherTrack = { ...track, id: 'track-2', name: 'Other Track', artists: [other] }
+const twoTracks = (u: URL) =>
+  u.pathname === '/v1/search' ? jsonResponse({ tracks: { items: [track, otherTrack] } }) : workingSpotify(u)
+const holding = (table: string, id: string, row: Record<string, unknown>) =>
+  saved.set(table, (saved.get(table) ?? new Map()).set(id, row))
+
+reset()
+spotify = twoTracks
+holding('songs', track.id, { genre: 'rock', popularity: 70 })
+holding('songs', otherTrack.id, { genre: 'jazz', popularity: 40 })
+holding('artists', ref.id, { genres: ['rock'], image_url: 'saved-image' })
+const kept = await post(searchUrl, { q: 'x' })
+check('search: a song keeps its genre and popularity when the new ones are missing', savedRow('songs', track.id)?.genre === 'rock' && savedRow('songs', track.id)?.popularity === 70, savedRow('songs', track.id))
+check('search: an artist keeps its genres and image when the new ones are missing', JSON.stringify(savedRow('artists', ref.id)?.genres) === '["rock"]' && savedRow('artists', ref.id)?.image_url === 'saved-image', savedRow('artists', ref.id))
+check('search: the answer shows the kept values', kept.json.songs?.some((s: { genre: string }) => s.genre === 'rock'), kept.json)
+
+reset()
+spotify = twoTracks
+deezerRanks = { [track.name]: 90 }
+holding('songs', otherTrack.id, { genre: 'jazz', popularity: 40 })
+await post(searchUrl, { q: 'x' })
+check('search: a new popularity is saved', savedRow('songs', track.id)?.popularity === 90, savedRow('songs', track.id))
+check('search: it does not blank another song in the same search', savedRow('songs', otherTrack.id)?.popularity === 40 && savedRow('songs', otherTrack.id)?.genre === 'jazz', savedRow('songs', otherTrack.id))
+
+reset()
+spotify = twoTracks
+holding('songs', track.id, { genre: 'rock', popularity: 70 })
+await post(searchUrl, { q: 'x', genre: 'jazz' }, SERVICE_KEY)
+check('search: a real new genre from the seed script replaces the old one', savedRow('songs', track.id)?.genre === 'jazz', savedRow('songs', track.id))
+
+reset()
+spotify = (u) =>
+  u.pathname === '/v1/search'
+    ? jsonResponse({ artists: { items: [{ ...ref, images: [], genres: ['pop'] }, { ...other, images: [], genres: [] }] } })
+    : workingSpotify(u)
+holding('artists', other.id, { genres: ['folk'] })
+await post(searchUrl, { q: 'x', type: 'artist' })
+check('search: new genres are saved, and an artist with none keeps theirs', JSON.stringify(savedRow('artists', ref.id)?.genres) === '["pop"]' && JSON.stringify(savedRow('artists', other.id)?.genres) === '["folk"]', [savedRow('artists', ref.id), savedRow('artists', other.id)])
+
+reset()
+spotify = (u) =>
+  u.pathname === `/v1/artists/${ref.id}/albums`
+    ? jsonResponse({ items: [{ ...album, id: 'album-2', artists: [other] }], next: null })
+    : u.pathname === `/v1/artists/${ref.id}`
+    ? jsonResponse({ ...ref, images: [{ url: 'new-image', width: 1, height: 1 }] })
+    : workingSpotify(u)
+holding('artists', ref.id, { genres: ['rock'] })
+holding('artists', other.id, { genres: ['folk'], image_url: 'saved-image' })
+await post(artistUrl, { action: 'discography', spotifyId: ref.id })
+check('artist sync: it saves the new image and keeps the genres', savedRow('artists', ref.id)?.image_url === 'new-image' && JSON.stringify(savedRow('artists', ref.id)?.genres) === '["rock"]', savedRow('artists', ref.id))
+check('artist sync: a collaborator keeps their image and genres', savedRow('artists', other.id)?.image_url === 'saved-image' && JSON.stringify(savedRow('artists', other.id)?.genres) === '["folk"]', savedRow('artists', other.id))
+
+reset()
+holding('songs', track.id, { genre: 'rock', popularity: 70 })
+holding('artists', ref.id, { genres: ['rock'] })
+await post(artistUrl, { action: 'album', spotifyId: album.id })
+check('album sync: a song keeps its genre and popularity', savedRow('songs', track.id)?.genre === 'rock' && savedRow('songs', track.id)?.popularity === 70, savedRow('songs', track.id))
 
 // spotify-search
 const options = await globalThis.fetch(searchUrl, { method: 'OPTIONS' })
