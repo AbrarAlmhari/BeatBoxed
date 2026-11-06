@@ -695,7 +695,8 @@ async function localSongsLegacy(query: string, genre: string | null) {
 async function localArtists(query: string, genre: string | null) {
   let q = requireClient()
     .from('artists')
-    .select('id, name, image_url, genres')
+    // genre_buckets is 0031's computed field, so it isn't in the generated row.
+    .select('id, name, image_url, genres, genre_buckets')
     .limit(40)
   if (genre) q = q.contains('genres', [genre])
   if (query) q = q.ilike('name', `%${query}%`)
@@ -707,6 +708,7 @@ async function localArtists(query: string, genre: string | null) {
       name: a.name,
       imageUrl: a.image_url,
       genres: a.genres ?? [],
+      genreBuckets: (a as unknown as { genre_buckets: string[] | null }).genre_buckets ?? [],
     })
   )
 }

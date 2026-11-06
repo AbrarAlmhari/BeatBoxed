@@ -62,6 +62,8 @@ export type ArtistCardModel = {
   name: string
   imageUrl: string | null
   genres: string[]
+  /** Genre groups (0031), where the query asked for them. */
+  genreBuckets?: string[]
 }
 
 /** One matching lyric line plus enough context to link back to the song. */
