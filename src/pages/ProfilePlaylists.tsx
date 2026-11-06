@@ -158,14 +158,25 @@ export default function ProfilePlaylists() {
               </button>
             ))}
 
-          {/* Straight in the page's column (not a wrapper) so the sort button
+          {/* Straight in the page's column (not a wrapper) so the filter and sort
               can stay under the top bar the whole way down; the negative
               margins keep the toolbar's tighter spacing. */}
           <StickyBar className={cn('-my-2 py-2', isOwn && '-mt-5')}>
-            <div className={cn(STILL, 'flex px-4 sm:px-6 lg:px-8')}>
+            <div className={cn(STILL, 'flex items-stretch gap-2 px-4 sm:px-6 lg:px-8')}>
+              {playlists.length > 0 && (
+                <div className="min-w-0 flex-1">
+                  <FilterBox
+                    value={filter}
+                    onChange={setFilter}
+                    placeholder="Filter by title"
+                  />
+                </div>
+              )}
               <FilterButton
                 title="Sort playlists"
                 face="value"
+                className="flex"
+                buttonClassName="h-full"
                 sections={[
                   {
                     title: 'Sort by',
@@ -178,16 +189,6 @@ export default function ProfilePlaylists() {
               />
             </div>
           </StickyBar>
-
-          {playlists.length > 0 && (
-            <div className="-mt-3">
-              <FilterBox
-                value={filter}
-                onChange={setFilter}
-                placeholder="Filter by title"
-              />
-            </div>
-          )}
         </>
       }
       loading={loading}

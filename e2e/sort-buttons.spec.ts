@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test'
 import {
   chooseFilter,
+  createPlaylistWithSongs,
   createReview,
   createTestUser,
   deleteTestUsers,
@@ -65,6 +66,23 @@ test.describe('sort buttons', () => {
 
     await chooseFilter(page, 'Sort reviews', 'Newest')
     await expect.poll(() => firstReview(page)).toBe('Middle')
+  })
+
+  test('playlists page: the sort button sits beside the filter box, the same height', async ({ page }) => {
+    await createPlaylistWithSongs(owner.id, 'Beside the filter', [])
+    await login(page, owner.email)
+    await page.goto(`/profile/${owner.id}/playlists`)
+    const box = page.getByRole('searchbox', { name: 'Filter by title' })
+    const button = page.getByRole('button', { name: 'Sort playlists: Newest' })
+    await expect(box).toBeVisible()
+    await expect(button).toBeVisible()
+    const a = (await box.boundingBox())!
+    const b = (await button.boundingBox())!
+    expect(b.y).toBeCloseTo(a.y, 0)
+    expect(b.height).toBeCloseTo(a.height, 0)
+    expect(b.x).toBeGreaterThan(a.x + a.width - 1)
+    const inner = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
+    expect(inner).toBe(true)
   })
 
   test('playlists page: one button with Newest, A–Z and Most songs', async ({ page }) => {
