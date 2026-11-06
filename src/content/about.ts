@@ -156,12 +156,12 @@ export const ABOUT = {
         bio: "Built the song page and lyrics, and brought Beatie to life: explaining lines, translating songs and chatting about the music. Abrar's right hand and biggest support throughout the project.",
         skills: ['AI integration', 'Lyrics', 'APIs', 'Prompt design'],
         song: {
-          title: "Let's Fall in Love for the Night",
-          artist: 'FINNEAS',
-          album: 'Blood Harmony',
-          trackId: 1720941873,
+          title: '7 rings',
+          artist: 'Ariana Grande',
+          album: 'thank u, next',
+          trackId: 1450330685,
           previewUrl:
-            'https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/db/83/7c/db837ccd-b5c0-46bc-c3a2-56d150b3e4e1/mzaf_13306913879814577136.plus.aac.p.m4a',
+            'https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/3b/e7/e6/3be7e6cf-bddb-bd9c-bf4e-60a94d972b82/mzaf_5419779593679638208.plus.aac.p.m4a',
         },
       },
       {
