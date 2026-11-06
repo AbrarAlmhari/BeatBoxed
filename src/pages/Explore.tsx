@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
-import { AlertTriangle, MicVocal, Search, X } from 'lucide-react'
+import { MicVocal, Search, X } from 'lucide-react'
 import { cardClass } from '@/components/ui/Card'
 import { Chip } from '@/components/ui/Chip'
 import { EmptyState, emptySecondaryActionClass } from '@/components/ui/EmptyState'
 import { PageGlow } from '@/components/ui/PageGlow'
 import { SectionHeader } from '@/components/ui/SectionHeader'
+import { StatusNote } from '@/components/ui/StatusNote'
 import { MEDIA_GRID, SkeletonList, SkeletonMediaGrid } from '@/components/ui/Skeleton'
 import { MediaCard } from '@/components/ui/MediaCard'
 import { Rail, RailSkeleton } from '@/components/home/Rail'
@@ -373,19 +374,7 @@ export default function Explore() {
         <EmptyState face="sad" tone="error" title={error} />
       ) : (
         <div className="flex flex-col gap-8">
-          {results?.warning && (
-            <div
-              role="status"
-              className="animate-fade-in flex items-start gap-2.5 rounded-button bg-surface-2 px-3.5 py-3 text-secondary"
-            >
-              <AlertTriangle
-                className="mt-px size-[18px] shrink-0 text-star"
-                strokeWidth={2}
-                aria-hidden
-              />
-              <span className="text-muted-foreground">{results.warning}</span>
-            </div>
-          )}
+          {results?.warning && <StatusNote>{results.warning}</StatusNote>}
 
           {searching && !results && (
             <div role="status" className="flex flex-col gap-4">

@@ -11,6 +11,7 @@ import { Card } from '@/components/ui/Card'
 import { EmptyState, emptySecondaryActionClass } from '@/components/ui/EmptyState'
 import { PageGlow } from '@/components/ui/PageGlow'
 import { SectionHeader } from '@/components/ui/SectionHeader'
+import { StatusNote } from '@/components/ui/StatusNote'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { COVER_FALLBACK, useCoverColors } from '@/lib/coverColors'
 import { usePlayer } from '@/lib/player'
@@ -45,6 +46,8 @@ export default function Artist() {
    */
   const discographyTried = useRef<string | null>(null)
   const bioTried = useRef<string | null>(null)
+  /** The artist whose discography Spotify just refused, for the note. */
+  const [syncFailedFor, setSyncFailedFor] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     const detail = await getArtistDetail(id)
@@ -78,7 +81,10 @@ export default function Artist() {
           discographyTried.current = detail.id
           syncing.current = true
           void syncDiscography(detail.spotifyId)
-            .then(() => !cancelled && setReloadKey((k) => k + 1))
+            .then((synced) => {
+              if (!synced) setSyncFailedFor(detail.id)
+              if (!cancelled) setReloadKey((k) => k + 1)
+            })
             .finally(() => {
               syncing.current = false
             })
@@ -281,6 +287,12 @@ export default function Artist() {
 
       <section className="flex flex-col gap-4">
         <SectionHeader title="Discography" />
+
+        {syncFailedFor === artist.id && (
+          <div className="mb-4">
+            <StatusNote>Spotify is unavailable right now, showing saved albums.</StatusNote>
+          </div>
+        )}
 
         <Tabs
           tabs={[

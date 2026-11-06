@@ -1,3 +1,4 @@
+import { failureDetails } from './functionError'
 import { supabase } from './supabase'
 import { getNotificationPrefs } from './settings'
 import type {
@@ -715,13 +716,6 @@ type TopUpResult = { ok: boolean; message?: string }
 
 /** The same words whatever went wrong: the details are for the console. */
 const SPOTIFY_UNAVAILABLE = 'Spotify search is unavailable right now, showing saved results.'
-
-/** spotify-search's explanation (Spotify's own reason), when there is one. */
-async function failureDetails(error: unknown) {
-  const response = (error as { context?: unknown }).context
-  if (!(response instanceof Response)) return error
-  return response.json().catch(() => error)
-}
 
 /**
  * Fire the cache-fill Edge Function.

@@ -228,9 +228,13 @@ test.describe('the mock', () => {
     const discography = answered('discography')
     await page.goto(`/artist/${ARTIST_ID}`)
     expect((await discography).headers()[MOCK_HEADER]).toBe('spotify')
+    await expect(page.getByRole('heading', { name: 'Mock Artist' })).toBeVisible()
+    await expect(page.getByText(/^Spotify is unavailable/)).toHaveCount(0)
     const album = answered('album')
     await page.goto(`/album/${ALBUM_ID}`)
     expect((await album).headers()[MOCK_HEADER]).toBe('spotify')
+    await expect(page.getByRole('heading', { name: 'Mock Album' })).toBeVisible()
+    await expect(page.getByText(/^Spotify is unavailable/)).toHaveCount(0)
   })
 
   test('every spec goes through it', async () => {
@@ -251,20 +255,22 @@ test.describe('a refused sync', () => {
     await goOffline(page)
   })
 
-  test('an artist page asks Spotify once, not over and over', async ({ page }) => {
+  test('an artist page asks Spotify once, not over and over, and says so', async ({ page }) => {
     const discography = await countCalls(page, 'discography', 502)
     const bio = await countCalls(page, 'bio', 502)
     await page.goto(`/artist/${ARTIST_ID}`)
     await expect(page.getByRole('heading', { name: 'Mock Artist' })).toBeVisible()
+    await expect(page.getByText('Spotify is unavailable right now, showing saved albums.')).toBeVisible()
     await page.waitForTimeout(3_000)
     expect(discography.count).toBe(1)
     expect(bio.count).toBe(1)
   })
 
-  test('an album page asks Spotify once, not over and over', async ({ page }) => {
+  test('an album page asks Spotify once, not over and over, and says so', async ({ page }) => {
     const album = await countCalls(page, 'album', 502)
     await page.goto(`/album/${ALBUM_ID}`)
     await expect(page.getByRole('heading', { name: 'Mock Album' })).toBeVisible()
+    await expect(page.getByText('Spotify is unavailable right now, showing saved tracks.')).toBeVisible()
     await page.waitForTimeout(3_000)
     expect(album.count).toBe(1)
   })
