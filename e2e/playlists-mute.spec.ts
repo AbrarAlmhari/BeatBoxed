@@ -226,12 +226,25 @@ test("muted: their review leaves the feed, their comments fold, and their own pr
 
 test('Settings → Muted accounts: the list, Unmute and Mute again, and the empty state', async ({ page }) => {
   await login(page, me.email)
+
+  // The label counts from the moment of the mute, which an earlier test made
+  // however long ago. Set the browser's clock from that moment, so the wording
+  // doesn't depend on how fast this machine got here.
+  const res = await adminFetch(`/rest/v1/user_mutes?muter_id=eq.${me.id}&select=created_at`)
+  const [{ created_at }] = (await res.json()) as { created_at: string }[]
+  const mutedAt = new Date(created_at).getTime()
+  await page.clock.setFixedTime(mutedAt + 10_000)
+
   await page.goto('/settings')
   await page.getByRole('link', { name: /Muted accounts/ }).click()
   await page.waitForURL(/\/settings\/muted/)
   const list = page.getByRole('list', { name: 'Muted accounts' })
   await expect(list).toContainText(`@${toji.username}`)
   await expect(list).toContainText('muted just now')
+
+  await page.clock.setFixedTime(mutedAt + 5 * 60_000)
+  await page.reload()
+  await expect(list).toContainText('muted 5 minutes ago')
 
   await list.getByRole('button', { name: 'Unmute Toji' }).click()
   await expect(list.getByRole('button', { name: 'Mute Toji' })).toBeVisible()
