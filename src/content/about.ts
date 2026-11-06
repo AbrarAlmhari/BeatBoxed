@@ -172,6 +172,14 @@ export const ABOUT = {
         role: 'Developer · Home & Player',
         bio: 'Built the Home feed with For You and Following, the music player and song previews, and the Library where your music lives.',
         skills: ['Home feed', 'Music player', 'Library', 'Frontend'],
+        song: {
+          title: 'Forever Young',
+          artist: 'Alphaville',
+          album: 'Forever Young',
+          trackId: 65122547,
+          previewUrl:
+            'https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/1d/6d/a5/1d6da5d1-744d-ab23-e0f8-9b349d5436d6/mzaf_343672495858933075.plus.aac.p.m4a',
+        },
       },
       {
         name: 'Ghadah Yahya Alzahrani',

@@ -75,6 +75,19 @@ test('tapping a record plays its song; tapping it again stops it', async ({ page
   await expect.poll(() => playingSources(page)).toEqual([])
 })
 
+test("all seven have a song, and Fatimah's plays and stops like the others", async ({ page }) => {
+  expect(members.filter((m) => m.song)).toHaveLength(7)
+  const fatimah = members.find((m) => m.name === 'Fatimah Fadil Aldubibi')!
+  await servePreviews(page)
+  await open(page)
+  await record(page, fatimah.name).click()
+  await expect.poll(() => playingSources(page)).toEqual([fatimah.song!.previewUrl])
+  await expect(stop(page)).toHaveCount(1)
+  await stop(page).click()
+  await expect(record(page, fatimah.name)).toBeVisible()
+  await expect.poll(() => playingSources(page)).toEqual([])
+})
+
 test('tapping another record switches songs: one at a time', async ({ page }) => {
   await servePreviews(page)
   await open(page)
