@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test'
+import { test, expect, type Page } from './fixtures'
 import { createTestUser, deleteTestUsers, login } from './helpers'
 
 /**
@@ -154,6 +154,6 @@ test.describe('a slow Spotify', () => {
     await page.getByRole('searchbox', { name: 'Search' }).fill('karma police radiohead')
     const main = page.getByRole('main')
     await expect(main.getByText(/^Karma Police/).first()).toBeVisible({ timeout: 20_000 })
-    await expect(main.getByText("Couldn't reach Spotify for more results.")).toBeVisible()
+    await expect(main.getByText('Spotify search is unavailable right now, showing saved results.')).toBeVisible()
   })
 })
