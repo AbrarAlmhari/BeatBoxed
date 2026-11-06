@@ -2,6 +2,7 @@ import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { corsHeaders, json } from '../_shared/cors.ts'
 import { getSpotifyToken, pickImage } from '../_shared/spotify.ts'
 import { fetchDeezerRanks } from '../_shared/deezer.ts'
+import { readSpotifyFailure, spotifyFailureBody } from '../_shared/spotifyFailure.ts'
 
 /**
  * Cache-on-first-lookup, per docs/api-integrations.md — search Spotify, upsert
@@ -217,7 +218,9 @@ Deno.serve(async (req) => {
 
     const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
     if (!res.ok) {
-      return json({ error: `Spotify search failed: ${res.status}` }, 502)
+      const failure = await readSpotifyFailure(res)
+      console.error('[spotify-search] Spotify refused the search:', JSON.stringify(failure))
+      return json(spotifyFailureBody('Spotify search', failure), 502)
     }
     const payload = await res.json()
 
