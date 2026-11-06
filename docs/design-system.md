@@ -28,7 +28,13 @@ Purple is an accent, used strategically (currently-playing state, active nav, AI
 
 ## Typography
 
-Inter throughout.
+Three families, set once as tokens in `src/styles/index.css` (`--font-sans`, `--font-heading`). The files live in `src/styles/fonts.css`, served from our own Fontsource packages (latin and arabic subsets only, nothing fetched from Google).
+
+- **Sora** (600, 700): titles. Every `h1`–`h4` and the page, section and card title styles get it automatically; any other title, such as song, artist and profile names, adds the `font-heading` class.
+- **Inter** (400, 500, 600, 700): everything else.
+- **IBM Plex Sans Arabic** (400, 500, 700): all Arabic, letter by letter, including inside an English line, with no `lang` or class needed.
+
+Ratings, counts, timers and the Song of the Week countdown use `tabular-nums`, so digits don't shift as they change.
 
 | Role | Weight / size |
 |---|---|
