@@ -1,4 +1,4 @@
-Supabase Edge Functions — this is where server-side secrets (GROQ_API_KEY, SPOTIFY_CLIENT_SECRET) actually get used, so they never reach the browser bundle. beatie holds Beatie's AI calls, through Groq (beatie/groq.ts); song-vibes labels songs for the daily check-in, also through Groq (beatie/groq.ts) but with its own model; spotify-token does the Client Credentials exchange and caching.
+Supabase Edge Functions — this is where server-side secrets (GROQ_API_KEY, SPOTIFY_CLIENT_SECRET) actually get used, so they never reach the browser bundle. beatie holds Beatie's AI calls, through Groq (beatie/groq.ts); song-vibes labels songs for the daily check-in, also through Groq (beatie/groq.ts) but with its own model. The Spotify functions get their Client Credentials token from _shared/spotify.ts, which also caches it; the token never leaves the server.
 
 beatie reads personality.md at startup; supabase/config.toml lists it under static_files so it's deployed with the function. Deploy with `supabase functions deploy beatie`.
 
