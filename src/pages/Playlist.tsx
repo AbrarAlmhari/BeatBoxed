@@ -426,7 +426,7 @@ export default function Playlist() {
                   )}
                 </p>
                 {social && (
-                  <p className="text-secondary text-muted-foreground">
+                  <p className="text-secondary tabular-nums text-muted-foreground">
                     Liked by {social.likeCount} · Saved by {social.saveCount}
                   </p>
                 )}
@@ -691,7 +691,7 @@ export default function Playlist() {
                   </span>
                 </Link>
 
-                <span className={cn('shrink-0 text-meta text-muted-foreground', isOwner && 'hidden sm:inline')}>
+                <span className={cn('shrink-0 text-meta tabular-nums text-muted-foreground', isOwner && 'hidden sm:inline')}>
                   {formatDuration(song.durationMs)}
                 </span>
 

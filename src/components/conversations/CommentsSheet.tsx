@@ -64,7 +64,7 @@ export function CommentsSheet({
             <div className="flex items-center gap-3 px-4 pb-3 pt-3">
               <h2 id={titleId} className="flex items-center gap-2.5 text-section-title">
                 Comments
-                <span className="rounded-chip bg-primary/25 px-2.5 py-0.5 text-secondary font-semibold text-accent">
+                <span className="rounded-chip bg-primary/25 px-2.5 py-0.5 text-secondary font-semibold tabular-nums text-accent">
                   {count}
                 </span>
               </h2>
@@ -81,7 +81,7 @@ export function CommentsSheet({
               <div className="mx-4 mb-3 flex items-center gap-3 rounded-inset bg-surface-2 p-2.5">
                 <Artwork src={song.coverUrl} seed={song.id} className="size-10" />
                 <div className="flex min-w-0 flex-1 flex-col">
-                  <p className="truncate text-secondary font-semibold">
+                  <p className="truncate font-heading text-secondary font-semibold">
                     {song.title} · {song.artistName}
                   </p>
                   {reviewText && (

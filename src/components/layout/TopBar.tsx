@@ -105,7 +105,7 @@ export function TopBar() {
               strokeWidth={isActive ? 2.25 : 1.75}
             />
             {badge > 0 && (
-              <span className="absolute right-1 top-1 grid min-w-4 place-items-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-4 text-white">
+              <span className="absolute right-1 top-1 grid min-w-4 place-items-center rounded-full bg-primary px-1 text-[10px] font-semibold tabular-nums leading-4 text-white">
                 {badge > 9 ? '9+' : badge}
               </span>
             )}

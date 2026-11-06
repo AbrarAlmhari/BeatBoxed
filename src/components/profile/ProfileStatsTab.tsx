@@ -297,10 +297,10 @@ function ArtistTile({ artist, rank }: { artist: StatsArtist; rank: number }) {
           {rank}
         </span>
       </span>
-      <b dir="auto" className="w-full truncate text-secondary font-semibold">
+      <b dir="auto" className="w-full truncate font-heading text-secondary font-semibold">
         {artist.name}
       </b>
-      <small className="whitespace-nowrap text-meta text-muted-foreground">
+      <small className="whitespace-nowrap text-meta tabular-nums text-muted-foreground">
         {artist.count} {artist.count === 1 ? 'song' : 'songs'} · <span className="text-star">{artist.average.toFixed(1)}★</span>
       </small>
     </Link>
@@ -460,7 +460,7 @@ function AllArtistsSheet({
                   <span dir="auto" className="min-w-0 flex-1 truncate text-card-title">
                     {a.name}
                   </span>
-                  <span className="shrink-0 text-meta text-muted-foreground">
+                  <span className="shrink-0 text-meta tabular-nums text-muted-foreground">
                     {a.count} {a.count === 1 ? 'song' : 'songs'} · <span className="text-star">{a.average.toFixed(1)}★</span>
                   </span>
                 </Link>

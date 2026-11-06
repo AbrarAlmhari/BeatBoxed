@@ -113,7 +113,7 @@ export function ProfilePlaylistsTab({
                   <span dir="auto" className="truncate text-card-title">
                     {p.title}
                   </span>
-                  <span className="text-secondary text-muted-foreground">
+                  <span className="text-secondary tabular-nums text-muted-foreground">
                     {p.songCount} {p.songCount === 1 ? 'song' : 'songs'}
                   </span>
                 </span>

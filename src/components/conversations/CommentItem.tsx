@@ -144,7 +144,7 @@ export function CommentItem({
             )}
           >
             <Heart className={cn('size-4', comment.likedByMe && 'fill-like')} strokeWidth={1.75} />
-            {comment.likeCount > 0 && <span>{comment.likeCount}</span>}
+            {comment.likeCount > 0 && <span className="tabular-nums">{comment.likeCount}</span>}
           </button>
           <button
             type="button"

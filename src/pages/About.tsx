@@ -78,7 +78,7 @@ export default function About() {
 
         <section className="flex flex-col items-center pt-7 pb-9 text-center">
           <p className="text-meta font-semibold tracking-[0.12em] text-accent uppercase">{intro.eyebrow}</p>
-          <h1 className="mt-2.5 mb-3 text-[clamp(2.125rem,7vw,3.5rem)] leading-[1.05] font-bold tracking-[-0.03em] text-foreground">
+          <h1 className="mt-2.5 mb-3 text-[clamp(2.125rem,7vw,3.5rem)] leading-[1.05] font-bold tracking-[-0.02em] text-foreground">
             {intro.title}
             <br />
             <span className="bg-gradient-to-r from-accent to-like bg-clip-text text-transparent">

@@ -157,7 +157,7 @@ export default function Artist() {
             </ul>
           )}
 
-          <p className="flex items-center gap-1.5 text-secondary text-muted-foreground">
+          <p className="flex items-center gap-1.5 text-secondary tabular-nums text-muted-foreground">
             <Users className="size-4" strokeWidth={1.75} aria-hidden />
             {artist.followerCount}{' '}
             {artist.followerCount === 1 ? 'follower' : 'followers'} on Beatboxed
@@ -254,7 +254,7 @@ export default function Artist() {
                   {song.reviewCount > 0 && song.ratingAvg != null && (
                     <span className="flex shrink-0 items-center gap-1">
                       <StarRating value={song.ratingAvg} size={13} />
-                      <span className="text-meta text-muted-foreground">
+                      <span className="text-meta tabular-nums text-muted-foreground">
                         {song.ratingAvg.toFixed(1)}
                       </span>
                     </span>

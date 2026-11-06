@@ -86,7 +86,7 @@ export function AskBeatiePill({ onOpen }: { onOpen: () => void }) {
           <span className="grid size-[26px] place-items-center rounded-full bg-background/70">
             <BeatieImage mood="mark" size={20} />
           </span>
-          <span className="max-[369px]:sr-only">Ask Beatie</span>
+          <span className="font-heading max-[369px]:sr-only">Ask Beatie</span>
         </span>
       </button>
     </div>

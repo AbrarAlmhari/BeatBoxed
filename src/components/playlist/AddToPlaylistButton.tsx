@@ -170,7 +170,7 @@ export function AddToPlaylistButton({
                           <span dir="auto" className="block truncate text-body">
                             {p.title}
                           </span>
-                          <span className="block text-meta text-muted-foreground">
+                          <span className="block text-meta tabular-nums text-muted-foreground">
                             {p.songCount} {p.songCount === 1 ? 'song' : 'songs'}
                           </span>
                         </span>

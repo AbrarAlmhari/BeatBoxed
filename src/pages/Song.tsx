@@ -409,10 +409,10 @@ export default function Song() {
             {stats.reviewCount > 0 && stats.ratingAvg != null ? (
               <>
                 <StarRating value={stats.ratingAvg} size={17} />
-                <span className="text-secondary text-foreground">
+                <span className="text-secondary tabular-nums text-foreground">
                   {stats.ratingAvg.toFixed(1)}
                 </span>
-                <span className="text-secondary text-muted-foreground">
+                <span className="text-secondary tabular-nums text-muted-foreground">
                   ({stats.reviewCount}{' '}
                   {stats.reviewCount === 1 ? 'review' : 'reviews'})
                 </span>

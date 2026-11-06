@@ -115,7 +115,7 @@ export function ProfileHero({
         <Avatar url={profile.avatarUrl} name={name} />
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <div className="flex items-center gap-3">
-            <h1 dir="auto" className="min-w-0 truncate text-[20px] font-bold leading-tight tracking-tight md:text-[26px]">
+            <h1 dir="auto" className="min-w-0 truncate text-[20px] font-bold leading-tight tracking-[-0.01em] md:text-[26px]">
               {name}
             </h1>
             {/* Desktop: actions on the name's line, the gear at the far end. */}
@@ -188,7 +188,7 @@ function Avatar({ url, name }: { url: string | null; name: string }) {
       ) : (
         <span
           aria-hidden
-          className="grid size-full place-items-center rounded-full bg-surface-2 text-[26px] font-bold text-foreground md:text-[34px]"
+          className="grid size-full place-items-center rounded-full bg-surface-2 font-heading text-[26px] font-bold text-foreground md:text-[34px]"
         >
           {name.charAt(0).toUpperCase()}
         </span>
@@ -259,7 +259,7 @@ function ListensTo({
               <span
                 key={a.id}
                 className={cn(
-                  'grid size-8 place-items-center rounded-full bg-surface-2 text-meta font-bold text-foreground ring-2 ring-background',
+                  'grid size-8 place-items-center rounded-full bg-surface-2 font-heading text-meta font-bold text-foreground ring-2 ring-background',
                   i > 0 && '-ml-2.5'
                 )}
               >
