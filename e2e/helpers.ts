@@ -300,7 +300,7 @@ export async function createPlaylistWithSongs(
 }
 
 /** 8-bit mono silence, long enough to outlast the 5-second play threshold. */
-function silentWav(seconds: number) {
+export function silentWav(seconds: number) {
   const rate = 8000
   const samples = rate * seconds
   const buf = Buffer.alloc(44 + samples)
@@ -455,7 +455,7 @@ export async function playHistoryRows(userId: string) {
  * instance as it's constructed, which is also how we observe playback without
  * adding test-only hooks to the app.
  */
-async function installAudioProbe(page: Page) {
+export async function installAudioProbe(page: Page) {
   await page.addInitScript(() => {
     const Native = window.Audio
     const seen: HTMLAudioElement[] = []

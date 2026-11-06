@@ -67,6 +67,18 @@ type PlayerApi = PlayerState & {
 
 const PlayerContext = createContext<PlayerApi | null>(null)
 
+/**
+ * Every player's audio element, kept after its provider unmounts: leaving
+ * the shell (for the About page) doesn't stop the music, so pages outside
+ * it can still pause it before playing their own.
+ */
+const playerAudio = new Set<HTMLAudioElement>()
+
+/** Pauses the app's music player, wherever it is. */
+export function pauseAppPlayer() {
+  for (const audio of playerAudio) if (!audio.paused) audio.pause()
+}
+
 export function PlayerProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
   // One element for the whole app, so audio survives navigation.
@@ -390,6 +402,16 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   // Clearing the countdown on unmount keeps a torn-down provider from
   // starting a track nobody is listening to.
   useEffect(() => cancelSkip, [cancelSkip])
+
+  // A silent element is no longer worth pausing; one still playing stays
+  // listed so the About page can pause it.
+  useEffect(() => {
+    const audio = audioRef.current
+    if (audio) playerAudio.add(audio)
+    return () => {
+      if (audio?.paused) playerAudio.delete(audio)
+    }
+  }, [])
 
   // Audio element -> state
   useEffect(() => {
