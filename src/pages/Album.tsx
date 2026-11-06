@@ -36,6 +36,12 @@ export default function Album() {
   const [fetchingTracks, setFetchingTracks] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
   const syncing = useRef(false)
+  /**
+   * The album last synced. A failed sync, or a Spotify that holds fewer tracks
+   * than its total says, leaves the album incomplete, and the page re-reads
+   * after every attempt: without this it would ask again and again.
+   */
+  const tracksTried = useRef<string | null>(null)
 
   const load = useCallback(() => getAlbumDetail(id), [id])
 
@@ -58,7 +64,13 @@ export default function Album() {
          * higher than what we've cached, fetch the rest. Also covers the
          * first open of an album we only know from a search result.
          */
-        if (!syncing.current && detail.spotifyId && albumIsIncomplete(detail)) {
+        if (
+          !syncing.current &&
+          tracksTried.current !== detail.id &&
+          detail.spotifyId &&
+          albumIsIncomplete(detail)
+        ) {
+          tracksTried.current = detail.id
           syncing.current = true
           setFetchingTracks(detail.tracks.length === 0)
           void syncAlbumTracks(detail.spotifyId)

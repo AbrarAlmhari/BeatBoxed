@@ -38,6 +38,13 @@ export default function Artist() {
   const [reloadKey, setReloadKey] = useState(0)
   /** Guards against a second sync while one is already running. */
   const syncing = useRef(false)
+  /**
+   * The artist each lookup last ran for. A failed lookup leaves the page just
+   * as stale, and the page re-reads after every attempt, so without these it
+   * would ask Spotify again and again for as long as it stays open.
+   */
+  const discographyTried = useRef<string | null>(null)
+  const bioTried = useRef<string | null>(null)
 
   const load = useCallback(async () => {
     const detail = await getArtistDetail(id)
@@ -63,7 +70,12 @@ export default function Artist() {
          * and the page re-reads once it lands, so opening an artist is never
          * blocked on Spotify.
          */
-        if (!syncing.current && discographyIsStale(detail.discographySyncedAt)) {
+        if (
+          !syncing.current &&
+          discographyTried.current !== detail.id &&
+          discographyIsStale(detail.discographySyncedAt)
+        ) {
+          discographyTried.current = detail.id
           syncing.current = true
           void syncDiscography(detail.spotifyId)
             .then(() => !cancelled && setReloadKey((k) => k + 1))
@@ -82,7 +94,8 @@ export default function Artist() {
           )
         }
 
-        if (!detail.bioFetchedAt) {
+        if (!detail.bioFetchedAt && bioTried.current !== detail.id) {
+          bioTried.current = detail.id
           void syncArtistBio(detail.spotifyId).then(
             () => !cancelled && setReloadKey((k) => k + 1)
           )
