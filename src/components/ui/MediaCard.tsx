@@ -111,7 +111,7 @@ export function MediaCard({
         </p>
 
         {ratingAvg != null && (
-          <p className="mt-1.5 flex items-center gap-1 text-meta text-muted-foreground">
+          <p className="mt-1.5 flex items-center gap-1 text-meta tabular-nums text-muted-foreground">
             <Star className="size-3.5 shrink-0 fill-star text-star" />
             <span className="text-foreground">{ratingAvg.toFixed(1)}</span>
             {reviewCount != null && <span>({reviewCount})</span>}

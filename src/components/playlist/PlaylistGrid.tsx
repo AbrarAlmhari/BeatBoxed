@@ -20,7 +20,7 @@ export function PlaylistGrid({ playlists }: { playlists: PlaylistSummary[] }) {
             <p dir="auto" className="truncate text-card-title">
               {p.title}
             </p>
-            <p className="text-secondary text-muted-foreground">
+            <p className="text-secondary tabular-nums text-muted-foreground">
               {p.songCount} {p.songCount === 1 ? 'song' : 'songs'}
             </p>
           </div>

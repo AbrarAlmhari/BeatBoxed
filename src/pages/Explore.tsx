@@ -551,7 +551,7 @@ function Section({
       <SectionHeader
         title={
           <>
-            {title} <span className="text-secondary text-muted-foreground">({count})</span>
+            {title} <span className="font-sans text-secondary tabular-nums text-muted-foreground">({count})</span>
           </>
         }
         seeAll={shown < count ? { onClick: onSeeAll } : undefined}

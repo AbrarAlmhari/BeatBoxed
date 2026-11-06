@@ -140,7 +140,7 @@ export function ReviewConversation({
         )}
       >
         <Heart className={cn('size-[18px]', liked && 'fill-like')} strokeWidth={1.75} />
-        {likeCount > 0 && <span>{likeCount}</span>}
+        {likeCount > 0 && <span className="tabular-nums">{likeCount}</span>}
       </button>
       <button
         type="button"
@@ -159,7 +159,7 @@ export function ReviewConversation({
       >
         <MessageSquare className="size-[18px]" strokeWidth={1.75} />
         {(wide || count > 0) && (
-          <span aria-hidden>{wide ? (count === 0 ? 'Comment' : commentCountLabel(count)) : count}</span>
+          <span aria-hidden className="tabular-nums">{wide ? (count === 0 ? 'Comment' : commentCountLabel(count)) : count}</span>
         )}
       </button>
       <span className="ml-auto min-w-0">{likedBy}</span>
@@ -200,7 +200,7 @@ export function ReviewConversation({
                 </Link>
                 <span className="text-meta text-muted-foreground">{commentAge(top.createdAt, wide)}</span>
                 {top.likeCount > 0 && (
-                  <span className="ml-auto flex items-center gap-1 text-secondary text-like">
+                  <span className="ml-auto flex items-center gap-1 text-secondary tabular-nums text-like">
                     <Heart className="size-4 fill-like" strokeWidth={0} aria-hidden />
                     <span className="sr-only">Likes:</span>
                     {top.likeCount}

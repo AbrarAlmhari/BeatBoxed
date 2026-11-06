@@ -64,7 +64,7 @@ export function CommentsSheet({
             <div className="flex items-center gap-3 px-4 pb-3 pt-3">
               <h2 id={titleId} className="flex items-center gap-2.5 text-section-title">
                 Comments
-                <span className="rounded-chip bg-primary/25 px-2.5 py-0.5 text-secondary font-semibold text-accent">
+                <span className="rounded-chip bg-primary/25 px-2.5 py-0.5 text-secondary font-semibold tabular-nums text-accent">
                   {count}
                 </span>
               </h2>

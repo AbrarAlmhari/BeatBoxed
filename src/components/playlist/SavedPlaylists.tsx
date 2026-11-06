@@ -76,7 +76,7 @@ export function SavedPlaylists() {
                 <span dir="auto" className="truncate text-card-title">
                   {p.title}
                 </span>
-                <span className="truncate text-secondary text-muted-foreground">
+                <span className="truncate text-secondary tabular-nums text-muted-foreground">
                   {p.ownerName} · {p.songCount} {p.songCount === 1 ? 'song' : 'songs'}
                 </span>
               </span>

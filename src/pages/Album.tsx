@@ -275,13 +275,13 @@ export default function Album() {
                   {track.reviewCount > 0 && track.ratingAvg != null && (
                     <span className="hidden shrink-0 items-center gap-1 sm:flex">
                       <StarRating value={track.ratingAvg} size={13} />
-                      <span className="text-meta text-muted-foreground">
+                      <span className="text-meta tabular-nums text-muted-foreground">
                         {track.ratingAvg.toFixed(1)}
                       </span>
                     </span>
                   )}
 
-                  <span className="shrink-0 text-meta text-muted-foreground">
+                  <span className="shrink-0 text-meta tabular-nums text-muted-foreground">
                     {formatDuration(track.durationMs)}
                   </span>
 

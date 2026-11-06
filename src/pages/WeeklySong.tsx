@@ -147,7 +147,7 @@ export default function WeeklySong() {
 
         <section aria-label="Community rating" className="flex items-center gap-6 rounded-card border border-line bg-surface p-5">
           <div className="flex shrink-0 flex-col items-center gap-1">
-            <span className="text-[44px] font-bold leading-none">{week.average !== null ? week.average.toFixed(1) : '–'}</span>
+            <span className="text-[44px] font-bold leading-none tabular-nums">{week.average !== null ? week.average.toFixed(1) : '–'}</span>
             <StarRating value={Math.round(week.average ?? 0)} size={14} />
             <span className="text-secondary text-muted-foreground">
               {week.ratings} {week.ratings === 1 ? 'rating' : 'ratings'}
@@ -224,7 +224,8 @@ export default function WeeklySong() {
                       {w.average !== null && (
                         <>
                           {' · '}
-                          <Star className="inline size-3.5 fill-current align-[-2px]" strokeWidth={0} aria-hidden /> {w.average.toFixed(1)}
+                          <Star className="inline size-3.5 fill-current align-[-2px]" strokeWidth={0} aria-hidden />{' '}
+                          <span className="tabular-nums">{w.average.toFixed(1)}</span>
                         </>
                       )}
                     </span>

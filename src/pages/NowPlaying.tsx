@@ -241,7 +241,7 @@ export default function NowPlaying() {
           aria-label="Seek"
           className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-surface-2 accent-primary disabled:opacity-40"
         />
-        <div className="flex justify-between text-meta text-muted-foreground">
+        <div className="flex justify-between text-meta tabular-nums text-muted-foreground">
           <span>{clock(position)}</span>
           <span>{clock(duration || 30)}</span>
         </div>

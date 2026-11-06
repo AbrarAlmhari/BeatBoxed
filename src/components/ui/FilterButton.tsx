@@ -146,7 +146,7 @@ export function FilterButton({
                         o.count > 0 && (
                         <span
                           aria-label={`${o.count} unread`}
-                          className="grid min-w-6 place-items-center rounded-full bg-primary px-1.5 py-0.5 text-meta font-semibold leading-none text-white"
+                          className="grid min-w-6 place-items-center rounded-full bg-primary px-1.5 py-0.5 text-meta font-semibold leading-none tabular-nums text-white"
                         >
                           {o.count}
                         </span>

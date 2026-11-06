@@ -108,7 +108,7 @@ export const SongOfTheWeekFull = forwardRef<
         <span className="flex flex-wrap items-center gap-x-1 text-meta text-foreground/80">
           {week.average !== null && (
             <>
-              <span className="flex items-center gap-1 font-bold text-star">
+              <span className="flex items-center gap-1 font-bold tabular-nums text-star">
                 <Star className="size-3.5 fill-star" strokeWidth={0} aria-hidden />
                 <span className="sr-only">Average rating </span>
                 {week.average.toFixed(1)}
@@ -116,7 +116,7 @@ export const SongOfTheWeekFull = forwardRef<
               <span aria-hidden>·</span>
             </>
           )}
-          <span data-week-left>{timer.label}</span>
+          <span data-week-left className="tabular-nums">{timer.label}</span>
         </span>
         <Link
           to="/week"
