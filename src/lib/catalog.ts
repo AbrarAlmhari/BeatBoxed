@@ -1,3 +1,4 @@
+import { failureDetails } from './functionError'
 import { supabase } from './supabase'
 import { getNotificationPrefs } from './settings'
 import type {
@@ -713,6 +714,9 @@ async function localArtists(query: string, genre: string | null) {
 
 type TopUpResult = { ok: boolean; message?: string }
 
+/** The same words whatever went wrong: the details are for the console. */
+const SPOTIFY_UNAVAILABLE = 'Spotify search is unavailable right now, showing saved results.'
+
 /**
  * Fire the cache-fill Edge Function.
  *
@@ -729,24 +733,19 @@ async function topUpFromSpotify(
 ): Promise<TopUpResult> {
   try {
     // Searches wait on this, so it can't be allowed to hang: past the limit
-    // the cached results show with the "couldn't reach Spotify" note.
-    const { data, error } = await requireClient().functions.invoke(
+    // the cached results show with the "unavailable" note.
+    const { error } = await requireClient().functions.invoke(
       'spotify-search',
       { body: { q: query, type }, timeout: SPOTIFY_TOPUP_TIMEOUT_MS }
     )
     if (error) {
-      console.error('[beatboxed] spotify-search failed:', error)
-      return { ok: false, message: "Couldn't reach Spotify for more results." }
-    }
-    // The function answers 200 with an { error } body for upstream problems.
-    if (data?.error) {
-      console.error('[beatboxed] spotify-search returned an error:', data.error)
-      return { ok: false, message: `Spotify lookup failed: ${data.error}` }
+      console.error('[beatboxed] spotify-search failed:', await failureDetails(error))
+      return { ok: false, message: SPOTIFY_UNAVAILABLE }
     }
     return { ok: true }
   } catch (err) {
     console.error('[beatboxed] spotify-search unreachable:', err)
-    return { ok: false, message: "Couldn't reach Spotify for more results." }
+    return { ok: false, message: SPOTIFY_UNAVAILABLE }
   }
 }
 

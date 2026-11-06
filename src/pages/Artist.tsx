@@ -11,6 +11,7 @@ import { Card } from '@/components/ui/Card'
 import { EmptyState, emptySecondaryActionClass } from '@/components/ui/EmptyState'
 import { PageGlow } from '@/components/ui/PageGlow'
 import { SectionHeader } from '@/components/ui/SectionHeader'
+import { StatusNote } from '@/components/ui/StatusNote'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { COVER_FALLBACK, useCoverColors } from '@/lib/coverColors'
 import { usePlayer } from '@/lib/player'
@@ -38,6 +39,15 @@ export default function Artist() {
   const [reloadKey, setReloadKey] = useState(0)
   /** Guards against a second sync while one is already running. */
   const syncing = useRef(false)
+  /**
+   * The artist each lookup last ran for. A failed lookup leaves the page just
+   * as stale, and the page re-reads after every attempt, so without these it
+   * would ask Spotify again and again for as long as it stays open.
+   */
+  const discographyTried = useRef<string | null>(null)
+  const bioTried = useRef<string | null>(null)
+  /** The artist whose discography Spotify just refused, for the note. */
+  const [syncFailedFor, setSyncFailedFor] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     const detail = await getArtistDetail(id)
@@ -63,10 +73,18 @@ export default function Artist() {
          * and the page re-reads once it lands, so opening an artist is never
          * blocked on Spotify.
          */
-        if (!syncing.current && discographyIsStale(detail.discographySyncedAt)) {
+        if (
+          !syncing.current &&
+          discographyTried.current !== detail.id &&
+          discographyIsStale(detail.discographySyncedAt)
+        ) {
+          discographyTried.current = detail.id
           syncing.current = true
           void syncDiscography(detail.spotifyId)
-            .then(() => !cancelled && setReloadKey((k) => k + 1))
+            .then((synced) => {
+              if (!synced) setSyncFailedFor(detail.id)
+              if (!cancelled) setReloadKey((k) => k + 1)
+            })
             .finally(() => {
               syncing.current = false
             })
@@ -82,7 +100,8 @@ export default function Artist() {
           )
         }
 
-        if (!detail.bioFetchedAt) {
+        if (!detail.bioFetchedAt && bioTried.current !== detail.id) {
+          bioTried.current = detail.id
           void syncArtistBio(detail.spotifyId).then(
             () => !cancelled && setReloadKey((k) => k + 1)
           )
@@ -268,6 +287,12 @@ export default function Artist() {
 
       <section className="flex flex-col gap-4">
         <SectionHeader title="Discography" />
+
+        {syncFailedFor === artist.id && (
+          <div className="mb-4">
+            <StatusNote>Spotify is unavailable right now, showing saved albums.</StatusNote>
+          </div>
+        )}
 
         <Tabs
           tabs={[

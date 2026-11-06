@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/Card'
 import { EmptyState, emptySecondaryActionClass } from '@/components/ui/EmptyState'
 import { PageGlow } from '@/components/ui/PageGlow'
 import { Skeleton } from '@/components/ui/Skeleton'
+import { StatusNote } from '@/components/ui/StatusNote'
 import { COVER_FALLBACK, useCoverColors } from '@/lib/coverColors'
 import { usePlayer } from '@/lib/player'
 import { cn } from '@/lib/cn'
@@ -36,6 +37,14 @@ export default function Album() {
   const [fetchingTracks, setFetchingTracks] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
   const syncing = useRef(false)
+  /**
+   * The album last synced. A failed sync, or a Spotify that holds fewer tracks
+   * than its total says, leaves the album incomplete, and the page re-reads
+   * after every attempt: without this it would ask again and again.
+   */
+  const tracksTried = useRef<string | null>(null)
+  /** The album whose tracks Spotify just refused, for the note. */
+  const [syncFailedFor, setSyncFailedFor] = useState<string | null>(null)
 
   const load = useCallback(() => getAlbumDetail(id), [id])
 
@@ -58,11 +67,20 @@ export default function Album() {
          * higher than what we've cached, fetch the rest. Also covers the
          * first open of an album we only know from a search result.
          */
-        if (!syncing.current && detail.spotifyId && albumIsIncomplete(detail)) {
+        if (
+          !syncing.current &&
+          tracksTried.current !== detail.id &&
+          detail.spotifyId &&
+          albumIsIncomplete(detail)
+        ) {
+          tracksTried.current = detail.id
           syncing.current = true
           setFetchingTracks(detail.tracks.length === 0)
           void syncAlbumTracks(detail.spotifyId)
-            .then(() => !cancelled && setReloadKey((k) => k + 1))
+            .then((synced) => {
+              if (!synced) setSyncFailedFor(detail.id)
+              if (!cancelled) setReloadKey((k) => k + 1)
+            })
             .finally(() => {
               syncing.current = false
               if (!cancelled) setFetchingTracks(false)
@@ -176,6 +194,10 @@ export default function Album() {
           </div>
         </div>
       </header>
+
+      {syncFailedFor === album.id && (
+        <StatusNote>Spotify is unavailable right now, showing saved tracks.</StatusNote>
+      )}
 
       {tracks.length === 0 ? (
         fetchingTracks ? (

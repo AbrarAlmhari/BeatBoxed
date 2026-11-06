@@ -1,3 +1,4 @@
+import { failureDetails } from './functionError'
 import { supabase } from './supabase'
 import type { SongCardModel } from './types'
 
@@ -190,15 +191,16 @@ export function discographyIsStale(syncedAt: string | null) {
 
 /**
  * Fire-and-forget: the page already has whatever was cached, and a refresh
- * landing a moment later is picked up on the next read. Failures are logged
- * rather than surfaced — a stale discography is not an error worth a banner.
+ * landing a moment later is picked up on the next read. A failure is logged
+ * with Spotify's reason and answers null, so the page can say what's shown is
+ * only what's saved.
  */
 export async function syncDiscography(spotifyId: string) {
   const { data, error } = await requireClient().functions.invoke('spotify-artist', {
     body: { action: 'discography', spotifyId },
   })
   if (error) {
-    console.warn('[beatboxed] discography sync failed:', error.message)
+    console.warn('[beatboxed] discography sync failed:', await failureDetails(error))
     return null
   }
   return data as { albums: number; newReleases: number } | null
@@ -209,7 +211,7 @@ export async function syncArtistBio(spotifyId: string) {
     body: { action: 'bio', spotifyId },
   })
   if (error) {
-    console.warn('[beatboxed] bio lookup failed:', error.message)
+    console.warn('[beatboxed] bio lookup failed:', await failureDetails(error))
     return null
   }
   return data as { bio: string | null; url: string | null } | null
@@ -220,7 +222,7 @@ export async function syncAlbumTracks(spotifyId: string) {
     body: { action: 'album', spotifyId },
   })
   if (error) {
-    console.warn('[beatboxed] album sync failed:', error.message)
+    console.warn('[beatboxed] album sync failed:', await failureDetails(error))
     return null
   }
   return data as { tracks: number; totalTracks: number | null } | null

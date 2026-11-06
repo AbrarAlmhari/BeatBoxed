@@ -13,4 +13,6 @@ beatie reads personality.md at startup; supabase/config.toml lists it under stat
 
 The model secrets are read on every request, so changing one with `supabase secrets set` takes effect without a redeploy. `GEMINI_API_KEY` and `GEMINI_MODEL` are no longer read by anything (beatie/provider.ts is kept but unused).
 
+`npm run check:functions` type-checks every function. `npm run test:functions` runs spotify-search and spotify-artist as local servers against a fake Spotify and database, with no real calls. Both need these flags because Deno would otherwise look for its packages in the app's `node_modules`.
+
 `beatie/groq_test.ts` checks groq.ts against a fake Groq server, with no real calls: from this folder, `deno run --allow-env beatie/groq_test.ts`.

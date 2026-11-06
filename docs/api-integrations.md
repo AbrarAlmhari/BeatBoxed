@@ -10,6 +10,12 @@ Also check current access before designing around: 30-second preview URLs and so
 
 Setup: register an app at https://developer.spotify.com/dashboard, get `SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET`, exchange for an app access token server-side (never expose the secret to the frontend).
 
+When Spotify refuses a request, `spotify-search` and `spotify-artist` answer 502 with Spotify's reason: `{ error, spotify: { status, reason, code, retryAfterSeconds } }`. The app logs that to the console and shows a plain note above what's saved. A refusal saying "Active premium subscription required for the owner of the app" means the account that owns the app needs Premium; it can take a few hours to clear once that's sorted.
+
+Artist and album pages try each Spotify lookup once per visit, so a refusal can't turn into repeated calls.
+
+Tests never reach the real Spotify: specs import `test` from `e2e/fixtures.ts`, which answers every Spotify function with a mock, and `e2e/spotify.spec.ts` fails if a spec goes around it. `scripts/seed-catalog.mjs` is the one thing outside the app that still calls it, and only when run by hand.
+
 ## Lyrics — lrclib.net (primary)
 
 Free, open, no API key required. Supports plain and time-synced lyrics — the synced format is a good fit for the line-by-line "Now Playing" lyrics view. Query by artist + track name; no rate-limit key management needed for a project this size.
