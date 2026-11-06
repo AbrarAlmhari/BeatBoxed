@@ -1,15 +1,19 @@
-// Runs spotify-search and spotify-artist as real local servers, against a fake
-// Spotify, Deezer, Wikidata and database. No real calls: anything else a
-// function tries to reach fails the run.
+// Runs spotify-search, spotify-artist, lyrics-lookup and artist-genres as real
+// local servers, against a fake Spotify, Deezer, lrclib, Wikidata, MusicBrainz,
+// login service and database. No real calls: anything else a function tries to
+// reach fails the run.
 // Run with: npm run test:functions
 const SUPABASE = 'http://supabase.test'
 const CLIENT_SECRET = 'test-client-secret'
 const ACCESS_TOKEN = 'test-access-token'
+const SERVICE_KEY = 'test-service-role'
+const USER_TOKEN = 'test-user-session'
+const PUBLIC_KEY = 'test-public-key'
 const PREMIUM =
   'Active premium subscription required for the owner of the app. When the subscription status changes, it can take a few hours before requests are allowed again.'
 
 Deno.env.set('SUPABASE_URL', SUPABASE)
-Deno.env.set('SUPABASE_SERVICE_ROLE_KEY', 'test-service-role')
+Deno.env.set('SUPABASE_SERVICE_ROLE_KEY', SERVICE_KEY)
 Deno.env.set('SPOTIFY_CLIENT_ID', 'test-client-id')
 Deno.env.set('SPOTIFY_CLIENT_SECRET', CLIENT_SECRET)
 
@@ -27,6 +31,7 @@ const album = {
   total_tracks: 1,
   artists: [ref],
 }
+const genreArtist = { id: '00000000-0000-4000-8000-000000000002', spotify_id: ref.id, genres_fetched_at: null, genre_buckets: [] }
 const track = { id: 'track-1', name: 'Fake Track', duration_ms: 1000, track_number: 1, disc_number: 1, artists: [ref], album }
 
 function workingSpotify(url: URL) {
@@ -48,7 +53,8 @@ function workingSpotify(url: URL) {
 let spotify = workingSpotify
 let tokenAnswer = () => jsonResponse({ access_token: ACCESS_TOKEN, expires_in: 0 })
 let spotifyCalls = 0
-const writes: { method: string; path: string }[] = []
+const writes: { method: string; path: string; body?: unknown }[] = []
+let outsideCalls = 0
 const unexpected: string[] = []
 const realFetch = globalThis.fetch
 
@@ -63,12 +69,34 @@ globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) =>
     return spotify(url)
   }
   if (url.host === 'api.deezer.com') return jsonResponse({ data: [] })
-  if (url.host === 'query.wikidata.org') return jsonResponse({ results: { bindings: [] } })
+  if (url.host === 'lrclib.net') {
+    outsideCalls++
+    return jsonResponse({ trackName: 'Fake Track', artistName: 'Fake Artist', plainLyrics: 'la la' })
+  }
+  if (url.host === 'query.wikidata.org') {
+    outsideCalls++
+    return jsonResponse({ results: { bindings: [] } })
+  }
+  if (url.host === 'musicbrainz.org') {
+    outsideCalls++
+    return jsonResponse({ relations: [] })
+  }
   if (url.origin === SUPABASE) {
-    if (request.method === 'GET') return jsonResponse([])
-    writes.push({ method: request.method, path: url.pathname })
-    if (request.method === 'PATCH') return new Response(null, { status: 204 })
+    const one = (request.headers.get('accept') ?? '').includes('vnd.pgrst.object')
+    if (url.pathname === '/auth/v1/user') {
+      return request.headers.get('authorization') === `Bearer ${USER_TOKEN}`
+        ? jsonResponse({ id: 'user-1', aud: 'authenticated', role: 'authenticated', email: 'fake@beatboxed.test' })
+        : jsonResponse({ message: 'invalid JWT' }, 401)
+    }
+    if (request.method === 'GET') {
+      return jsonResponse(url.searchParams.get('id') === `eq.${genreArtist.id}` ? [genreArtist] : [])
+    }
+    if (request.method === 'PATCH') {
+      writes.push({ method: request.method, path: url.pathname })
+      return one ? jsonResponse({ genre_buckets: [] }) : new Response(null, { status: 204 })
+    }
     const rows = (await request.json()) as { spotify_id: string }[]
+    writes.push({ method: request.method, path: url.pathname, body: rows })
     return jsonResponse(rows.map((row) => ({ ...row, id: `id-${row.spotify_id}` })), 201)
   }
   unexpected.push(url.href)
@@ -102,9 +130,15 @@ async function start(path: string) {
 
 const searchUrl = await start('./spotify-search/index.ts')
 const artistUrl = await start('./spotify-artist/index.ts')
+const lyricsUrl = await start('./lyrics-lookup/index.ts')
+const genresUrl = await start('./artist-genres/index.ts')
 
-async function post(base: string, body: unknown) {
-  const res = await globalThis.fetch(base, { method: 'POST', body: JSON.stringify(body) })
+async function post(base: string, body: unknown, token: string | null = USER_TOKEN) {
+  const res = await globalThis.fetch(base, {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: JSON.stringify(body),
+  })
   const text = await res.text()
   return { status: res.status, text, json: JSON.parse(text) }
 }
@@ -118,11 +152,38 @@ function reset() {
   spotify = workingSpotify
   tokenAnswer = () => jsonResponse({ access_token: ACCESS_TOKEN, expires_in: 0 })
   spotifyCalls = 0
+  outsideCalls = 0
   writes.length = 0
   logged.length = 0
 }
 
 const premiumRefusal = () => new Response(PREMIUM, { status: 403 })
+
+// Logging in
+const lockedFunctions: [string, string, unknown][] = [
+  ['search', searchUrl, { q: 'x' }],
+  ['artist', artistUrl, { action: 'discography', spotifyId: ref.id }],
+  ['lyrics', lyricsUrl, { artist: 'Fake Artist', track: 'Fake Track' }],
+  ['genres', genresUrl, { artistId: genreArtist.id }],
+]
+for (const [name, url, body] of lockedFunctions) {
+  for (const [who, token] of [['no token', null], ['the public key', PUBLIC_KEY], ['a made-up token', 'expired-or-fake']] as const) {
+    reset()
+    const refused = await post(url, body, token)
+    check(`${name}: ${who} is a 401 and does nothing`, refused.status === 401 && spotifyCalls === 0 && outsideCalls === 0 && writes.length === 0, { status: refused.status, spotifyCalls, outsideCalls, writes })
+  }
+  reset()
+  const allowed = await post(url, body)
+  check(`${name}: a logged-in user gets through`, allowed.status === 200, allowed.json)
+}
+
+reset()
+await post(searchUrl, { q: 'x', genre: 'made-up genre' })
+check('search: a user cannot label songs or artists with a genre', !JSON.stringify(writes).includes('made-up genre'), writes)
+
+reset()
+const seeded = await post(searchUrl, { q: 'x', genre: 'rock' }, SERVICE_KEY)
+check('search: the seed script still can', seeded.status === 200 && JSON.stringify(writes).includes('rock'), { json: seeded.json, writes })
 
 // spotify-search
 const options = await globalThis.fetch(searchUrl, { method: 'OPTIONS' })

@@ -117,6 +117,27 @@ async function countCalls(page: Page, action: string, status: number) {
   return calls
 }
 
+test("the app sends the logged-in user's session, not the public key", async ({ page }) => {
+  await goOffline(page)
+  const sent: Record<string, string | undefined> = {}
+  for (const name of ['spotify-search', 'spotify-artist', 'lyrics-lookup', 'artist-genres']) {
+    await page.route(`**/functions/v1/${name}`, (route) => {
+      if (route.request().method() !== 'OPTIONS') sent[name] = route.request().headers().authorization
+      return json(route, { songs: [], found: false, genres: [] })
+    })
+  }
+  await search(page)
+  await page.evaluate(async () => {
+    const { supabase } = await import('/src/lib/supabase.ts')
+    for (const name of ['spotify-artist', 'lyrics-lookup', 'artist-genres']) await supabase!.functions.invoke(name, { body: {} })
+  })
+  await expect.poll(() => Object.keys(sent).length).toBe(4)
+  for (const header of Object.values(sent)) {
+    expect(header).toMatch(/^Bearer e30\./)
+    expect(header).not.toContain(env.VITE_SUPABASE_ANON_KEY)
+  }
+})
+
 test.describe("Spotify's reason", () => {
   test('reads the plain text refusal the app gets without Premium', async () => {
     const failure = await readSpotifyFailure(new Response(REFUSAL, { status: 403 }))

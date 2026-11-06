@@ -1,4 +1,5 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { callerOf, notLoggedIn } from '../_shared/auth.ts'
 import { corsHeaders, json } from '../_shared/cors.ts'
 import { getSpotifyToken, pickImage } from '../_shared/spotify.ts'
 import { fetchDeezerRanks } from '../_shared/deezer.ts'
@@ -12,7 +13,8 @@ import { readSpotifyFailure, SpotifyRefused, spotifyFailureBody } from '../_shar
  * Genre note: this app's Spotify credentials no longer return `genres` on
  * artists (restricted for apps created after late 2024), and tracks never
  * carried one. The optional `genre` argument lets the caller tag what it is
- * deliberately fetching — the seed script passes it, user searches don't.
+ * deliberately fetching. Only the seed script may pass it (it holds the service
+ * role key); from anyone else it's ignored, so a user can't relabel the catalog.
  */
 
 type SpotifyArtistRef = { id: string; name: string }
@@ -190,16 +192,20 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
   try {
+    const caller = await callerOf(req)
+    if (!caller) return notLoggedIn()
+
     const {
       q,
       type = 'track',
       limit = 10,
-      genre = null,
+      genre: askedGenre = null,
       // When set, only keep tracks whose primary artist is this artist. A bare
       // name query matches song titles too: searching "Cigarettes After Sex"
       // returns tracks by MATUNA and Rod Wave alongside the actual band.
       artistName = null,
     } = await req.json()
+    const genre = caller === 'service' ? askedGenre : null
     if (!q || typeof q !== 'string') {
       return json({ error: 'q is required' }, 400)
     }

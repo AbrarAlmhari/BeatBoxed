@@ -1,4 +1,5 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { callerOf, notLoggedIn } from '../_shared/auth.ts'
 import { corsHeaders, json } from '../_shared/cors.ts'
 
 /**
@@ -68,6 +69,8 @@ async function musicbrainzGenres(spotifyId: string): Promise<string[]> {
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   try {
+    if (!(await callerOf(req))) return notLoggedIn()
+
     const { artistId } = (await req.json()) as { artistId?: string }
     if (!artistId) return json({ error: 'artistId is required' }, 400)
 

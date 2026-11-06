@@ -1,4 +1,5 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { callerOf, notLoggedIn } from '../_shared/auth.ts'
 import { corsHeaders, json } from '../_shared/cors.ts'
 import { getSpotifyToken, pickImage } from '../_shared/spotify.ts'
 import { readSpotifyFailure, SpotifyRefused, spotifyFailureBody } from '../_shared/spotifyFailure.ts'
@@ -379,6 +380,8 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
   try {
+    if (!(await callerOf(req))) return notLoggedIn()
+
     const { action, spotifyId } = await req.json() as {
       action?: string
       spotifyId?: string

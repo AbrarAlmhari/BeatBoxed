@@ -10,6 +10,8 @@ Also check current access before designing around: 30-second preview URLs and so
 
 Setup: register an app at https://developer.spotify.com/dashboard, get `SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET`, exchange for an app access token server-side (never expose the secret to the frontend).
 
+`spotify-search`, `spotify-artist`, `lyrics-lookup` and `artist-genres` answer only logged-in users, checking the session token with Supabase; the public key alone gets a 401. The seed script gets through with the service role key, and it's the only caller whose `genre` is saved. `beatie` passes its user's token to `lyrics-lookup`.
+
 When Spotify refuses a request, `spotify-search` and `spotify-artist` answer 502 with Spotify's reason: `{ error, spotify: { status, reason, code, retryAfterSeconds } }`. The app logs that to the console and shows a plain note above what's saved. A refusal saying "Active premium subscription required for the owner of the app" means the account that owns the app needs Premium; it can take a few hours to clear once that's sorted.
 
 Artist and album pages try each Spotify lookup once per visit, so a refusal can't turn into repeated calls.

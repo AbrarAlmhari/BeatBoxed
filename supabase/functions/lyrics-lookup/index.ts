@@ -1,14 +1,18 @@
+import { callerOf, notLoggedIn } from '../_shared/auth.ts'
 import { corsHeaders, json } from '../_shared/cors.ts'
 
 /**
  * Proxies lrclib.net so the browser never hits it directly (CORS), per
  * docs/api-integrations.md. No API key required. Returns plain and synced
- * lyrics when lrclib has them.
+ * lyrics when lrclib has them. Logged-in users only; beatie passes its user's
+ * token along when it asks for a song's lyrics.
  */
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
   try {
+    if (!(await callerOf(req))) return notLoggedIn()
+
     const { artist, track, album, durationSec } = await req.json()
     if (!artist || !track) {
       return json({ error: 'artist and track are required' }, 400)
