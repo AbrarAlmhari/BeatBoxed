@@ -18,7 +18,7 @@ When Spotify refuses a request, `spotify-search` and `spotify-artist` answer 502
 
 Artist and album pages try each Spotify lookup once per visit, so a refusal can't turn into repeated calls.
 
-Tests never reach the real Spotify: specs import `test` from `e2e/fixtures.ts`, which answers every Spotify function with a mock, and `e2e/spotify.spec.ts` fails if a spec goes around it. `scripts/seed-catalog.mjs` is the one thing outside the app that still calls it, and only when run by hand.
+Tests never reach the real Spotify: specs import `test` from `e2e/fixtures.ts`, which answers every Spotify function with a mock, and `e2e/spotify.spec.ts` fails if a spec goes around it. `playwright.config.ts` also refuses to start a run while any spec imports from `@playwright/test` directly (`e2e/spec-imports.ts`). `scripts/seed-catalog.mjs` is the one thing outside the app that still calls it, and only when run by hand.
 
 ## Lyrics — lrclib.net (primary)
 
