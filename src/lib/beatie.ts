@@ -25,6 +25,7 @@ export type BeatieRequest =
 export type BeatieErrorCode =
   | 'limit'
   | 'global'
+  | 'daily'
   | 'busy'
   | 'pending'
   | 'error'
@@ -70,9 +71,10 @@ export function beatieErrorMessage(code: BeatieErrorCode) {
     case 'limit':
       return "You've used today's 30 Beatie requests. They reset at midnight UTC. Answers Beatie has already given still load."
     case 'global':
-      return 'Beatie is taking a break, try again later.'
+    case 'daily':
+      return "Beatie has reached today's limit. Try again tomorrow. Answers Beatie has already given still work."
     case 'busy':
-      return 'Beatie is taking a break, try again in a minute.'
+      return 'Beatie is unavailable right now, try again in a minute.'
     case 'pending':
       return "Beatie's still writing this one, check back in a moment."
     default:

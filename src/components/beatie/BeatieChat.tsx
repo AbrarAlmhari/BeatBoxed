@@ -226,13 +226,13 @@ export function Thinking() {
 }
 
 /**
- * A failure, in words and in Beatie's face: sleepy for "taking a break" and
- * the daily limit, sad for anything else. "Check back in a moment" isn't a
+ * A failure, in words and in Beatie's face: sleepy for "unavailable" and the
+ * daily limits, sad for anything else. "Check back in a moment" isn't a
  * failure, so it keeps the normal face.
  */
 export function BeatieNotice({ code }: { code: BeatieErrorCode }) {
   const mood: BeatieMood =
-    code === 'busy' || code === 'global' || code === 'limit'
+    code === 'busy' || code === 'global' || code === 'daily' || code === 'limit'
       ? 'sleepy'
       : code === 'pending'
         ? 'default'

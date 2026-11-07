@@ -17,7 +17,7 @@ Put this whole folder in the project at `src/assets/beatie/`.
 | `beatie-happy` | an answer has arrived, success messages |
 | `beatie-thinking` | loading ("Beatie is thinking…") |
 | `beatie-excited` | first-time hello bubble, new features |
-| `beatie-sleepy` | "Beatie is taking a break" and the daily-limit message |
+| `beatie-sleepy` | "Beatie is unavailable" and the daily-limit messages |
 | `beatie-sad` | general error messages, "no lyrics found" |
 
 Files ending in `-sticker` add a little extra next to the head (a music note, a "?", "zz" or sparkles). Use them only in bigger spots like empty states, at 96px or larger.
