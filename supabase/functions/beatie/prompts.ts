@@ -1,3 +1,5 @@
+import { REASONING_HEADROOM } from './groq.ts'
+
 /**
  * What Beatie is told, apart from its personality (personality.md).
  *
@@ -115,6 +117,25 @@ export function translationSystemPrompt(language: string, count: number) {
     'Never merge or split lines. If a line is already in the target language, or is a sound like "ooh", repeat it as it is.',
   ].join('\n')
 }
+
+/**
+ * The longest translation to ask for. All three models allow 8,000 tokens a
+ * minute, and Groq doesn't say whether a request's max_tokens counts toward
+ * that before it runs, so a request stays under it either way: its lyrics
+ * (taken at 2 characters a token, the safe side for Arabic), the output limit
+ * and the reasoning room together stay within 7,000. A real translation needs
+ * far less than this: about half a token per character of lyrics.
+ */
+export function translationMaxTokens(lyrics: string[]) {
+  const chars = lyrics.join(' ').length
+  const promptTokens = Math.ceil((chars + TRANSLATION_PROMPT_CHARS) / 2)
+  const room = TRANSLATION_REQUEST_TOKENS - REASONING_HEADROOM - promptTokens
+  return Math.max(TRANSLATION_MIN_TOKENS, Math.min(200 + chars * 2, room))
+}
+const TRANSLATION_REQUEST_TOKENS = 7000
+const TRANSLATION_PROMPT_CHARS = 700
+/** Lyrics too long to fit at all: still a valid request, and a cut-off answer is rejected. */
+const TRANSLATION_MIN_TOKENS = 200
 
 /* ---------------------------------------------------------- safety check */
 
