@@ -12,7 +12,7 @@ Setup: register an app at https://developer.spotify.com/dashboard, get `SPOTIFY_
 
 `spotify-search`, `spotify-artist`, `lyrics-lookup` and `artist-genres` answer only logged-in users, checking the session token with Supabase; the public key alone gets a 401. The seed script gets through with the service role key, and it's the only caller whose `genre` is saved. `beatie` passes its user's token to `lyrics-lookup`.
 
-A search or sync never blanks what's saved: a genre, popularity or artist image that comes back missing is left out of the write (`_shared/upsertByShape.ts`), so the old value stays.
+A search or sync never blanks what's saved: a genre, popularity, artist image or album cover that comes back missing is left out of the write (`_shared/upsertByShape.ts`), so the old value stays.
 
 When Spotify refuses a request, `spotify-search` and `spotify-artist` answer 502 with `{ error: 'Spotify is unavailable right now.', spotify: { status, retryAfterSeconds } }`. Spotify's reason goes only to the function's logs, as do the details of any other failure: the browser gets a plain message. `spotifyId` must be 22 letters and digits, or the answer is 400. The app logs that to the console and shows a plain note above what's saved. A refusal saying "Active premium subscription required for the owner of the app" means the account that owns the app needs Premium; it can take a few hours to clear once that's sorted.
 

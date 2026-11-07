@@ -360,6 +360,38 @@ reset()
 r = await post(artistUrl, { action: 'bio', spotifyId: ref.id })
 check('bio: a miss is stamped, without calling Spotify', r.status === 200 && r.json.bio === null && spotifyCalls === 0 && writes.some((w) => w.method === 'PATCH'), { json: r.json, spotifyCalls, writes })
 
+// Album covers
+const coverless = { ...album, images: [] }
+const covered = { ...album, id: 'album-3', name: 'Covered Album', images: [{ url: 'new-cover', width: 1, height: 1 }] }
+
+reset()
+spotify = (u) => (u.pathname === '/v1/search' ? jsonResponse({ tracks: { items: [{ ...track, album: coverless }] } }) : workingSpotify(u))
+holding('albums', album.id, { cover_url: 'saved-cover' })
+await post(searchUrl, { q: 'x' })
+check('search: an album keeps its cover when the new one is missing', savedRow('albums', album.id)?.cover_url === 'saved-cover', savedRow('albums', album.id))
+
+reset()
+spotify = (u) =>
+  u.pathname === '/v1/search'
+    ? jsonResponse({ tracks: { items: [{ ...track, album: coverless }, { ...otherTrack, album: covered }] } })
+    : workingSpotify(u)
+holding('albums', album.id, { cover_url: 'saved-cover' })
+await post(searchUrl, { q: 'x' })
+check('search: a new cover is saved, and does not blank another album in the same search', savedRow('albums', covered.id)?.cover_url === 'new-cover' && savedRow('albums', album.id)?.cover_url === 'saved-cover', [savedRow('albums', covered.id), savedRow('albums', album.id)])
+
+reset()
+spotify = (u) => (u.pathname === `/v1/artists/${ref.id}/albums` ? jsonResponse({ items: [coverless, covered], next: null }) : workingSpotify(u))
+holding('albums', album.id, { cover_url: 'saved-cover' })
+await post(artistUrl, { action: 'discography', spotifyId: ref.id })
+check('artist sync: an album keeps its cover when the new one is missing', savedRow('albums', album.id)?.cover_url === 'saved-cover', savedRow('albums', album.id))
+check('artist sync: a new cover is saved', savedRow('albums', covered.id)?.cover_url === 'new-cover', savedRow('albums', covered.id))
+
+reset()
+spotify = (u) => (u.pathname === `/v1/albums/${album.id}` ? jsonResponse(coverless) : workingSpotify(u))
+holding('albums', album.id, { cover_url: 'saved-cover' })
+await post(artistUrl, { action: 'album', spotifyId: album.id })
+check('album sync: an album keeps its cover when the new one is missing', savedRow('albums', album.id)?.cover_url === 'saved-cover', savedRow('albums', album.id))
+
 // spotifyId
 for (const [label, bad] of [
   ['too short', 'abc'],

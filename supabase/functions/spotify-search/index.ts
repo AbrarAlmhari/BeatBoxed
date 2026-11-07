@@ -121,27 +121,26 @@ async function upsertAlbums(
 
   const byId = new Map(albums.map((a) => [a.id, a]))
   const rows = [...byId.values()]
-    .map((a) => ({
-      spotify_id: a.id,
-      title: a.name,
-      artist_id: artistIds.get(a.artists[0]?.id) ?? null,
-      cover_url: pickImage(a.images),
-      cached_at: new Date().toISOString(),
-      release_date: a.release_date?.length === 4
-        ? `${a.release_date}-01-01` // Spotify may return year-only precision
-        : a.release_date ?? null,
-    }))
+    .map((a) => {
+      const cover = pickImage(a.images)
+      return {
+        spotify_id: a.id,
+        title: a.name,
+        artist_id: artistIds.get(a.artists[0]?.id) ?? null,
+        // Left out when missing, so a saved cover stays.
+        ...(cover ? { cover_url: cover } : {}),
+        cached_at: new Date().toISOString(),
+        release_date: a.release_date?.length === 4
+          ? `${a.release_date}-01-01` // Spotify may return year-only precision
+          : a.release_date ?? null,
+      }
+    })
     .filter((r) => r.artist_id)
 
   if (rows.length === 0) return map
 
-  const { data, error } = await admin
-    .from('albums')
-    .upsert(rows, { onConflict: 'spotify_id' })
-    .select('id, spotify_id')
-
-  if (error) throw error
-  for (const row of data ?? []) map.set(row.spotify_id, row.id)
+  const saved = await upsertByShape<{ id: string; spotify_id: string }>(admin, 'albums', rows, 'id, spotify_id')
+  for (const row of saved) map.set(row.spotify_id, row.id)
   return map
 }
 
