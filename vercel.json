@@ -1,4 +1,13 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
+  "headers": [{
+    "source": "/(.*)",
+    "headers": [
+      { "key": "X-Frame-Options", "value": "DENY" },
+      { "key": "X-Content-Type-Options", "value": "nosniff" },
+      { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+      { "key": "Content-Security-Policy-Report-Only", "value": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://i.scdn.co https://amalwycmucybcjxzhhoz.supabase.co; font-src 'self'; media-src 'self' https://*.itunes.apple.com; connect-src 'self' https://amalwycmucybcjxzhhoz.supabase.co wss://amalwycmucybcjxzhhoz.supabase.co https://itunes.apple.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'" }
+    ]
+  }]
 }
