@@ -61,16 +61,16 @@ Keep this updated as the source of truth on progress — don't rely on chat hist
 Things worth revisiting once the whole app exists, not mid-build. Add to this as you notice something rather than stopping to fix it immediately (unless it's an actual bug, not a nice-to-have — fix those now).
 
 - [ ] Light theme (needs a design pass with Ghadah first; `profiles.theme_preference` already exists)
-- [x] Likes privacy: song likes follow the liker's profile privacy (live; the migration file isn't on main yet). Review likes stay readable.
+- [x] Likes privacy: song likes follow the liker's profile privacy. Review likes can be read by logged-in users only.
 - [x] Report a profile: Report in the profile ⋯ menu, saved to `profile_reports`.
-- [ ] Written-review count on locked private profiles (a small count function), if we want it later. Today a locked profile shows ratings, followers, following and artists, but not "reviews".
-- [x] Genre mapping: 33 more raw genres mapped out of Other (live; the migration file isn't on main yet).
-- [ ] Search results (ArtistResultCard) still read Spotify's always-empty `artists.genres`; switch them to `genre_buckets` if we want genres there too.
+- [x] Written-review count on locked private profiles (a small count function), if we want it later. Today a locked profile shows ratings, followers, following and artists, but not "reviews".
+- [x] Genre mapping: 33 more raw genres mapped out of Other.
+- [x] Search results (ArtistResultCard) still read Spotify's always-empty `artists.genres`; switch them to `genre_buckets` if we want genres there too.
 - [ ] _(add items here as they come up)_
 
 ## Also done
 
-- [x] Filter button everywhere: Notifications, Explore, the profile Reviews tab, and the sort on your reviews and playlists (that sort isn't on main yet)
+- [x] Filter button everywhere: Notifications, Explore, the profile Reviews tab, and the sort on your reviews and playlists
 - [x] For You variety
 - [x] About page with photos, bios and songs
 - [x] Collection 1 fonts
@@ -78,7 +78,7 @@ Things worth revisiting once the whole app exists, not mid-build. Add to this as
 ## Still open
 
 - [ ] Spotify Premium for the account that owns the Spotify app
-- [ ] Redeploy the Beatie and spotify-search functions
+- [ ] Redeploy beatie, spotify-search, spotify-artist, lyrics-lookup, artist-genres, artist-release-check and song-vibes, and remove spotify-token
 - [ ] Final clean-up list
 - [ ] SDS and Status Report 2
 - [ ] STS
