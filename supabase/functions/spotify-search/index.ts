@@ -127,12 +127,16 @@ async function upsertAlbums(
         spotify_id: a.id,
         title: a.name,
         artist_id: artistIds.get(a.artists[0]?.id) ?? null,
-        // Left out when missing, so a saved cover stays.
+        // Left out when missing, so what's saved stays.
         ...(cover ? { cover_url: cover } : {}),
         cached_at: new Date().toISOString(),
-        release_date: a.release_date?.length === 4
-          ? `${a.release_date}-01-01` // Spotify may return year-only precision
-          : a.release_date ?? null,
+        ...(a.release_date
+          ? {
+              release_date: a.release_date.length === 4
+                ? `${a.release_date}-01-01` // Spotify may return year-only precision
+                : a.release_date,
+            }
+          : {}),
       }
     })
     .filter((r) => r.artist_id)

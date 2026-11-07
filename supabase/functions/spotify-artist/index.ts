@@ -131,16 +131,17 @@ async function upsertAlbums(
 
   const rows = albums.map((a) => {
     const cover = pickImage(a.images)
+    const type = a.album_group ?? a.album_type
     return {
       spotify_id: a.id,
       title: a.name,
       // Primary artist only, the same rule spotify-search follows.
       artist_id: artistIds.get(a.artists[0]?.id) ?? null,
-      // Left out when missing, so a saved cover stays.
+      // Left out when missing, so what's saved stays.
       ...(cover ? { cover_url: cover } : {}),
-      release_date: a.release_date ?? null,
-      total_tracks: a.total_tracks ?? null,
-      album_type: a.album_group ?? a.album_type ?? null,
+      ...(a.release_date ? { release_date: a.release_date } : {}),
+      ...(a.total_tracks != null ? { total_tracks: a.total_tracks } : {}),
+      ...(type ? { album_type: type } : {}),
       cached_at: new Date().toISOString(),
     }
   })

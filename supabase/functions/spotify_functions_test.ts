@@ -392,6 +392,45 @@ holding('albums', album.id, { cover_url: 'saved-cover' })
 await post(artistUrl, { action: 'album', spotifyId: album.id })
 check('album sync: an album keeps its cover when the new one is missing', savedRow('albums', album.id)?.cover_url === 'saved-cover', savedRow('albums', album.id))
 
+// Album details
+const bareAlbum = { ...album } as Record<string, unknown>
+delete bareAlbum.release_date
+delete bareAlbum.total_tracks
+delete bareAlbum.album_type
+delete bareAlbum.album_group
+const fullAlbum = { ...album, id: 'album-4', name: 'Full Album', release_date: '2021-02-03', total_tracks: 9, album_type: 'single' }
+const savedDetails = { release_date: '1997-05-21', total_tracks: 12, album_type: 'album' }
+const keptDetails = (row?: Record<string, unknown>) =>
+  row?.release_date === savedDetails.release_date && row?.total_tracks === savedDetails.total_tracks && row?.album_type === savedDetails.album_type
+
+reset()
+spotify = (u) => (u.pathname === `/v1/albums/${album.id}` ? jsonResponse(bareAlbum) : workingSpotify(u))
+holding('albums', album.id, savedDetails)
+await post(artistUrl, { action: 'album', spotifyId: album.id })
+check('album sync: release date, track count and type stay when Spotify leaves them out', keptDetails(savedRow('albums', album.id)), savedRow('albums', album.id))
+
+reset()
+spotify = (u) => (u.pathname === `/v1/artists/${ref.id}/albums` ? jsonResponse({ items: [bareAlbum, fullAlbum], next: null }) : workingSpotify(u))
+holding('albums', album.id, savedDetails)
+await post(artistUrl, { action: 'discography', spotifyId: ref.id })
+check('artist sync: they stay too, next to an album that has them', keptDetails(savedRow('albums', album.id)), savedRow('albums', album.id))
+check(
+  'artist sync: new values are saved',
+  savedRow('albums', fullAlbum.id)?.release_date === '2021-02-03' && savedRow('albums', fullAlbum.id)?.total_tracks === 9 && savedRow('albums', fullAlbum.id)?.album_type === 'single',
+  savedRow('albums', fullAlbum.id)
+)
+
+reset()
+spotify = (u) => (u.pathname === '/v1/search' ? jsonResponse({ tracks: { items: [{ ...track, album: bareAlbum }] } }) : workingSpotify(u))
+holding('albums', album.id, savedDetails)
+await post(searchUrl, { q: 'x' })
+check('search: a saved release date stays when Spotify leaves it out', savedRow('albums', album.id)?.release_date === savedDetails.release_date, savedRow('albums', album.id))
+
+reset()
+spotify = (u) => (u.pathname === '/v1/search' ? jsonResponse({ tracks: { items: [{ ...track, album: { ...album, release_date: '1997' } }] } }) : workingSpotify(u))
+await post(searchUrl, { q: 'x' })
+check('search: a year-only release date still becomes January 1st', savedRow('albums', album.id)?.release_date === '1997-01-01', savedRow('albums', album.id))
+
 // spotifyId
 for (const [label, bad] of [
   ['too short', 'abc'],
