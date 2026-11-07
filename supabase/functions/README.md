@@ -1,4 +1,4 @@
-Supabase Edge Functions — this is where server-side secrets (GROQ_API_KEY, SPOTIFY_CLIENT_SECRET) actually get used, so they never reach the browser bundle. beatie holds Beatie's AI calls, through Groq (beatie/groq.ts); song-vibes labels songs for the daily check-in, also through Groq (beatie/groq.ts) but with its own model; spotify-token does the Client Credentials exchange and caching.
+Supabase Edge Functions — this is where server-side secrets (GROQ_API_KEY, SPOTIFY_CLIENT_SECRET) actually get used, so they never reach the browser bundle. beatie holds Beatie's AI calls, through Groq (beatie/groq.ts); song-vibes labels songs for the daily check-in, also through Groq (beatie/groq.ts) but with its own model. The Spotify functions get their Client Credentials token from _shared/spotify.ts, which also caches it; the token never leaves the server.
 
 beatie reads personality.md at startup; supabase/config.toml lists it under static_files so it's deployed with the function. Deploy with `supabase functions deploy beatie`.
 
@@ -13,6 +13,6 @@ beatie reads personality.md at startup; supabase/config.toml lists it under stat
 
 The model secrets are read on every request, so changing one with `supabase secrets set` takes effect without a redeploy. `GEMINI_API_KEY` and `GEMINI_MODEL` are no longer read by anything (beatie/provider.ts is kept but unused).
 
-`npm run check:functions` type-checks every function. `npm run test:functions` runs spotify-search and spotify-artist as local servers against a fake Spotify and database, with no real calls. Both need these flags because Deno would otherwise look for its packages in the app's `node_modules`.
+`npm run check:functions` type-checks every function. `npm run test:functions` runs spotify-search, spotify-artist, lyrics-lookup and artist-genres as local servers against a fake Spotify, login service and database, with no real calls. Both need these flags because Deno would otherwise look for its packages in the app's `node_modules`.
 
 `beatie/groq_test.ts` checks groq.ts against a fake Groq server, with no real calls: from this folder, `deno run --allow-env beatie/groq_test.ts`.

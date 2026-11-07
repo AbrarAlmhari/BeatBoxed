@@ -46,18 +46,22 @@ export class SpotifyRefused extends Error {
   failure: SpotifyFailure
 
   constructor(what: string, failure: SpotifyFailure) {
-    super(spotifyFailureBody(what, failure).error)
+    // The whole reason, for the function's logs.
+    super(`${what} failed: ${failure.status}${failure.reason ? `. ${failure.reason}` : ''}`)
     this.name = 'SpotifyRefused'
     this.what = what
     this.failure = failure
   }
 }
 
-/** The function's answer: `error` to read at a glance, `spotify` for the details. */
-export function spotifyFailureBody(what: string, failure: SpotifyFailure) {
-  const summary = `${what} failed: ${failure.status}`
+/**
+ * The browser's answer. Spotify's reason stays in the logs: it can name the
+ * owner's subscription or the app's credentials. The status and the wait are
+ * enough for the console, and the page shows its own plain note.
+ */
+export function spotifyFailureBody(failure: SpotifyFailure) {
   return {
-    error: failure.reason ? `${summary}. ${failure.reason}` : summary,
-    spotify: failure,
+    error: 'Spotify is unavailable right now.',
+    spotify: { status: failure.status, retryAfterSeconds: failure.retryAfterSeconds },
   }
 }

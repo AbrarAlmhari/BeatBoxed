@@ -1,6 +1,8 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
-import { corsHeaders, json } from '../_shared/cors.ts'
-import { getSpotifyToken, pickImage } from '../_shared/spotify.ts'
+import { callerOf, notLoggedIn } from '../_shared/auth.ts'
+import { corsHeaders, json, serverError } from '../_shared/cors.ts'
+import { upsertByShape } from '../_shared/upsertByShape.ts'
+import { getSpotifyToken, isSpotifyId, pickImage } from '../_shared/spotify.ts'
 import { readSpotifyFailure, SpotifyRefused, spotifyFailureBody } from '../_shared/spotifyFailure.ts'
 
 /**
@@ -99,12 +101,8 @@ async function upsertArtists(
     cached_at: new Date().toISOString(),
   }))
 
-  const { data, error } = await admin
-    .from('artists')
-    .upsert(rows, { onConflict: 'spotify_id' })
-    .select('id, spotify_id')
-  if (error) throw error
-  for (const row of data ?? []) map.set(row.spotify_id, row.id)
+  const saved = await upsertByShape<{ id: string; spotify_id: string }>(admin, 'artists', rows, 'id, spotify_id')
+  for (const row of saved) map.set(row.spotify_id, row.id)
   return map
 }
 
@@ -131,24 +129,25 @@ async function upsertAlbums(
   const known = new Set((existing ?? []).map((r) => r.spotify_id))
   for (const id of spotifyIds) if (!known.has(id)) freshSpotifyIds.add(id)
 
-  const rows = albums.map((a) => ({
-    spotify_id: a.id,
-    title: a.name,
-    // Primary artist only, the same rule spotify-search follows.
-    artist_id: artistIds.get(a.artists[0]?.id) ?? null,
-    cover_url: pickImage(a.images),
-    release_date: a.release_date ?? null,
-    total_tracks: a.total_tracks ?? null,
-    album_type: a.album_group ?? a.album_type ?? null,
-    cached_at: new Date().toISOString(),
-  }))
+  const rows = albums.map((a) => {
+    const cover = pickImage(a.images)
+    const type = a.album_group ?? a.album_type
+    return {
+      spotify_id: a.id,
+      title: a.name,
+      // Primary artist only, the same rule spotify-search follows.
+      artist_id: artistIds.get(a.artists[0]?.id) ?? null,
+      // Left out when missing, so what's saved stays.
+      ...(cover ? { cover_url: cover } : {}),
+      ...(a.release_date ? { release_date: a.release_date } : {}),
+      ...(a.total_tracks != null ? { total_tracks: a.total_tracks } : {}),
+      ...(type ? { album_type: type } : {}),
+      cached_at: new Date().toISOString(),
+    }
+  })
 
-  const { data, error } = await admin
-    .from('albums')
-    .upsert(rows, { onConflict: 'spotify_id' })
-    .select('id, spotify_id')
-  if (error) throw error
-  for (const row of data ?? []) ids.set(row.spotify_id, row.id)
+  const saved = await upsertByShape<{ id: string; spotify_id: string }>(admin, 'albums', rows, 'id, spotify_id')
+  for (const row of saved) ids.set(row.spotify_id, row.id)
 
   return { ids, freshSpotifyIds }
 }
@@ -379,11 +378,13 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
   try {
+    if (!(await callerOf(req))) return notLoggedIn()
+
     const { action, spotifyId } = await req.json() as {
       action?: string
       spotifyId?: string
     }
-    if (!spotifyId) return json({ error: 'spotifyId is required' }, 400)
+    if (!isSpotifyId(spotifyId)) return json({ error: 'spotifyId is not valid' }, 400)
 
     const token = await getSpotifyToken()
 
@@ -409,8 +410,10 @@ Deno.serve(async (req) => {
 
     return json(await syncDiscography(spotifyId, token))
   } catch (err) {
-    console.error('[spotify-artist]', err)
-    if (err instanceof SpotifyRefused) return json(spotifyFailureBody(err.what, err.failure), 502)
-    return json({ error: err instanceof Error ? err.message : String(err) }, 502)
+    if (err instanceof SpotifyRefused) {
+      console.error('[spotify-artist]', err)
+      return json(spotifyFailureBody(err.failure), 502)
+    }
+    return serverError('spotify-artist', err)
   }
 })

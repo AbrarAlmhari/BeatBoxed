@@ -45,9 +45,6 @@ export async function blockSpotify(context: BrowserContext) {
       return { albums: 0, newReleases: 0 }
     })
   )
-  await context.route('**/functions/v1/spotify-token', (route) =>
-    mockAnswer(route, () => ({ access_token: 'mock' }))
-  )
   // Nothing in the app calls these from the browser. If that changes, it stops here.
   await context.route(/^https:\/\/(api|accounts)\.spotify\.com\//, (route) =>
     route.abort('blockedbyclient')

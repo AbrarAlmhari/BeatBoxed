@@ -42,6 +42,10 @@ export async function getSpotifyToken(): Promise<string> {
   return cached.value
 }
 
+/** Spotify ids are 22 letters and digits. Checked before one goes into a URL or query. */
+export const isSpotifyId = (value: unknown): value is string =>
+  typeof value === 'string' && /^[A-Za-z0-9]{22}$/.test(value)
+
 export type SpotifyImage = { url: string; width: number; height: number }
 
 /** Largest image first is Spotify's order; take it for artwork. */

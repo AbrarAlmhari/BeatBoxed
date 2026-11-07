@@ -1,5 +1,7 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
-import { corsHeaders, json } from '../_shared/cors.ts'
+import { callerOf, notLoggedIn } from '../_shared/auth.ts'
+import { corsHeaders, json, serverError } from '../_shared/cors.ts'
+import { upsertByShape } from '../_shared/upsertByShape.ts'
 import { getSpotifyToken, pickImage } from '../_shared/spotify.ts'
 import { fetchDeezerRanks } from '../_shared/deezer.ts'
 import { readSpotifyFailure, SpotifyRefused, spotifyFailureBody } from '../_shared/spotifyFailure.ts'
@@ -12,7 +14,8 @@ import { readSpotifyFailure, SpotifyRefused, spotifyFailureBody } from '../_shar
  * Genre note: this app's Spotify credentials no longer return `genres` on
  * artists (restricted for apps created after late 2024), and tracks never
  * carried one. The optional `genre` argument lets the caller tag what it is
- * deliberately fetching — the seed script passes it, user searches don't.
+ * deliberately fetching. Only the seed script may pass it (it holds the service
+ * role key); from anyone else it's ignored, so a user can't relabel the catalog.
  */
 
 type SpotifyArtistRef = { id: string; name: string }
@@ -79,9 +82,7 @@ async function fetchArtistImages(
 /**
  * Upsert artists by spotify_id, returning spotify_id -> our uuid.
  *
- * Rows are split by whether we have an image: PostgREST only updates the
- * columns present in the payload, so omitting image_url for imageless rows
- * preserves an image a previous call already stored instead of nulling it.
+ * An image or genres we don't have are left out, so what's already saved stays.
  */
 async function upsertArtists(
   artists: SpotifyArtist[],
@@ -94,31 +95,20 @@ async function upsertArtists(
   const byId = new Map(artists.map((a) => [a.id, a]))
   const now = new Date().toISOString()
 
-  const withImage: Record<string, unknown>[] = []
-  const withoutImage: Record<string, unknown>[] = []
-
-  for (const a of byId.values()) {
-    const image = pickImage(a.images) ?? images?.get(a.id) ?? null
-    const base = {
+  const rows = [...byId.values()].map((a) => {
+    const image = pickImage(a.images) ?? images?.get(a.id)
+    const genres = a.genres?.length ? a.genres : genre ? [genre] : null
+    return {
       spotify_id: a.id,
       name: a.name,
-      genres: a.genres?.length ? a.genres : genre ? [genre] : [],
       cached_at: now,
+      ...(image ? { image_url: image } : {}),
+      ...(genres ? { genres } : {}),
     }
-    if (image) withImage.push({ ...base, image_url: image })
-    else withoutImage.push(base)
-  }
+  })
 
-  for (const rows of [withImage, withoutImage]) {
-    if (rows.length === 0) continue
-    const { data, error } = await admin
-      .from('artists')
-      .upsert(rows, { onConflict: 'spotify_id' })
-      .select('id, spotify_id')
-    if (error) throw error
-    for (const row of data ?? []) map.set(row.spotify_id, row.id)
-  }
-
+  const saved = await upsertByShape<{ id: string; spotify_id: string }>(admin, 'artists', rows, 'id, spotify_id')
+  for (const row of saved) map.set(row.spotify_id, row.id)
   return map
 }
 
@@ -131,27 +121,30 @@ async function upsertAlbums(
 
   const byId = new Map(albums.map((a) => [a.id, a]))
   const rows = [...byId.values()]
-    .map((a) => ({
-      spotify_id: a.id,
-      title: a.name,
-      artist_id: artistIds.get(a.artists[0]?.id) ?? null,
-      cover_url: pickImage(a.images),
-      cached_at: new Date().toISOString(),
-      release_date: a.release_date?.length === 4
-        ? `${a.release_date}-01-01` // Spotify may return year-only precision
-        : a.release_date ?? null,
-    }))
+    .map((a) => {
+      const cover = pickImage(a.images)
+      return {
+        spotify_id: a.id,
+        title: a.name,
+        artist_id: artistIds.get(a.artists[0]?.id) ?? null,
+        // Left out when missing, so what's saved stays.
+        ...(cover ? { cover_url: cover } : {}),
+        cached_at: new Date().toISOString(),
+        ...(a.release_date
+          ? {
+              release_date: a.release_date.length === 4
+                ? `${a.release_date}-01-01` // Spotify may return year-only precision
+                : a.release_date,
+            }
+          : {}),
+      }
+    })
     .filter((r) => r.artist_id)
 
   if (rows.length === 0) return map
 
-  const { data, error } = await admin
-    .from('albums')
-    .upsert(rows, { onConflict: 'spotify_id' })
-    .select('id, spotify_id')
-
-  if (error) throw error
-  for (const row of data ?? []) map.set(row.spotify_id, row.id)
+  const saved = await upsertByShape<{ id: string; spotify_id: string }>(admin, 'albums', rows, 'id, spotify_id')
+  for (const row of saved) map.set(row.spotify_id, row.id)
   return map
 }
 
@@ -163,43 +156,50 @@ async function upsertSongs(
   ranks: Map<string, number>
 ) {
   const rows = tracks
-    .map((t) => ({
-      spotify_id: t.id,
-      title: t.name,
-      artist_id: artistIds.get(t.artists[0]?.id) ?? null,
-      album_id: albumIds.get(t.album.id) ?? null,
-      duration_ms: t.duration_ms,
-      genre,
-      popularity: ranks.get(t.id) ?? null,
-      cached_at: new Date().toISOString(),
-    }))
+    .map((t) => {
+      const popularity = ranks.get(t.id)
+      return {
+        spotify_id: t.id,
+        title: t.name,
+        artist_id: artistIds.get(t.artists[0]?.id) ?? null,
+        album_id: albumIds.get(t.album.id) ?? null,
+        duration_ms: t.duration_ms,
+        cached_at: new Date().toISOString(),
+        // Left out when unknown, so a saved genre or popularity stays.
+        ...(genre ? { genre } : {}),
+        ...(popularity != null ? { popularity } : {}),
+      }
+    })
     .filter((r) => r.artist_id && r.album_id)
 
   if (rows.length === 0) return []
 
-  const { data, error } = await admin
-    .from('songs')
-    .upsert(rows, { onConflict: 'spotify_id' })
-    .select('id, spotify_id, title, artist_id, album_id, duration_ms, genre, popularity')
-
-  if (error) throw error
-  return data ?? []
+  return await upsertByShape(
+    admin,
+    'songs',
+    rows,
+    'id, spotify_id, title, artist_id, album_id, duration_ms, genre, popularity'
+  )
 }
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
   try {
+    const caller = await callerOf(req)
+    if (!caller) return notLoggedIn()
+
     const {
       q,
       type = 'track',
       limit = 10,
-      genre = null,
+      genre: askedGenre = null,
       // When set, only keep tracks whose primary artist is this artist. A bare
       // name query matches song titles too: searching "Cigarettes After Sex"
       // returns tracks by MATUNA and Rod Wave alongside the actual band.
       artistName = null,
     } = await req.json()
+    const genre = caller === 'service' ? askedGenre : null
     if (!q || typeof q !== 'string') {
       return json({ error: 'q is required' }, 400)
     }
@@ -281,8 +281,10 @@ Deno.serve(async (req) => {
       ranked: ranks.size,
     })
   } catch (err) {
-    console.error('[spotify-search]', err)
-    if (err instanceof SpotifyRefused) return json(spotifyFailureBody(err.what, err.failure), 502)
-    return json({ error: (err as Error).message }, 500)
+    if (err instanceof SpotifyRefused) {
+      console.error('[spotify-search]', err)
+      return json(spotifyFailureBody(err.failure), 502)
+    }
+    return serverError('spotify-search', err)
   }
 })

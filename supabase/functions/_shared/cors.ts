@@ -11,3 +11,9 @@ export function json(body: unknown, status = 200) {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   })
 }
+
+/** The details go to the function's logs; the browser gets a plain message. */
+export function serverError(where: string, err: unknown, status = 500) {
+  console.error(`[${where}]`, err)
+  return json({ error: 'Something went wrong. Please try again.' }, status)
+}

@@ -1,5 +1,5 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
-import { corsHeaders, json } from '../_shared/cors.ts'
+import { corsHeaders, json, serverError } from '../_shared/cors.ts'
 import { getSpotifyToken } from '../_shared/spotify.ts'
 
 /**
@@ -151,7 +151,6 @@ Deno.serve(async (req) => {
 
     return json({ artistsChecked: list.length, spotifyCalls: calls, notified, found })
   } catch (err) {
-    console.error('[artist-release-check]', err)
-    return json({ error: err instanceof Error ? err.message : String(err) }, 502)
+    return serverError('artist-release-check', err)
   }
 })

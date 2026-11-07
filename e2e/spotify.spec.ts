@@ -117,6 +117,27 @@ async function countCalls(page: Page, action: string, status: number) {
   return calls
 }
 
+test("the app sends the logged-in user's session, not the public key", async ({ page }) => {
+  await goOffline(page)
+  const sent: Record<string, string | undefined> = {}
+  for (const name of ['spotify-search', 'spotify-artist', 'lyrics-lookup', 'artist-genres']) {
+    await page.route(`**/functions/v1/${name}`, (route) => {
+      if (route.request().method() !== 'OPTIONS') sent[name] = route.request().headers().authorization
+      return json(route, { songs: [], found: false, genres: [] })
+    })
+  }
+  await search(page)
+  await page.evaluate(async () => {
+    const { supabase } = await import('/src/lib/supabase.ts')
+    for (const name of ['spotify-artist', 'lyrics-lookup', 'artist-genres']) await supabase!.functions.invoke(name, { body: {} })
+  })
+  await expect.poll(() => Object.keys(sent).length).toBe(4)
+  for (const header of Object.values(sent)) {
+    expect(header).toMatch(/^Bearer e30\./)
+    expect(header).not.toContain(env.VITE_SUPABASE_ANON_KEY)
+  }
+})
+
 test.describe("Spotify's reason", () => {
   test('reads the plain text refusal the app gets without Premium', async () => {
     const failure = await readSpotifyFailure(new Response(REFUSAL, { status: 403 }))
@@ -153,11 +174,11 @@ test.describe("Spotify's reason", () => {
 
   test("the function's answer says what happened", async () => {
     const failure = { status: 403, reason: REFUSAL, code: null, retryAfterSeconds: null }
-    expect(spotifyFailureBody('Spotify search', failure)).toEqual({
-      error: `Spotify search failed: 403. ${REFUSAL}`,
-      spotify: failure,
+    expect(spotifyFailureBody(failure)).toEqual({
+      error: 'Spotify is unavailable right now.',
+      spotify: { status: 403, retryAfterSeconds: null },
     })
-    expect(spotifyFailureBody('Spotify search', { ...failure, reason: null }).error).toBe('Spotify search failed: 403')
+    expect(JSON.stringify(spotifyFailureBody(failure))).not.toContain('premium')
   })
 })
 
@@ -166,7 +187,7 @@ test.describe('the note in Explore', () => {
     await goOffline(page)
   })
 
-  test("says search is unavailable, and logs Spotify's reason", async ({ page }) => {
+  test('says search is unavailable, and logs the status', async ({ page }) => {
     const logged: string[] = []
     page.on('console', async (message) => {
       if (message.type() !== 'error') return
@@ -174,14 +195,15 @@ test.describe('the note in Explore', () => {
       logged.push(JSON.stringify(values))
     })
     await page.route('**/functions/v1/spotify-search', (route) =>
-      json(route, spotifyFailureBody('Spotify search', { status: 403, reason: REFUSAL, code: null, retryAfterSeconds: null }), 502)
+      json(route, spotifyFailureBody({ status: 403, reason: REFUSAL, code: null, retryAfterSeconds: null }), 502)
     )
     await search(page)
     await expect(note(page)).toBeVisible()
     await expect(page.getByRole('main').getByText("Couldn't reach Spotify")).toHaveCount(0)
-    // The reason is for us: the page doesn't talk about the owner's subscription.
+    // Neither the page nor the browser's answer talks about the owner's subscription.
     await expect(page.getByRole('main').getByText(/premium/i)).toHaveCount(0)
-    await expect.poll(() => logged.join(' ')).toContain('Active premium subscription required')
+    await expect.poll(() => logged.join(' ')).toContain('"status":403')
+    expect(logged.join(' ')).not.toContain('premium')
   })
 
   test('shows with the short answer the function gives before its redeploy', async ({ page }) => {

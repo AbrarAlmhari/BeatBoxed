@@ -1,5 +1,6 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
-import { corsHeaders, json } from '../_shared/cors.ts'
+import { callerOf, notLoggedIn } from '../_shared/auth.ts'
+import { corsHeaders, json, serverError } from '../_shared/cors.ts'
 
 /**
  * Fetches one artist's genres the first time they're needed (the artist
@@ -68,8 +69,12 @@ async function musicbrainzGenres(spotifyId: string): Promise<string[]> {
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   try {
+    if (!(await callerOf(req))) return notLoggedIn()
+
     const { artistId } = (await req.json()) as { artistId?: string }
-    if (!artistId) return json({ error: 'artistId is required' }, 400)
+    if (typeof artistId !== 'string' || !/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(artistId)) {
+      return json({ error: 'artistId is not valid' }, 400)
+    }
 
     const { data: artist, error } = await admin
       .from('artists')
@@ -96,7 +101,6 @@ Deno.serve(async (req) => {
     if (saveErr) throw saveErr
     return json({ genres: saved.genre_buckets ?? [] })
   } catch (err) {
-    console.error('[artist-genres]', err)
-    return json({ error: err instanceof Error ? err.message : String(err) }, 502)
+    return serverError('artist-genres', err)
   }
 })
