@@ -56,7 +56,7 @@ For each request the function checks the user is signed in, loads the song, arti
 
 **Refusals cost nothing:** when both models turn a request down without answering (HTTP 429 or 5xx, or the model is gone), the user's count and the app's count are given back. If a model answered, or ran out of time partway, the charge stays, because tokens were spent. A daily limit is recognised from Groq's 429 message; any other wording shows the "unavailable" message.
 
-**Errors** come back as codes, and the app turns each into a friendly message, never a raw error: `limit` (this user's 30 are used), `global` (the app's 150 are used) and `daily` (Groq's own daily limit is used up on both models): "Beatie has reached today's limit. Try again tomorrow", `busy` (the AI service down, rate-limited or too slow, or this answer failed in the last 2 minutes: "Beatie is unavailable right now, try again in a minute"), `pending` ("Beatie's still writing this one, check back in a moment"), `error` (anything else).
+**Errors** come back as codes, and the app turns each into a friendly message, never a raw error: `limit` (this user's 30 are used), `global` (the app's 150 are used) and `daily` (Groq's own daily limit is used up on both models): "Beatie has reached today's limit. Try again tomorrow", `busy` (Groq down, rate-limited or too slow, or this answer failed in the last 2 minutes: "Beatie is unavailable right now, try again in a minute"), `pending` ("Beatie's still writing this one, check back in a moment"), `error` (anything else).
 
 ### The models
 
@@ -74,7 +74,7 @@ The live model is set by the Supabase secret **`GROQ_MODEL`** (default **`openai
 
 **Finishing in the background:** a cacheable answer that isn't ready after 25 seconds (`RESPOND_WITHIN_MS`) is left to finish on the server (`EdgeRuntime.waitUntil`). The app shows "Beatie's still writing this one, check back in a moment" (code `pending`); the answer lands in the cache, and the next tap loads it free. While an answer is being written, its `beatie_cache` row exists with empty `content`: a claim, which the table's unique key lets only one request make, so the answer is asked of the AI service, and counted, once however many taps or people arrive meanwhile. A claim older than 3 minutes (`PENDING_STALE_MS`) means the background work died; it's cleared and the next tap starts again.
 
-**Remembering failures:** when a job fails (the AI service down or too slow, or its answer rejected), its row holds the marker `__beatie_failed__` for 2 minutes (`FAILED_HOLD_MS`). Taps meanwhile get "Beatie is unavailable" without calling the AI service. A quota refusal (`limit`, `global`) just releases the claim, since it's about the user or the day, not the song.
+**Remembering failures:** when a job fails (Groq down or too slow, or its answer rejected), its row holds the marker `__beatie_failed__` for 2 minutes (`FAILED_HOLD_MS`). Taps meanwhile get "Beatie is unavailable" without calling Groq. A quota refusal (`limit`, `global`) just releases the claim, since it's about the user or the day, not the song.
 
 **Answer checks:** before an answer is shown or cached it's rejected, with the reason logged, if it was cut off at the token limit (finish reason `length`), or, for explanations and chat, if it repeats a sentence 3+ times or a 6-word phrase 4+ times (`repetitionProblem` in `prompts.ts`). Translations skip the repetition check: songs repeat their chorus, so a faithful translation does too. These rejections aren't retried.
 
