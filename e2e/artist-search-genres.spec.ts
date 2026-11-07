@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test'
+import { test, expect, type Page } from './fixtures'
 import { adminFetch, createTestUser, deleteSeededCatalog, deleteTestUsers, login, seedArtistWithAlbum } from './helpers'
 
 /**
