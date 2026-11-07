@@ -13,8 +13,12 @@ export type { CallInfo, ChatMessage }
 /**
  * provider.ts's result, plus `modelGone` on a failure: Groq says the model
  * doesn't exist or has been retired, so the backup is worth a try.
+ *
+ * `refused` on a failure: Groq turned the request down without answering
+ * (rate limit, server error, model gone), so no tokens were spent on it.
+ * `dailyLimit` is a refusal because a per-day limit is used up.
  */
-export type GenerateResult = BaseResult & { modelGone?: boolean }
+export type GenerateResult = BaseResult & { modelGone?: boolean; refused?: boolean; dailyLimit?: boolean }
 
 /**
  * provider.ts's options, plus `model`: a caller can pick its own model
@@ -55,7 +59,7 @@ const DEFAULT_TIMEOUT_MS = 40_000
  * provider.ts does for Gemini's thinking, so reasoning can't use up the
  * answer's share and leave it cut off.
  */
-const REASONING_HEADROOM = 1024
+export const REASONING_HEADROOM = 1024
 
 /**
  * Groq's rate limits as its last answer reported them (its x-ratelimit-*
@@ -206,15 +210,26 @@ export async function generate(
     })
     readRateLimits(res, model)
     if (res.status === 429 || res.status >= 500) {
-      console.error(`[beatie] groq ${label}: model=${model} HTTP ${res.status}`)
-      return { ok: false, reason: 'busy', detail: `HTTP ${res.status}`, info: info() }
+      // Groq's message names the limit that was hit. Logged so its wording can
+      // be checked; anything not recognised as a daily limit is just 'busy'.
+      const message = (await res.text().catch(() => '')).slice(0, 300)
+      const dailyLimit = res.status === 429 && /per day|\b(TPD|RPD)\b/i.test(message)
+      console.error(`[beatie] groq ${label}: model=${model} HTTP ${res.status}: ${message}`)
+      return {
+        ok: false,
+        reason: 'busy',
+        detail: `HTTP ${res.status}`,
+        info: info(),
+        refused: true,
+        ...(dailyLimit ? { dailyLimit } : {}),
+      }
     }
     if (!res.ok || !res.body) {
       const text = res.ok ? '' : await res.text()
       const detail = `HTTP ${res.status}: ${text.slice(0, 300)}`
       console.error(`[beatie] groq ${label}: model=${model} ${detail}`)
       const modelGone = !res.ok && isModelGone(res.status, text)
-      return { ok: false, reason: 'error', detail, info: info(), ...(modelGone ? { modelGone } : {}) }
+      return { ok: false, reason: 'error', detail, info: info(), ...(modelGone ? { modelGone, refused: true } : {}) }
     }
 
     // Server-sent events: each "data: {...}" line is a piece of the answer;
