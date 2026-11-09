@@ -1,6 +1,7 @@
 import { test, expect, type Page } from './fixtures'
 import {
   adminFetch,
+  chooseFilter,
   createPlaylistWithSongs,
   createTestUser,
   deleteTestUsers,
@@ -76,7 +77,8 @@ test.describe('profile playlists list', () => {
     await page.getByRole('searchbox', { name: /filter/i }).fill('')
 
     // A–Z.
-    await page.getByRole('button', { name: 'A–Z' }).click()
+    await chooseFilter(page, 'Sort playlists', 'A–Z')
+    await expect(page.getByRole('button', { name: 'Sort playlists: A–Z' })).toBeVisible()
     await expect
       .poll(async () => (await cardTitles(page))[0])
       .toBe('Filler 1')
@@ -85,13 +87,13 @@ test.describe('profile playlists list', () => {
       .toBe('Zebra Nights')
 
     // Most songs: the three-song playlist first, the one-song next.
-    await page.getByRole('button', { name: 'Most songs' }).click()
+    await chooseFilter(page, 'Sort playlists', 'Most songs')
     await expect
       .poll(async () => (await cardTitles(page)).slice(0, 2))
       .toEqual(['Morning Coffee', 'Zebra Nights'])
 
-    // Recently updated is the default, newest first.
-    await page.getByRole('button', { name: 'Recently updated' }).click()
+    // Newest (most recently updated) is the default.
+    await chooseFilter(page, 'Sort playlists', 'Newest')
     await expect
       .poll(async () => (await cardTitles(page))[0])
       .toBe('Filler 5')
