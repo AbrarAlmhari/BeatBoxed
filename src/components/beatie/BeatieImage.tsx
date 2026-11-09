@@ -21,7 +21,7 @@ import { cn } from '@/lib/cn'
  *   happy     an answer has arrived
  *   thinking  a request is running (with a gentle bob)
  *   excited   the one-time hello bubble
- *   sleepy    "taking a break" and the daily limit
+ *   sleepy    "unavailable" and the daily limits
  *   sad       other errors, and no lyrics found
  *   mark      small sizes (16–40px): the Ask Beatie pill, chat avatars,
  *             icons inside buttons

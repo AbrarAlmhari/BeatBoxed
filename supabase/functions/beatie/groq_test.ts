@@ -170,6 +170,20 @@ check(
   JSON.stringify(limits)
 )
 
+// 6c. Refusals: nothing was answered, and a daily limit is told apart.
+fake(() => new Response(JSON.stringify({ error: { message: 'Rate limit reached for model on tokens per minute (TPM): Limit 8000' } }), { status: 429 }))
+r = await generate('sys', [{ role: 'user', text: 'hi' }], { maxTokens: 10, temperature: 0.7 })
+check('a per-minute 429 is a refusal, not a daily limit', !r.ok && r.reason === 'busy' && r.refused === true && !r.dailyLimit, JSON.stringify(r))
+fake(() => new Response(JSON.stringify({ error: { message: 'Rate limit reached for model on tokens per day (TPD): Limit 200000, Used 199990' } }), { status: 429 }))
+r = await generate('sys', [{ role: 'user', text: 'hi' }], { maxTokens: 10, temperature: 0.7 })
+check('a per-day 429 is a daily limit', !r.ok && r.reason === 'busy' && r.refused === true && r.dailyLimit === true, JSON.stringify(r))
+fake(() => new Response('', { status: 500 }))
+r = await generate('sys', [{ role: 'user', text: 'hi' }], { maxTokens: 10, temperature: 0.7 })
+check('a 500 is a refusal', !r.ok && r.refused === true && !r.dailyLimit, JSON.stringify(r))
+fake(() => new Response(sse([{ error: { message: 'rate limit in the middle' } }])))
+r = await generate('sys', [{ role: 'user', text: 'hi' }], { maxTokens: 10, temperature: 0.7 })
+check('a failure mid-answer is not a refusal', !r.ok && r.reason === 'busy' && !r.refused, JSON.stringify(r))
+
 // 7. Missing key; model secrets.
 Deno.env.delete('GROQ_API_KEY')
 r = await generate('sys', [{ role: 'user', text: 'hi' }], { maxTokens: 10, temperature: 0.7 })

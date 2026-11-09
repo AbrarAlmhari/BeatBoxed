@@ -253,8 +253,9 @@ test.describe('Beatie', () => {
 
   for (const [code, message] of [
     ['limit', "You've used today's 30 Beatie requests"],
-    ['busy', 'Beatie is taking a break, try again in a minute.'],
-    ['global', 'Beatie is taking a break, try again later.'],
+    ['busy', 'Beatie is unavailable right now, try again in a minute.'],
+    ['global', "Beatie has reached today's limit. Try again tomorrow."],
+    ['daily', "Beatie has reached today's limit. Try again tomorrow."],
     ['error', "Beatie couldn't answer that right now"],
   ] as const) {
     test(`a "${code}" answer shows a friendly message, never the raw error`, async ({ page }) => {

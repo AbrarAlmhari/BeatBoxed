@@ -15,4 +15,6 @@ The model secrets are read on every request, so changing one with `supabase secr
 
 `npm run check:functions` type-checks every function. `npm run test:functions` runs spotify-search, spotify-artist, lyrics-lookup and artist-genres as local servers against a fake Spotify, login service and database, with no real calls. Both need these flags because Deno would otherwise look for its packages in the app's `node_modules`.
 
+`npm run test:beatie` runs beatie as a local server against a fake Groq, lyrics lookup and database, with no real calls.
+
 `beatie/groq_test.ts` checks groq.ts against a fake Groq server, with no real calls: from this folder, `deno run --allow-env beatie/groq_test.ts`.

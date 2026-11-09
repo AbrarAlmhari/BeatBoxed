@@ -21,6 +21,7 @@ import {
   quotedLyricLines,
   repetitionProblem,
   songSystemPrompt,
+  translationMaxTokens,
   translationSystemPrompt,
   type SongInfo,
 } from './prompts.ts'
@@ -42,10 +43,14 @@ import {
  * the app can show a friendly message for each code and never a raw error:
  *   limit    this user's 30 requests for today are used up
  *   global   the whole app's 150 AI calls for today are used up
+ *   daily    Groq's own daily limit is used up on both models
  *   busy     the AI service is down, overloaded, rate limiting or too slow
  *   pending  still being written in the background; ask again shortly
  *   error    anything else
  * Only a missing or invalid login is a 401.
+ *
+ * When both models refuse a request without answering, nothing is charged:
+ * this user's count and the app's count are both given back.
  */
 
 /** Per user per day. Cache hits don't count. */
@@ -105,7 +110,7 @@ const admin = createClient(SUPABASE_URL, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY
 // code. Shipped alongside the function via supabase/config.toml.
 const PERSONALITY = await Deno.readTextFile(new URL('./personality.md', import.meta.url))
 
-type Code = 'limit' | 'global' | 'busy' | 'pending' | 'error' | 'bad_request'
+type Code = 'limit' | 'global' | 'daily' | 'busy' | 'pending' | 'error' | 'bad_request'
 
 // Supabase's runtime global for finishing work after the reply is sent.
 declare const EdgeRuntime: { waitUntil(promise: Promise<unknown>): void } | undefined
@@ -363,8 +368,11 @@ async function cachedAnswer(
 
 /* --------------------------------------------------------------- quota */
 
+/** What a request has taken from the daily counts, so it can be given back. */
+type Charge = { userId: string | null; calls: number }
+
 /** One request from this user (user null: a retry, global cap only). */
-async function takeQuota(userId: string | null): Promise<Code | null> {
+async function takeQuota(userId: string | null, charge: Charge): Promise<Code | null> {
   const { data, error } = await admin.rpc('beatie_take_quota', {
     p_user: userId,
     p_user_limit: USER_DAILY_LIMIT,
@@ -376,7 +384,46 @@ async function takeQuota(userId: string | null): Promise<Code | null> {
   }
   if (data === 'user_limit') return 'limit'
   if (data === 'global_limit') return 'global'
+  charge.calls++
+  if (userId) charge.userId = userId
   return null
+}
+
+/**
+ * Lowers a count, only if it hasn't moved since it was read, so another
+ * request's take is never lost; tries again if it has.
+ */
+async function lowerCount(table: string, match: Record<string, string>, by: number) {
+  for (let tries = 0; tries < 5; tries++) {
+    const { data, error } = await admin.from(table).select('count').match(match).maybeSingle()
+    if (error || !data) break
+    const { data: changed, error: updateError } = await admin
+      .from(table)
+      .update({ count: Math.max(data.count - by, 0) })
+      .match(match)
+      .eq('count', data.count)
+      .select('count')
+    if (updateError) break
+    if (changed?.length) return
+  }
+  console.error(`[beatie] could not give back ${by} from ${table}`)
+}
+
+/** Both models refused: this request cost nothing, so it isn't charged. */
+async function giveBack(charge: Charge) {
+  const day = new Date().toISOString().slice(0, 10)
+  if (charge.userId) await lowerCount('beatie_usage', { user_id: charge.userId, day }, 1)
+  if (charge.calls) await lowerCount('beatie_global_usage', { day }, charge.calls)
+}
+
+/** The code a failed call ends in, giving the charge back if nothing was answered. */
+async function refusedCode(
+  res: { reason: Code; refused?: boolean; dailyLimit?: boolean },
+  charge: Charge,
+  answeredBefore: boolean
+): Promise<Code> {
+  if (res.refused && !answeredBefore) await giveBack(charge)
+  return res.dailyLimit ? 'daily' : res.reason
 }
 
 /**
@@ -390,8 +437,9 @@ async function generateWithBackup(
   system: string,
   messages: ChatMessage[],
   options: GenerateOptions,
-  deadline: number
-): Promise<GenerateResult | { ok: false; reason: Code; detail: string }> {
+  deadline: number,
+  charge: Charge
+): Promise<GenerateResult | { ok: false; reason: Code; detail: string; refused?: boolean; dailyLimit?: boolean }> {
   const first = await generate(system, messages, options)
   if (!backupWorthTrying(first)) return first
   const backup = fallbackModel()
@@ -400,16 +448,23 @@ async function generateWithBackup(
     console.warn(`[beatie] no time left for the backup model (${options.label ?? 'call'})`)
     return first
   }
-  const capped = await takeQuota(null)
-  if (capped) return { ok: false, reason: capped, detail: 'quota' }
+  const capped = await takeQuota(null, charge)
+  if (capped) return { ok: false, reason: capped, detail: 'quota', refused: !first.ok && first.refused }
   const why = !first.ok && first.modelGone ? 'not found or retired' : 'busy'
   console.warn(`[beatie] primary model ${why}; trying ${backup} (${options.label ?? 'call'})`)
-  return generate(system, messages, {
+  const second = await generate(system, messages, {
     ...options,
     model: backup,
     timeoutMs: deadline - Date.now(),
     label: `${options.label ?? 'call'} backup`,
   })
+  if (second.ok) return second
+  // Refused, or out of daily tokens, only if that goes for both models.
+  return {
+    ...second,
+    refused: !first.ok && first.refused && second.refused,
+    dailyLimit: !first.ok && first.dailyLimit && second.dailyLimit,
+  }
 }
 
 /**
@@ -422,7 +477,8 @@ async function proseAnswer(
   messages: ChatMessage[],
   opts: { maxTokens: number; budgetMs: number; label: string; allowedLine?: string; maxQuoted: number }
 ): Promise<{ text: string } | { code: Code }> {
-  const blocked = await takeQuota(userId)
+  const charge: Charge = { userId: null, calls: 0 }
+  const blocked = await takeQuota(userId, charge)
   if (blocked) return { code: blocked }
 
   const deadline = ctx.startedAt + opts.budgetMs
@@ -438,14 +494,15 @@ async function proseAnswer(
         timeoutMs: deadline - Date.now(),
         label: `${opts.label} try ${tries + 1}`,
       },
-      deadline
+      deadline,
+      charge
     )
     if (!res.ok) {
       console.error('[beatie] provider', res.reason, res.detail)
-      return { code: res.reason }
+      return { code: await refusedCode(res, charge, tries > 0) }
     }
     // A cut-off or looping answer isn't worth a retry: the next one would
-    // likely do the same. Logged, then the user sees "taking a break".
+    // likely do the same. Logged, then the user sees "couldn't answer".
     if (wasCutOff(res.info)) {
       console.warn(`[beatie] answer rejected (${opts.label}): cut off at the token limit`)
       return { code: 'error' }
@@ -470,7 +527,7 @@ async function proseAnswer(
         break
       }
       // The retry is a real AI call, so it counts against the app's cap.
-      const capped = await takeQuota(null)
+      const capped = await takeQuota(null, charge)
       if (capped) return { code: capped }
       const last = attempt[attempt.length - 1]
       attempt = [...attempt.slice(0, -1), { role: 'user', text: `${last.text}\n\n${STRICTER}` }]
@@ -562,13 +619,14 @@ async function translate(ctx: Ctx, userId: string) {
     'translate',
     '',
     async () => {
-      const blocked = await takeQuota(userId)
+      const charge: Charge = { userId: null, calls: 0 }
+      const blocked = await takeQuota(userId, charge)
       if (blocked) return { code: blocked }
 
       const deadline = ctx.startedAt + REQUEST_BUDGET_MS
       const system = translationSystemPrompt(ctx.language, count)
       const input: ChatMessage[] = [{ role: 'user', text: JSON.stringify(ctx.lyrics) }]
-      const maxTokens = Math.min(8192, 200 + ctx.lyrics.join(' ').length * 2)
+      const maxTokens = translationMaxTokens(ctx.lyrics)
 
       for (let tries = 0; tries < 2; tries++) {
         if (tries === 1) {
@@ -576,7 +634,7 @@ async function translate(ctx: Ctx, userId: string) {
             console.warn('[beatie] no time left for the translation retry')
             break
           }
-          const capped = await takeQuota(null)
+          const capped = await takeQuota(null, charge)
           if (capped) return { code: capped }
         }
         const res = await generateWithBackup(
@@ -589,11 +647,12 @@ async function translate(ctx: Ctx, userId: string) {
             timeoutMs: deadline - Date.now(),
             label: `translate ${ctx.songId.slice(0, 8)} ${ctx.language} try ${tries + 1}`,
           },
-          deadline
+          deadline,
+          charge
         )
         if (!res.ok) {
           console.error('[beatie] provider', res.reason, res.detail)
-          return { code: res.reason }
+          return { code: await refusedCode(res, charge, tries > 0) }
         }
         if (wasCutOff(res.info)) {
           console.warn('[beatie] translation rejected: cut off at the token limit')
