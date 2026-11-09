@@ -63,9 +63,9 @@ Things worth revisiting once the whole app exists, not mid-build. Add to this as
 - [ ] Light theme (needs a design pass with Ghadah first; `profiles.theme_preference` already exists)
 - [x] Likes privacy: song likes follow the liker's profile privacy. Review likes can be read by logged-in users only.
 - [x] Report a profile: Report in the profile ⋯ menu, saved to `profile_reports`.
-- [x] Written-review count on locked private profiles (a small count function), if we want it later. Today a locked profile shows ratings, followers, following and artists, but not "reviews".
+- [x] Written-review count on locked private profiles.
 - [x] Genre mapping: 33 more raw genres mapped out of Other.
-- [x] Search results (ArtistResultCard) still read Spotify's always-empty `artists.genres`; switch them to `genre_buckets` if we want genres there too.
+- [x] Artist search results show genres, from `genre_buckets`.
 - [ ] _(add items here as they come up)_
 
 ## Also done
@@ -77,8 +77,8 @@ Things worth revisiting once the whole app exists, not mid-build. Add to this as
 
 ## Still open
 
-- [ ] Spotify Premium for the account that owns the Spotify app
-- [ ] Redeploy beatie, spotify-search, spotify-artist, lyrics-lookup, artist-genres, artist-release-check and song-vibes, and remove spotify-token
+- [x] Spotify Premium for the account that owns the Spotify app
+- [x] Redeploy beatie, spotify-search, spotify-artist, lyrics-lookup, artist-genres and song-vibes, and remove spotify-token. artist-release-check stays undeployed on purpose: it was never deployed or scheduled.
 - [ ] Final clean-up list
 - [ ] SDS and Status Report 2
 - [ ] STS
