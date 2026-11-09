@@ -1,4 +1,4 @@
-import { test, expect } from './fixtures'
+import { test, expect, type Page } from './fixtures'
 import {
   adminFetch,
   createTestUser,
@@ -35,7 +35,7 @@ async function rate(userId: string, ratings: [string, number][]) {
   })
 }
 
-const genreRow = (page: import('@playwright/test').Page, label: string) =>
+const genreRow = (page: Page, label: string) =>
   page.getByRole('button', { name: new RegExp(`^${label.replace(/[&]/g, '\\$&')}: `) })
 
 test.describe('artist genres', () => {

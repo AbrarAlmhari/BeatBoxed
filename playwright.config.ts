@@ -1,4 +1,9 @@
+import { fileURLToPath } from 'node:url'
 import { defineConfig, devices } from '@playwright/test'
+import { assertSpecsUseTheMock } from './e2e/spec-imports'
+
+// Stops the run before anything starts if a spec would skip the Spotify mock.
+assertSpecsUseTheMock(fileURLToPath(new URL('./e2e', import.meta.url)))
 
 /**
  * Runs every spec twice: desktop Chrome and a touch phone. Several bugs here
