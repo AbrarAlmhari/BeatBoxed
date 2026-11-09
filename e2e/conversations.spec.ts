@@ -327,7 +327,8 @@ test('privacy: logged out sees comments on public reviews only; a pending reques
   await commentAs(priv.token, privateReview, priv.id, `private comment @${pending.username}`)
   await likeCommentAs(toji.token, (await commentAs(toji.token, publicReview, toji.id, 'likeable')).id, toji.id)
 
-  expect(await readLoggedOut(`review_comments?review_id=eq.${publicReview}&select=id`)).not.toHaveLength(0)
+  // Comments and likes need a login, even on a public review.
+  expect(await readLoggedOut(`review_comments?review_id=eq.${publicReview}&select=id`)).toHaveLength(0)
   expect(await readLoggedOut(`review_likes?review_id=eq.${privateReview}&select=review_id`)).toHaveLength(0)
   expect(await readLoggedOut(`review_comments?review_id=eq.${privateReview}&select=id`)).toHaveLength(0)
 
