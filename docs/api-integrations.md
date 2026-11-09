@@ -30,7 +30,7 @@ Genius (`api.genius.com`) can still be used for artist bios, song metadata, and 
 
 Beatie's answers come from Groq's OpenAI-compatible chat API (`https://api.groq.com/openai/v1/chat/completions`). The key is stored only as the Supabase secret `GROQ_API_KEY` (`supabase secrets set GROQ_API_KEY=...`). It is never in the repo and never reaches the browser; the frontend needs no AI setting at all.
 
-The `song-vibes` function that labels songs for the daily check-in (see `supabase/functions/song-vibes/`) also goes through `groq.ts`, with the same key but its own model, the secret `VIBES_GROQ_MODEL` (default `openai/gpt-oss-20b`), and no backup model. Its labels record the model as `groq/<model>` in `song_vibes.model`. It makes at most 150 calls a day, failures included (`DAILY_CAP`), 5 songs per run.
+The `song-vibes` function that labels songs for the daily check-in (see `supabase/functions/song-vibes/`) also goes through `groq.ts`, with the same key but its own model, the secret `VIBES_GROQ_MODEL` (default `openai/gpt-oss-20b`), and no backup model. Its labels record the model as `groq/<model>` in `song_vibes.model`. It makes at most 210 calls a day, failures included (`DAILY_CAP`), 5 songs per run.
 
 ### The `beatie` Edge Function
 

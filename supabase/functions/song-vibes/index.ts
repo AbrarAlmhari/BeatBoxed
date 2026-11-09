@@ -24,7 +24,7 @@ import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { currentModel, generate, lastRateLimits } from '../beatie/groq.ts'
 
 const BATCH = 5
-const DAILY_CAP = 150
+const DAILY_CAP = 210
 
 /**
  * The labeller's own Groq model, separate from Beatie's GROQ_MODEL. Read
