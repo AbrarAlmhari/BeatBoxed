@@ -214,6 +214,7 @@ export default function Profile() {
         artists={artists}
         followState={followState}
         hideFollow={locked}
+        showReviewCount={locked}
         onFollowChange={(next, previous) => {
           setFollowState(next)
           // Only an accepted follow moves their follower count; a pending

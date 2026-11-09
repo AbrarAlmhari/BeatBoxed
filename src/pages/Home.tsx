@@ -301,9 +301,10 @@ export default function Home() {
     const io = seenObserver.current
     const root = list.current
     if (!io || !root) return
-    // Observing a card twice is a no-op, so new pages just add theirs.
+    // Keyed on the list, not its length: a reload can swap in new cards at the
+    // same count, and those need observing too. Observing a card twice is a no-op.
     for (const el of root.querySelectorAll('[data-feed-review]')) io.observe(el)
-  }, [user, tab, current.items.length])
+  }, [user, tab, current.items])
 
   // The tab you're on: back to the top. The other one: opens at the top
   // of the page (song of the week and check-in in view).

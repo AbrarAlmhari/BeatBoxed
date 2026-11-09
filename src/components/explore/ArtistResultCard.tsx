@@ -1,10 +1,13 @@
 import { Link } from 'react-router-dom'
 import type { ArtistCardModel } from '@/lib/types'
 import { FollowButton } from '@/components/ui/FollowButton'
+import { genreLabel } from '@/lib/genres'
 import { tintFor } from './tint'
 
 export function ArtistResultCard({ artist }: { artist: ArtistCardModel }) {
   const t = tintFor(artist.id)
+  // "Other" tells you nothing about an artist, so it's left off the card.
+  const genres = (artist.genreBuckets ?? []).filter((g) => g !== 'Other').slice(0, 2)
   return (
     <div className="flex w-full items-center gap-4 rounded-card border border-line bg-surface p-3 text-left shadow-card transition-colors duration-250 ease-soft hover:bg-surface-2">
       <span className="size-14 shrink-0 overflow-hidden rounded-full">
@@ -35,16 +38,18 @@ export function ArtistResultCard({ artist }: { artist: ArtistCardModel }) {
         >
           {artist.name}
         </Link>
-        <span className="flex flex-wrap gap-1.5">
-          {artist.genres.map((g) => (
-            <span
-              key={g}
-              className="rounded-full bg-surface-2 px-2 py-0.5 text-meta capitalize text-muted-foreground"
-            >
-              {g}
-            </span>
-          ))}
-        </span>
+        {genres.length > 0 && (
+          <span className="flex flex-wrap gap-1.5" data-artist-genres>
+            {genres.map((g) => (
+              <span
+                key={g}
+                className="rounded-full bg-surface-2 px-2 py-0.5 text-meta text-muted-foreground"
+              >
+                {genreLabel(g)}
+              </span>
+            ))}
+          </span>
+        )}
       </span>
 
       <FollowButton artistId={artist.id} size="sm" />

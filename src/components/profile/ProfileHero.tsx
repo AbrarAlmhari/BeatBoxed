@@ -29,6 +29,7 @@ export function ProfileHero({
   followState,
   onFollowChange,
   hideFollow = false,
+  showReviewCount = false,
   onOpenList,
   onEdit,
   onEditTags,
@@ -41,6 +42,8 @@ export function ProfileHero({
   onFollowChange: (next: FollowState, previous: FollowState) => void
   /** A locked profile's lock card carries the follow button instead. */
   hideFollow?: boolean
+  /** A locked profile has no tab bar to show its review count, so the header does. */
+  showReviewCount?: boolean
   onOpenList: (list: ProfileList) => void
   onEdit: () => void
   /** Your own profile with no tags: opens Edit profile at the tags. */
@@ -126,6 +129,7 @@ export function ProfileHero({
             <p className="truncate text-secondary text-muted-foreground">@{profile.username}</p>
           )}
           <FollowCounts
+            reviews={showReviewCount ? profile.reviewCount : undefined}
             followers={profile.followerCount}
             following={profile.followingCount}
             onOpenList={onOpenList}
@@ -202,16 +206,26 @@ function Avatar({ url, name }: { url: string | null; name: string }) {
  * each is a 44px target.
  */
 function FollowCounts({
+  reviews,
   followers,
   following,
   onOpenList,
 }: {
+  reviews?: number
   followers: number
   following: number
   onOpenList: (list: ProfileList) => void
 }) {
   return (
     <ul className="-my-1.5 flex flex-wrap items-center gap-x-2" aria-label="Profile counts">
+      {reviews !== undefined && (
+        <li className="flex w-full items-center gap-1 pt-1.5 text-secondary text-muted-foreground">
+          <span className="text-[15px] font-bold tabular-nums text-foreground">
+            {reviews.toLocaleString()}
+          </span>{' '}
+          {reviews === 1 ? 'review' : 'reviews'}
+        </li>
+      )}
       <Count value={followers} label={followers === 1 ? 'follower' : 'followers'} onClick={() => onOpenList('followers')} />
       <li aria-hidden className="text-muted-foreground">
         ·
