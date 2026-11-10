@@ -9,8 +9,7 @@ import { useProfile } from '@/hooks/useProfile'
 import { deleteReview, getSongReviews, upsertReview } from '@/lib/catalog'
 import type { ReviewWithAuthor } from '@/lib/types'
 import { EmptyState } from '@/components/ui/EmptyState'
-
-const PAGE_SIZE = 10
+import { SONG_REVIEWS_PAGE_SIZE as PAGE_SIZE } from '@/lib/config'
 
 export function ReviewsTab({
   songId,

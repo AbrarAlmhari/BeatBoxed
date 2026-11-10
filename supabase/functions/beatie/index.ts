@@ -1,6 +1,22 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { corsHeaders, json } from '../_shared/cors.ts'
 import {
+  BEATIE_CHAT_BUDGET_MS as CHAT_BUDGET_MS,
+  BEATIE_CHAT_MAX_TOKENS,
+  BEATIE_EXPLAIN_MAX_TOKENS,
+  BEATIE_FAILED_HOLD_MS as FAILED_HOLD_MS,
+  BEATIE_GLOBAL_DAILY_LIMIT as GLOBAL_DAILY_LIMIT,
+  BEATIE_LINE_MAX_TOKENS,
+  BEATIE_MAX_HISTORY as MAX_HISTORY,
+  BEATIE_MAX_MESSAGE_CHARS as MAX_MESSAGE_CHARS,
+  BEATIE_MAX_QUESTION_CHARS as MAX_QUESTION_CHARS,
+  BEATIE_MIN_RETRY_MS as MIN_RETRY_MS,
+  BEATIE_PENDING_STALE_MS as PENDING_STALE_MS,
+  BEATIE_REQUEST_BUDGET_MS as REQUEST_BUDGET_MS,
+  BEATIE_RESPOND_WITHIN_MS as RESPOND_WITHIN_MS,
+  BEATIE_USER_DAILY_LIMIT as USER_DAILY_LIMIT,
+} from '../_shared/config.ts'
+import {
   backupWorthTrying,
   currentModel,
   fallbackModel,
@@ -51,55 +67,12 @@ import {
  *
  * When both models refuse a request without answering, nothing is charged:
  * this user's count and the app's count are both given back.
+ *
+ * Limits, budgets and timeouts are in _shared/config.ts.
  */
 
-/** Per user per day. Cache hits don't count. */
-const USER_DAILY_LIMIT = 30
-/** AI calls per day for the whole app, retries and backups included. */
-const GLOBAL_DAILY_LIMIT = 150
-
-/**
- * How long a request may run, measured from the moment it arrives (before
- * the song and lyrics are loaded), all its AI calls together. Explanations,
- * line explanations and translations are cached and, past
- * RESPOND_WITHIN_MS, finish in the background while the user sees "check
- * back", so they get up to 120 seconds in total: well inside Supabase's
- * 150-second limit for a function, however long the lookups before the
- * first call took. Chat isn't cached and the user is waiting on it, so it
- * gets 40.
- */
-const REQUEST_BUDGET_MS = 120_000
-const CHAT_BUDGET_MS = 40_000
-
-/**
- * The lyric-quote retry, and the backup model when the primary is busy,
- * only start if at least this much budget is left.
- */
-const MIN_RETRY_MS = 20_000
-
-/**
- * A cacheable answer not ready by now is left to finish in the background:
- * the app hears 'pending', and the answer lands in the cache for the next tap.
- */
-const RESPOND_WITHIN_MS = 25_000
-
-/**
- * An empty (in-progress) cache row older than this means its background work
- * died (the function was stopped); it's cleared and the work starts again.
- */
-const PENDING_STALE_MS = 3 * 60_000
-
-/**
- * After a job fails (the AI service down, too slow, or an answer rejected), its row
- * holds FAILED for this long, and taps meanwhile get 'busy' ("taking a
- * break") without calling the AI service again. Then the next tap tries afresh.
- */
-const FAILED_HOLD_MS = 2 * 60_000
+/** A failed job's cache row holds this for FAILED_HOLD_MS. */
 const FAILED = '__beatie_failed__'
-
-const MAX_HISTORY = 10
-const MAX_QUESTION_CHARS = 500
-const MAX_MESSAGE_CHARS = 1000
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const admin = createClient(SUPABASE_URL, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, {
@@ -546,7 +519,7 @@ async function explain(ctx: Ctx, userId: string) {
     '',
     async () => {
       const a = await proseAnswer(ctx, userId, [{ role: 'user', text: EXPLAIN_REQUEST }], {
-        maxTokens: 700,
+        maxTokens: BEATIE_EXPLAIN_MAX_TOKENS,
         budgetMs: REQUEST_BUDGET_MS,
         label: `explain ${ctx.songId.slice(0, 8)} ${ctx.language}`,
         maxQuoted: 1,
@@ -568,7 +541,7 @@ async function explainLine(ctx: Ctx, userId: string, line: unknown) {
     key,
     async () => {
       const a = await proseAnswer(ctx, userId, [{ role: 'user', text: explainLineRequest(line) }], {
-        maxTokens: 350,
+        maxTokens: BEATIE_LINE_MAX_TOKENS,
         budgetMs: REQUEST_BUDGET_MS,
         label: `line ${ctx.songId.slice(0, 8)} ${ctx.language}`,
         allowedLine: line,
@@ -595,7 +568,7 @@ async function chat(ctx: Ctx, userId: string, raw: unknown) {
   if (!last || last.role !== 'user' || last.text.length > MAX_QUESTION_CHARS) return fail('bad_request')
 
   const answer = await proseAnswer(ctx, userId, messages, {
-    maxTokens: 400,
+    maxTokens: BEATIE_CHAT_MAX_TOKENS,
     budgetMs: CHAT_BUDGET_MS,
     label: `chat ${ctx.songId.slice(0, 8)} ${ctx.language}`,
     maxQuoted: 1,

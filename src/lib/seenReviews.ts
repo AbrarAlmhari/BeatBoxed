@@ -1,3 +1,5 @@
+import { SEEN_REVIEWS_MAX as MAX, SEEN_REVIEWS_KEEP_MS as KEEP_MS, SEEN_REVIEWS_FLUSH_MS as FLUSH_MS } from './config'
+
 /**
  * Reviews this device has scrolled past in For You, so the next visit can
  * sink them a little (migration 0055's seen_ids). Kept in this browser only,
@@ -7,10 +9,6 @@
  * apart (and when the page is hidden), and every storage call guarded, so a
  * private window or blocked storage just means nothing sinks.
  */
-
-const MAX = 300
-const KEEP_MS = 14 * 24 * 3600 * 1000
-const FLUSH_MS = 3000
 
 type Store = Record<string, number>
 

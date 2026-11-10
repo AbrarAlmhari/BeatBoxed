@@ -9,6 +9,8 @@ import {
   type BeatieErrorCode,
   type BeatieMessage,
 } from '@/lib/beatie'
+import { BEATIE_SLOW_AFTER_MS as SLOW_AFTER_MS } from '@/lib/config'
+export { SLOW_AFTER_MS }
 
 const EXPLAIN_QUESTION = "What's this song about?"
 
@@ -194,8 +196,6 @@ export function BeatieChat({
   )
 }
 
-/** After this long, the loading text says it's still going. */
-export const SLOW_AFTER_MS = 8000
 export const SLOW_TEXT = 'Still thinking… long songs take a moment'
 
 /** True once `active` has stayed true for SLOW_AFTER_MS. */

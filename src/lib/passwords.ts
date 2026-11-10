@@ -1,5 +1,5 @@
-/** Sign-up's rule (SignUp.tsx), shared by reset and change password. */
-export const PASSWORD_MIN = 8
+import { PASSWORD_MIN } from './config'
+export { PASSWORD_MIN }
 
 /** What's wrong with a new password and its confirmation, or null if nothing. */
 export function newPasswordProblem(password: string, confirm: string): string | null {

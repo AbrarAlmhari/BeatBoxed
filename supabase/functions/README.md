@@ -11,7 +11,7 @@ beatie reads personality.md at startup; supabase/config.toml lists it under stat
 | `GROQ_FALLBACK_MODEL` | beatie | Tried once when the main model is busy (overloaded, rate limited, down or too slow) or gone (unknown or retired) and there's time left; it counts against the daily cap. Default `qwen/qwen3.8-27b`. |
 | `VIBES_GROQ_MODEL` | song-vibes | The labelling model. Default `openai/gpt-oss-20b`. No backup. |
 
-The model secrets are read on every request, so changing one with `supabase secrets set` takes effect without a redeploy. `GEMINI_API_KEY` and `GEMINI_MODEL` are left over from the earlier Gemini version and read by nothing; they can be deleted with `supabase secrets unset`.
+Limits, timeouts and the default models are in `_shared/config.ts`. The model secrets are read on every request, so changing one with `supabase secrets set` takes effect without a redeploy. `GEMINI_API_KEY` and `GEMINI_MODEL` are left over from the earlier Gemini version and read by nothing; they can be deleted with `supabase secrets unset`.
 
 `npm run check:functions` type-checks every function. `npm run test:functions` runs spotify-search, spotify-artist, lyrics-lookup and artist-genres as local servers against a fake Spotify, login service and database, with no real calls. Both need these flags because Deno would otherwise look for its packages in the app's `node_modules`.
 

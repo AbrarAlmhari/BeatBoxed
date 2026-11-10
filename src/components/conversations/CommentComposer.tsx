@@ -3,8 +3,7 @@ import { ArrowRight, Loader2, X } from 'lucide-react'
 import { PersonAvatar } from './PersonAvatar'
 import { useMentions } from './useMentions'
 import { cn } from '@/lib/cn'
-
-const MAX = 500
+import { COMMENT_MAX as MAX } from '@/lib/config'
 
 /**
  * Where a comment or reply is written.

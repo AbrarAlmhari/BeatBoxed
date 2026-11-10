@@ -21,6 +21,8 @@ import type {
   UpdateItem,
   NotificationCenter,
 } from './types'
+import { RAIL_SIZE, RAIL_LIST_POOL as LIST_POOL, RAIL_PAGE_SIZE, SPOTIFY_TOPUP_THRESHOLD as REMOTE_TOPUP_THRESHOLD, SPOTIFY_TOPUP_TIMEOUT_MS, AVATAR_MAX_BYTES, AVATAR_TYPES } from './config'
+export { RAIL_SIZE, RAIL_PAGE_SIZE, AVATAR_MAX_BYTES, AVATAR_TYPES }
 
 /**
  * Every read the Home and Explore screens make. Replaces the old mockData.ts —
@@ -178,17 +180,6 @@ async function decorate(rows: SongRow[]): Promise<SongCardModel[]> {
   const stats = await ratingsFor(rows.map((r) => r.id))
   return rows.map((r) => toCardModel(r, stats.get(r.id)))
 }
-
-/** Songs a rail shows on Explore. */
-export const RAIL_SIZE = 12
-/**
- * How many songs For You and Recently viewed work out in full. The rail is
- * the first RAIL_SIZE of the same list its "See all" page shows, so the two
- * always agree on which songs and in what order.
- */
-const LIST_POOL = 60
-/** A "See all" page loads this many at a time. */
-export const RAIL_PAGE_SIZE = 20
 
 export type RailId = 'trending' | 'for-you' | 'recent'
 
@@ -561,11 +552,6 @@ export const popularSearches = [
   'lo-fi',
   'Amr Diab',
 ]
-
-/** Below this many local hits, reach out to Spotify and cache more. */
-const REMOTE_TOPUP_THRESHOLD = 5
-/** A top-up normally answers in about 2s. */
-const SPOTIFY_TOPUP_TIMEOUT_MS = 10_000
 
 /** Same columns, but inner-joined so we can filter on the artist's name. */
 const SONG_SELECT_BY_ARTIST =
@@ -1297,9 +1283,6 @@ export async function updateProfile(
     .eq('id', userId)
   if (error) throw error
 }
-
-export const AVATAR_MAX_BYTES = 2 * 1024 * 1024
-export const AVATAR_TYPES = ['image/png', 'image/jpeg', 'image/webp']
 
 /**
  * Uploads to avatars/{userId}/… — storage policies key on that first path

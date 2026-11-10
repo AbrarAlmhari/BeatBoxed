@@ -30,7 +30,7 @@ Genius (`api.genius.com`) can still be used for artist bios, song metadata, and 
 
 Beatie's answers come from Groq's OpenAI-compatible chat API (`https://api.groq.com/openai/v1/chat/completions`). The key is stored only as the Supabase secret `GROQ_API_KEY` (`supabase secrets set GROQ_API_KEY=...`). It is never in the repo and never reaches the browser; the frontend needs no AI setting at all.
 
-The `song-vibes` function that labels songs for the daily check-in (see `supabase/functions/song-vibes/`) also goes through `groq.ts`, with the same key but its own model, the secret `VIBES_GROQ_MODEL` (default `openai/gpt-oss-20b`), and no backup model. Its labels record the model as `groq/<model>` in `song_vibes.model`. It makes at most 210 calls a day, failures included (`DAILY_CAP`), 5 songs per run.
+The `song-vibes` function that labels songs for the daily check-in (see `supabase/functions/song-vibes/`) also goes through `groq.ts`, with the same key but its own model, the secret `VIBES_GROQ_MODEL` (default `openai/gpt-oss-20b`), and no backup model. Its labels record the model as `groq/<model>` in `song_vibes.model`. It makes at most 210 calls a day, failures included (`VIBES_DAILY_CAP`), 5 songs per run (`VIBES_BATCH`).
 
 ### The `beatie` Edge Function
 
@@ -53,7 +53,7 @@ For each request the function checks the user is signed in, loads the song, arti
 
 **Cache:** `beatie_cache` (see `docs/data-model.md`). A cache hit is answered without calling the AI service and doesn't count toward any limit. An answer made while the lyrics lookup was failing is shown but not cached, so a temporary lrclib outage can't record "no lyrics" for a song permanently.
 
-**Limits** (constants at the top of `index.ts`): 30 requests per user per day, and 150 AI calls per day for the whole app, retries and backup-model calls included. Both are taken by `beatie_take_quota()` in single statements, so rapid requests can't get past them. Days reset at midnight UTC. Besides the backup model (below), there is never more than one automatic retry per request: once if an explanation or chat answer quotes too much of the lyrics, once if a translation's line count is off.
+**Limits** (in `supabase/functions/_shared/config.ts`, with every Edge Function limit, timeout and default model): 30 requests per user per day, and 150 AI calls per day for the whole app, retries and backup-model calls included. Both are taken by `beatie_take_quota()` in single statements, so rapid requests can't get past them. Days reset at midnight UTC. Besides the backup model (below), there is never more than one automatic retry per request: once if an explanation or chat answer quotes too much of the lyrics, once if a translation's line count is off.
 
 **Lyric safety:** explanations and chat may quote at most one lyric line (a line explanation, only the line being explained). An answer that quotes more is retried once with a stricter instruction, then not shown. Translations are exempt: they translate every line, and appear only on the Song page.
 

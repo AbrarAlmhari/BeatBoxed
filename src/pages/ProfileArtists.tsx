@@ -8,8 +8,7 @@ import {
   getProfileDetail,
 } from '@/lib/catalog'
 import type { ArtistCardModel } from '@/lib/types'
-
-const PAGE = 30
+import { PROFILE_LIST_PAGE_SIZE as PAGE } from '@/lib/config'
 
 /** /profile/:userId/artists, and the same list inside the profile's sheet. */
 export default function ProfileArtists({

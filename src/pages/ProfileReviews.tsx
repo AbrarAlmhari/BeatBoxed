@@ -8,8 +8,7 @@ import { getProfileDetail, getReviewsByUserPage, type ReviewSort } from '@/lib/c
 import type { ReviewWithSong } from '@/lib/types'
 import { StickyBar, STILL } from '@/components/ui/Tabs'
 import { cn } from '@/lib/cn'
-
-const PAGE = 30
+import { PROFILE_LIST_PAGE_SIZE as PAGE } from '@/lib/config'
 
 const SORTS: { value: ReviewSort; label: string }[] = [
   { value: 'newest', label: 'Newest' },

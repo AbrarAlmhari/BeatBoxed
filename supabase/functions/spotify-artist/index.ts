@@ -2,6 +2,7 @@ import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { callerOf, notLoggedIn } from '../_shared/auth.ts'
 import { corsHeaders, json, serverError } from '../_shared/cors.ts'
 import { upsertByShape } from '../_shared/upsertByShape.ts'
+import { NEW_RELEASE_DAYS, SPOTIFY_PAGE as PAGE } from '../_shared/config.ts'
 import { getSpotifyToken, isSpotifyId, pickImage } from '../_shared/spotify.ts'
 import { readSpotifyFailure, SpotifyRefused, spotifyFailureBody } from '../_shared/spotifyFailure.ts'
 
@@ -67,11 +68,6 @@ const admin = createClient(
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
   { auth: { persistSession: false } }
 )
-
-/** Spotify rejects limit > 10 for this app, on search and on albums alike. */
-const PAGE = 10
-/** A release counts as new only this close to today. */
-const NEW_RELEASE_DAYS = 14
 
 async function spotify(url: string, token: string) {
   const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })

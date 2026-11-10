@@ -14,8 +14,7 @@ import {
   type FollowListKind,
 } from '@/lib/catalog'
 import type { FollowState, PersonCardModel } from '@/lib/types'
-
-const PAGE = 30
+import { PROFILE_LIST_PAGE_SIZE as PAGE } from '@/lib/config'
 
 /**
  * /profile/:userId/followers and /profile/:userId/following, and the same

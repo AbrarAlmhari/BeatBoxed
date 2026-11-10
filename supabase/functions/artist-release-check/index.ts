@@ -1,6 +1,11 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { corsHeaders, json, serverError } from '../_shared/cors.ts'
 import { getSpotifyToken } from '../_shared/spotify.ts'
+import {
+  NEW_RELEASE_DAYS,
+  RELEASE_CHECK_BATCH_DELAY_MS as BATCH_DELAY_MS,
+  RELEASE_CHECK_BATCH_SIZE as BATCH_SIZE,
+} from '../_shared/config.ts'
 
 /**
  * Daily sweep for new releases by artists somebody follows.
@@ -36,11 +41,6 @@ const admin = createClient(
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
   { auth: { persistSession: false } }
 )
-
-/** Matches the window notify_artist_release() enforces in the database. */
-const NEW_RELEASE_DAYS = 14
-const BATCH_SIZE = 5
-const BATCH_DELAY_MS = 1200
 
 type SpotifyAlbum = {
   id: string

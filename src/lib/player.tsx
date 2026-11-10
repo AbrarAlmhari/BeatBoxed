@@ -12,25 +12,13 @@ import { getPreview, type PreviewResult } from './preview'
 import { recordPlay } from './catalog'
 import { useAuth } from './auth'
 import type { SongCardModel } from './types'
+import { MIN_PLAY_SECONDS, SKIP_NOTICE_MS } from './config'
 
 export type PlayerTrack = SongCardModel & {
   itunesTrackId?: number | null
   itunesCheckedAt?: string | null
   spotifyId?: string | null
 }
-
-/**
- * A play only counts once it has run this long. Tapping a card and skipping
- * straight on isn't listening, and letting it count would fill Recently
- * Viewed with songs the user rejected.
- */
-const MIN_PLAY_SECONDS = 5
-
-/**
- * How long "no preview, skipping" stays up before moving on. Long enough to
- * read why the song changed by itself, short enough not to feel stuck.
- */
-const SKIP_NOTICE_MS = 2000
 
 type PlayerState = {
   current: PlayerTrack | null

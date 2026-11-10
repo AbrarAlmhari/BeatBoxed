@@ -1,6 +1,7 @@
 import { failureDetails } from './functionError'
 import { supabase } from './supabase'
 import type { SongCardModel } from './types'
+import { DISCOGRAPHY_SYNC_AFTER_HOURS as SYNC_AFTER_HOURS } from './config'
 
 /**
  * Reads behind the artist and album pages, plus the cache-fill calls to the
@@ -19,9 +20,6 @@ function requireClient() {
 type Rel<T> = T | T[] | null
 const one = <T,>(v: Rel<T> | undefined): T | null =>
   Array.isArray(v) ? (v[0] ?? null) : (v ?? null)
-
-/** Re-sync a discography at most this often. */
-const SYNC_AFTER_HOURS = 24
 
 export type ArtistAlbum = {
   id: string

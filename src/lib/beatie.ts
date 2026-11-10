@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { supabase } from './supabase'
 import { useAuth } from './auth'
 import { getAccountSettings, LANGUAGES, type LanguageCode } from './settings'
+import { BEATIE_CHAT_HISTORY as CHAT_HISTORY, BEATIE_QUESTION_MAX as QUESTION_MAX } from './config'
+export { CHAT_HISTORY, QUESTION_MAX }
 
 /**
  * Beatie, the music buddy. Every request goes through the `beatie` Edge
@@ -44,11 +46,6 @@ export type BeatieResponse =
       cached: boolean
     }
   | { ok: false; code: BeatieErrorCode }
-
-/** The most recent messages sent with each chat question. */
-export const CHAT_HISTORY = 10
-/** Longest question Beatie accepts; the server enforces it too. */
-export const QUESTION_MAX = 500
 
 export async function askBeatie(request: BeatieRequest): Promise<BeatieResponse> {
   if (!supabase) return { ok: false, code: 'error' }

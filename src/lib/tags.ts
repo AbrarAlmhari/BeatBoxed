@@ -1,3 +1,6 @@
+import { TAGS_MIN, TAGS_MAX, TAG_MAX_LENGTH } from './config'
+export { TAGS_MIN, TAGS_MAX, TAG_MAX_LENGTH }
+
 /**
  * Music tags: what someone says they're into, shown on their profile. They
  * live in profiles.favorite_genres (the column the old genre picker used);
@@ -29,10 +32,6 @@ export const MUSIC_TAGS = [
   'Country',
   'South Asian',
 ] as const
-
-export const TAGS_MIN = 3
-export const TAGS_MAX = 8
-export const TAG_MAX_LENGTH = 24
 
 /**
  * How a stored tag is shown. The old picker saved lowercase genre names

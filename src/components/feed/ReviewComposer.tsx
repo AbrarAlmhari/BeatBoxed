@@ -8,8 +8,7 @@ import { useAuth } from '@/lib/auth'
 import { upsertReview } from '@/lib/catalog'
 import { FEED_MIN_BODY_CHARS, feedLength, getMyReviews, type FeedReview } from '@/lib/feed'
 import type { ReviewWithAuthor, SongCardModel } from '@/lib/types'
-
-const HEADLINE_MAX = 80
+import { REVIEW_HEADLINE_MAX as HEADLINE_MAX } from '@/lib/config'
 
 /**
  * "New review": pick a song, then write about it.

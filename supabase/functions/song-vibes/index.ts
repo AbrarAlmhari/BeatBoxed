@@ -22,21 +22,26 @@
  */
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { currentModel, generate, lastRateLimits } from '../beatie/groq.ts'
-
-const BATCH = 5
-const DAILY_CAP = 210
+import {
+  VIBES_BATCH as BATCH,
+  VIBES_DAILY_CAP as DAILY_CAP,
+  VIBES_DEFAULT_MODEL as DEFAULT_MODEL,
+  VIBES_LYRICS_CHARS as LYRICS_CHARS,
+  VIBES_LYRICS_TIMEOUT_MS,
+  VIBES_MAX_TOKENS,
+  VIBES_TIMEOUT_MS,
+} from '../_shared/config.ts'
 
 /**
  * The labeller's own Groq model, separate from Beatie's GROQ_MODEL. Read
  * per run, so `supabase secrets set` changes it with no redeploy. There's
- * no backup model: a busy call just leaves the song in the queue.
+ * no backup model: a busy call just leaves the song in the queue. The
+ * default, used when the secret isn't set, is in _shared/config.ts.
  */
 const MODEL_SECRET = 'VIBES_GROQ_MODEL'
-const DEFAULT_MODEL = 'openai/gpt-oss-20b'
 const vibesModel = () => currentModel(Deno.env.get(MODEL_SECRET) || DEFAULT_MODEL)
 /** Without lyrics (and not instrumental) a mood is a guess from the title. */
 const NO_LYRICS_MAX_CONFIDENCE = 0.5
-const LYRICS_CHARS = 2500
 
 const MOODS = ['sad', 'happy', 'nostalgic', 'romantic', 'angry', 'none'] as const
 const ENERGIES = ['low', 'mid', 'high'] as const
@@ -70,7 +75,7 @@ async function lyricsFor(song: Claimed): Promise<{ kind: 'found' | 'instrumental
   try {
     const res = await fetch(`https://lrclib.net/api/get?${params}`, {
       headers: { 'User-Agent': 'Beatboxed/0.1 (CSC 305 class project)' },
-      signal: AbortSignal.timeout(10_000),
+      signal: AbortSignal.timeout(VIBES_LYRICS_TIMEOUT_MS),
     })
     if (!res.ok) return { kind: 'none', text: '' }
     const data = await res.json()
@@ -118,10 +123,10 @@ async function labelOne(song: Claimed, tokens: Tokens): Promise<Outcome> {
   const model = vibesModel()
   const result = await generate(SYSTEM, [{ role: 'user', text: prompt }], {
     model,
-    maxTokens: 120,
+    maxTokens: VIBES_MAX_TOKENS,
     temperature: 0.2,
     json: true,
-    timeoutMs: 30_000,
+    timeoutMs: VIBES_TIMEOUT_MS,
     label: `vibe ${song.song_id.slice(0, 8)}`,
   })
   if (result.info) {

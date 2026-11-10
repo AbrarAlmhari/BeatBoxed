@@ -12,6 +12,7 @@ import { useAuth } from '@/lib/auth'
 import { useToast } from '@/lib/toast'
 import { getFollowList, getFollowListsVisible, getFollowStates, getFollowedArtistsPage, removeFollower } from '@/lib/catalog'
 import type { ArtistCardModel, FollowState, PersonCardModel } from '@/lib/types'
+import { PROFILE_LIST_PAGE_SIZE as PAGE } from '@/lib/config'
 
 export type ProfileList = 'followers' | 'following' | 'artists'
 
@@ -20,8 +21,6 @@ const TITLES: Record<ProfileList, string> = {
   following: 'Following',
   artists: 'Artists',
 }
-
-const PAGE = 30
 
 /**
  * The profile's three lists, each opened by its own count: Followers,

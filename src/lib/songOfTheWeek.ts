@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAuth } from './auth'
 import { getWeeklySong, type WeeklySong } from './mood'
 import { weekTimer } from './weekTimer'
+import { SONG_OF_THE_WEEK_TICK_MS as TICK_MS } from './config'
 
 /**
  * Home's song of the week: the week, a clock that ticks every minute (the
@@ -12,7 +13,6 @@ import { weekTimer } from './weekTimer'
  * When the week ends while the app is open, the next one is fetched.
  */
 
-const TICK_MS = 60_000
 const foldKey = (userId: string) => `beatboxed:sotw-folded:${userId}`
 
 function readFold(userId: string) {

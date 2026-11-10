@@ -1,1 +1,1 @@
-API clients and shared utilities: Supabase client, Spotify Client Credentials helper, lrclib client, Beatie helper, formatting utilities.
+API clients and shared utilities: Supabase client, Spotify Client Credentials helper, lrclib client, Beatie helper, formatting utilities. `config.ts` holds the app's limits, timeouts and page sizes in one place.

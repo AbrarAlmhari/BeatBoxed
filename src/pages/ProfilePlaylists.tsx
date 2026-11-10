@@ -17,8 +17,7 @@ import {
 } from '@/lib/playlists'
 import { StickyBar, STILL } from '@/components/ui/Tabs'
 import { cn } from '@/lib/cn'
-
-const PAGE = 30
+import { PROFILE_LIST_PAGE_SIZE as PAGE } from '@/lib/config'
 
 const SORTS: { value: PlaylistSort; label: string }[] = [
   { value: 'recent', label: 'Newest' },

@@ -8,12 +8,7 @@ import { SubmitButton } from '@/components/auth/SubmitButton'
 import { ResendEmail } from '@/components/auth/ResendConfirmation'
 import { useAuth } from '@/lib/auth'
 import { authErrorMessage } from '@/lib/authErrors'
-
-/**
- * Supabase sends at most one reset email per address a minute, so the
- * resend waits that long.
- */
-const COOLDOWN_S = 60
+import { PASSWORD_RESET_COOLDOWN_S as COOLDOWN_S } from '@/lib/config'
 
 /**
  * "Forgot password?": asks for the email and sends a reset link. The answer

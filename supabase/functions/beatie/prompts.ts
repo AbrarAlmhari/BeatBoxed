@@ -1,4 +1,9 @@
-import { REASONING_HEADROOM } from './groq.ts'
+import {
+  REASONING_HEADROOM,
+  TRANSLATION_MIN_TOKENS,
+  TRANSLATION_PROMPT_CHARS,
+  TRANSLATION_REQUEST_TOKENS,
+} from '../_shared/config.ts'
 
 /**
  * What Beatie is told, apart from its personality (personality.md).
@@ -132,10 +137,6 @@ export function translationMaxTokens(lyrics: string[]) {
   const room = TRANSLATION_REQUEST_TOKENS - REASONING_HEADROOM - promptTokens
   return Math.max(TRANSLATION_MIN_TOKENS, Math.min(200 + chars * 2, room))
 }
-const TRANSLATION_REQUEST_TOKENS = 7000
-const TRANSLATION_PROMPT_CHARS = 700
-/** Lyrics too long to fit at all: still a valid request, and a cut-off answer is rejected. */
-const TRANSLATION_MIN_TOKENS = 200
 
 /* ---------------------------------------------------------- safety check */
 

@@ -62,6 +62,15 @@ export type GenerateResult =
       dailyLimit?: boolean
     }
 
+import {
+  GROQ_DEFAULT_FALLBACK_MODEL as DEFAULT_FALLBACK_MODEL,
+  GROQ_DEFAULT_MODEL as DEFAULT_MODEL,
+  GROQ_DEFAULT_TIMEOUT_MS as DEFAULT_TIMEOUT_MS,
+  REASONING_HEADROOM,
+} from '../_shared/config.ts'
+
+export { REASONING_HEADROOM }
+
 const ENDPOINT = 'https://api.groq.com/openai/v1/chat/completions'
 
 /** Supabase secret holding the key. Never sent to the browser. */
@@ -71,11 +80,10 @@ const KEY_SECRET = 'GROQ_API_KEY'
  * The models come from secrets, read per request, so they can be changed
  * with `supabase secrets set` and no redeploy. The backup is tried once
  * when the primary is busy or Groq says it's gone (index.ts decides when).
+ * The defaults, used when a secret isn't set, are in _shared/config.ts.
  */
 const MODEL_SECRET = 'GROQ_MODEL'
 const FALLBACK_MODEL_SECRET = 'GROQ_FALLBACK_MODEL'
-const DEFAULT_MODEL = 'openai/gpt-oss-120b'
-const DEFAULT_FALLBACK_MODEL = 'qwen/qwen3.8-27b'
 
 /** The model a call will use: the override if given, otherwise GROQ_MODEL. */
 export function currentModel(override?: string) {
@@ -86,15 +94,6 @@ export function fallbackModel() {
   return Deno.env.get(FALLBACK_MODEL_SECRET)?.trim() || DEFAULT_FALLBACK_MODEL
 }
 
-/** How long to wait for the service unless the caller says otherwise. */
-const DEFAULT_TIMEOUT_MS = 40_000
-
-/**
- * Reasoning models count their reasoning in the same max_tokens as the
- * answer, so they get this much extra room on top of options.maxTokens, so
- * reasoning can't use up the answer's share and leave it cut off.
- */
-export const REASONING_HEADROOM = 1024
 
 /**
  * Groq's rate limits as its last answer reported them (its x-ratelimit-*

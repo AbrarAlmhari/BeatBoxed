@@ -1,5 +1,7 @@
 import { supabase } from './supabase'
 import { FEED_SELECT, likedByViewer, toFeedReview, type FeedReview, type FeedReviewRow } from './feed'
+import { PROFILE_PAGE_SIZE, BIO_MAX, MOST_LIKED_CAP } from './config'
+export { PROFILE_PAGE_SIZE, BIO_MAX }
 
 /**
  * Reads for the profile page's tabs. Privacy is the database's: every read
@@ -13,17 +15,9 @@ function client() {
   return supabase
 }
 
-export const PROFILE_PAGE_SIZE = 20
-
-/** A bio's length, in setup and Edit profile alike. */
-export const BIO_MAX = 160
-
 /** written: has a headline or a body. ratings: stars only. */
 export type ReviewFilter = 'all' | 'written' | 'ratings'
 export type ReviewSortKey = 'recent' | 'highest' | 'liked'
-
-/** Most liked can't be ordered by the database; this many are sorted here. */
-const MOST_LIKED_CAP = 500
 
 type Filterable = {
   or: (filters: string) => Filterable
