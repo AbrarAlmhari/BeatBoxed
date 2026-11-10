@@ -46,8 +46,7 @@ Every Beatie request goes through `supabase/functions/beatie/`. The browser send
 For each request the function checks the user is signed in, loads the song, artist and album from the database, reads the user's language (`profiles.translation_language`, English if unset), and fetches the lyrics itself through `lyrics-lookup`, asked the same way the Song page asks so both get the same lines.
 
 **Files:**
-- `groq.ts`: the only Groq-specific code (models, endpoint, request and response format, secret names), behind `generate(systemPrompt, messages, options)`, with the same signature and types as `provider.ts`. `index.ts` imports from here.
-- `provider.ts`: the earlier Gemini version of the same surface, no longer called by any function. `groq.ts` borrows its types.
+- `groq.ts`: the only Groq-specific code (models, endpoint, request and response format, secret names), behind `generate(systemPrompt, messages, options)`, with its types. `index.ts` and `song-vibes` import from here.
 - `personality.md`: Beatie's voice and rules, editable without touching code. Used as the system prompt for explanations and chat, followed by the song context. It must stay listed under `static_files` in `supabase/config.toml` to be deployed.
 - `prompts.ts`: the song context, the task wording, the separate short translation instruction (translations don't use the personality), and the lyric-quote check.
 - `index.ts`: the request flow, cache, limits and error codes.
@@ -66,7 +65,7 @@ For each request the function checks the user is signed in, loads the song, arti
 
 The live model is set by the Supabase secret **`GROQ_MODEL`** (default **`openai/gpt-oss-120b`**), and a backup by **`GROQ_FALLBACK_MODEL`** (default **`qwen/qwen3.8-27b`**). Both are read on every request, so `supabase secrets set` changes them with no redeploy.
 
-**Backup:** when the main model is busy (HTTP 429 or 5xx, a timeout, a network failure, or a rate limit reported mid-answer) or gone (HTTP 404 or `model_not_found`: Groq doesn't know the name; `model_decommissioned`: Groq has retired it), and at least 20 seconds of the budget remain (`MIN_RETRY_MS`), the same request is tried once on the backup model. That's an extra call, so it takes from the app-wide daily cap first (`takeQuota(null)`), like the other retries. Any other failure (a bad request, an empty answer) is an `error` and doesn't try the backup. The log says which: `primary model busy; trying …` or `primary model not found or retired; trying …`. There's no Gemini fallback.
+**Backup:** when the main model is busy (HTTP 429 or 5xx, a timeout, a network failure, or a rate limit reported mid-answer) or gone (HTTP 404 or `model_not_found`: Groq doesn't know the name; `model_decommissioned`: Groq has retired it), and at least 20 seconds of the budget remain (`MIN_RETRY_MS`), the same request is tried once on the backup model. That's an extra call, so it takes from the app-wide daily cap first (`takeQuota(null)`), like the other retries. Any other failure (a bad request, an empty answer) is an `error` and doesn't try the backup. The log says which: `primary model busy; trying …` or `primary model not found or retired; trying …`.
 
 **Reasoning:** `gpt-oss` models get `reasoning_effort: "low"`; Qwen models get `reasoning_format: "hidden"`, so their reasoning never reaches the answer text. Both reason within the output limit, so they get 1,024 extra output tokens on top of each request's limit (`REASONING_HEADROOM` in `groq.ts`).
 

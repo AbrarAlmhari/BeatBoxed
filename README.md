@@ -34,13 +34,13 @@ nowhere else.
 - `docs/design-system.md` — colors, typography, spacing, component rules (from the team's theme spec)
 - `docs/feature-map.md` — MVP vs. stretch feature list
 - `docs/data-model.md` — proposed Supabase schema
-- `docs/api-integrations.md` — Spotify, Gemini, and lrclib setup notes and gotchas
+- `docs/api-integrations.md` — Spotify, Groq, and lrclib setup notes and gotchas
 - `docs/team-workstreams.md` — who owns what
 - `docs/roadmap.md` — day-by-day plan through Final Review (Oct 15)
 
 ## Tech stack
 
-React + TypeScript + Tailwind CSS · Supabase (Postgres, Auth, Edge Functions) · Spotify Web API (Client Credentials) · Gemini API (Google AI Studio) · lrclib.net · Vercel deployment.
+React + TypeScript + Tailwind CSS · Supabase (Postgres, Auth, Edge Functions) · Spotify Web API (Client Credentials) · Groq API · lrclib.net · Vercel deployment.
 
 ## Team
 
