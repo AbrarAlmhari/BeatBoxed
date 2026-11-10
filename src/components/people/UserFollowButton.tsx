@@ -5,6 +5,7 @@ import { useAuth } from '@/lib/auth'
 import { followUser, unfollowUser } from '@/lib/catalog'
 import { cn } from '@/lib/cn'
 import type { FollowState } from '@/lib/types'
+import { logError } from '@/lib/log'
 
 /**
  * The single follow control for people, shared by People search, profile
@@ -71,7 +72,7 @@ export function UserFollowButton({
       setCurrent(next)
       onChange?.(next, previous)
     } catch (err) {
-      console.error('[beatboxed] follow action failed:', err)
+      logError('people', 'follow action failed', { error: err })
       setCurrent(previous)
     } finally {
       setPending(false)

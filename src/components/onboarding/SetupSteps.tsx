@@ -43,6 +43,7 @@ import { normalizeUsername, usernameProblem, usernameSubmittable, useUsernameSta
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import type { SongCardModel } from '@/lib/types'
 import { ScrollRow } from '@/components/ui/ScrollRow'
+import { logError } from '@/lib/log'
 
 export type SetupProfile = {
   username: string
@@ -374,7 +375,7 @@ export function StepPeople({ profile, next, back }: StepProps) {
     suggestedReviewers(profile.tags, 5)
       .then((p) => !cancelled && setPeople(p))
       .catch((err) => {
-        console.error('[beatboxed] suggested people failed:', err)
+        logError('onboarding', 'suggested people failed', { error: err })
         if (!cancelled) setFailed(true)
       })
     return () => {
@@ -458,7 +459,7 @@ export function StepArtists({ profile, next, back }: StepProps) {
         setSeen((prev) => new Set([...prev, ...a.map((x) => x.id)]))
       })
       .catch((err) => {
-        console.error('[beatboxed] suggested artists failed:', err)
+        logError('onboarding', 'suggested artists failed', { error: err })
         if (!cancelled) setSuggested([])
       })
     return () => {
@@ -655,7 +656,7 @@ export function StepSongs({
       .then((ids) => suggestedSongs([...ids], ids.size ? [] : profile.tags, 5))
       .then((songs) => !cancelled && setSuggestions(songs))
       .catch((err) => {
-        console.error('[beatboxed] suggested songs failed:', err)
+        logError('onboarding', 'suggested songs failed', { error: err })
         if (!cancelled) setSuggestions([])
       })
     return () => {

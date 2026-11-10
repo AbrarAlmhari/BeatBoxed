@@ -7,6 +7,7 @@ import { PlaylistCover } from './PlaylistCover'
 import { useAuth } from '@/lib/auth'
 import { useToast } from '@/lib/toast'
 import { getSavedPlaylists, setPlaylistSave, type SavedPlaylist } from '@/lib/playlists'
+import { logError } from '@/lib/log'
 
 /**
  * Library → Saved: other people's playlists you saved. They're links, so
@@ -24,7 +25,7 @@ export function SavedPlaylists() {
     getSavedPlaylists()
       .then(setRows)
       .catch((err) => {
-        console.error('[beatboxed] saved playlists failed:', err)
+        logError('playlist', 'saved playlists failed', { error: err })
         setRows([])
       })
   }, [])
@@ -36,7 +37,7 @@ export function SavedPlaylists() {
     try {
       await setPlaylistSave(id, user.id, false)
     } catch (err) {
-      console.error('[beatboxed] remove saved playlist failed:', err)
+      logError('playlist', 'remove saved playlist failed', { error: err })
       setRows(previous)
       toast.show({ message: "Couldn't remove that. Try again." })
     }

@@ -50,6 +50,7 @@ import {
   type PlaylistTrack,
 } from '@/lib/playlists'
 import { checkCoverFile, COVER_TYPES } from '@/lib/image'
+import { logError, logWarn } from '@/lib/log'
 
 export default function Playlist() {
   const { id = '' } = useParams()
@@ -90,7 +91,7 @@ export default function Playlist() {
         else setPlaylist(detail)
       })
       .catch((err) => {
-        console.error('[beatboxed] playlist failed to load:', err)
+        logError('playlist', 'playlist failed to load', { playlist: id, error: err })
         if (!cancelled) setMissing(true)
       })
       .finally(() => {
@@ -116,7 +117,7 @@ export default function Playlist() {
         setSocial(next)
         if (next.savedByMe) void markSavedPlaylistOpened(playlistId).catch(() => {})
       })
-      .catch((err) => console.warn('[beatboxed] playlist likes failed:', err))
+      .catch((err) => logWarn('playlist', 'playlist likes failed', { playlist: id, error: err }))
     return () => {
       live = false
     }
@@ -131,7 +132,7 @@ export default function Playlist() {
     try {
       await setPlaylistLike(playlist.id, user.id, next)
     } catch (err) {
-      console.error('[beatboxed] playlist like failed:', err)
+      logError('playlist', 'playlist like failed', { playlist: id, error: err })
       apply(!next)
       toast.show({ message: "Couldn't save that like. Try again." })
     }
@@ -156,7 +157,7 @@ export default function Playlist() {
         toast.show({ message: 'Removed from your Library' })
       }
     } catch (err) {
-      console.error('[beatboxed] playlist save failed:', err)
+      logError('playlist', 'playlist save failed', { playlist: id, error: err })
       apply(!next)
       toast.show({ message: "Couldn't save that. Try again." })
     }
@@ -172,7 +173,7 @@ export default function Playlist() {
         message: next ? 'Only you can see this playlist now.' : 'This playlist is visible on your profile again.',
       })
     } catch (err) {
-      console.error('[beatboxed] playlist privacy failed:', err)
+      logError('playlist', 'playlist privacy failed', { playlist: id, error: err })
       setPlaylist({ ...playlist, isPrivate: !next })
       toast.show({ message: "Couldn't change that. Try again." })
     }
@@ -191,7 +192,7 @@ export default function Playlist() {
       try {
         await setPlaylistOrder(playlist.id, next.map((s) => s.id))
       } catch (err) {
-        console.error('[beatboxed] reorder failed:', err)
+        logError('playlist', 'reorder failed', { playlist: id, error: err })
         setPlaylist({ ...playlist, songs: previous })
         toast.show({ message: "Couldn't save the new order." })
       }
@@ -217,7 +218,7 @@ export default function Playlist() {
       setPlaylist((p) => (p ? { ...p, coverUrl: url } : p))
       toast.show({ message: 'Cover updated' })
     } catch (err) {
-      console.error('[beatboxed] cover upload failed:', err)
+      logError('playlist', 'cover upload failed', { playlist: id, error: err })
       toast.show({ message: "Couldn't upload that image." })
     } finally {
       setUploadingCover(false)
@@ -249,11 +250,11 @@ export default function Playlist() {
             // Re-reading keeps position truthful: the song goes back on the
             // end, not necessarily where it was.
             .then(() => load())
-            .catch((err) => console.error('[beatboxed] undo failed:', err))
+            .catch((err) => logError('playlist', 'undo failed', { playlist: id, error: err }))
         },
       })
     } catch (err) {
-      console.error('[beatboxed] remove failed:', err)
+      logError('playlist', 'remove failed', { playlist: id, error: err })
       setPlaylist({ ...playlist, songs: previous })
       toast.show({ message: "Couldn't remove that song." })
     }
@@ -556,7 +557,7 @@ export default function Playlist() {
                               toast.show({ message: `Deleted ${playlist.title}` })
                               navigate('/library', { replace: true })
                             } catch (err) {
-                              console.error('[beatboxed] delete failed:', err)
+                              logError('playlist', 'delete failed', { playlist: id, error: err })
                               toast.show({ message: "Couldn't delete that." })
                               setDeleting(false)
                               setConfirmingDelete(false)

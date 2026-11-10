@@ -1,5 +1,7 @@
 import { supabase } from './supabase'
 import { genreLabel } from './genres'
+import { STATS_MIN_RATINGS, STATS_CACHE_MS as RECENT_MS } from './config'
+export { STATS_MIN_RATINGS }
 
 /**
  * The profile's Stats tab. One database call, get_user_stats(), returns the
@@ -19,9 +21,6 @@ export const STATS_RANGES: { id: StatsRange; label: string }[] = [
   { id: 'year', label: 'This year' },
   { id: '30d', label: '30 days' },
 ]
-
-/** Fewer ratings than this in a range and the tab shows the warm-up state. */
-export const STATS_MIN_RATINGS = 5
 
 export type StatsArtist = {
   id: string
@@ -122,7 +121,6 @@ function foldGenres(rows: NonNullable<Raw['genres']>): StatsGenre[] {
 
 /** Kept briefly, so the header's genre chips and the Stats tab share one call. */
 const recent = new Map<string, { at: number; value: Promise<UserStats | null> }>()
-const RECENT_MS = 30_000
 
 /** null when the viewer isn't allowed to see this profile's stats. */
 export function getUserStats(userId: string, range: StatsRange): Promise<UserStats | null> {

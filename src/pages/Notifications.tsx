@@ -25,6 +25,7 @@ import { setCommentLike } from '@/lib/conversations'
 import { cn } from '@/lib/cn'
 import type { NotificationCenter, UpdateItem } from '@/lib/types'
 import { FilterButton } from '@/components/ui/FilterButton'
+import { logError, logWarn } from '@/lib/log'
 
 type Filter = 'all' | NotificationCategory
 
@@ -87,7 +88,7 @@ export default function Notifications() {
 
   useEffect(() => {
     load().catch((err) => {
-      console.error('[beatboxed] notifications failed:', err)
+      logError('notifications', 'notifications failed', { error: err })
       setData({ requests: [], updates: [], badge: 0 })
     })
   }, [load])
@@ -97,7 +98,7 @@ export default function Notifications() {
       if (d.item.kind === 'notification') await Promise.all(d.ids.map((id) => markNotificationRead(id)))
       else if (user) await markAnnouncementRead(d.item.announcement.id, user.id)
     } catch (err) {
-      console.warn('[beatboxed] mark read failed:', err)
+      logWarn('notifications', 'mark read failed', { error: err })
     }
   }
 
@@ -125,7 +126,7 @@ export default function Notifications() {
     try {
       await setCommentLike(commentId, user.id, next)
     } catch (err) {
-      console.error('[beatboxed] comment like failed:', err)
+      logError('notifications', 'comment like failed', { error: err })
       set(!next)
       toast.show({ message: "Couldn't save that like. Try again." })
     }
@@ -137,7 +138,7 @@ export default function Notifications() {
       await markAllRead(user.id, data.updates)
       await load()
     } catch (err) {
-      console.error('[beatboxed] mark all read failed:', err)
+      logError('notifications', 'mark all read failed', { error: err })
     }
   }
 

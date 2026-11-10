@@ -1,30 +1,76 @@
 /**
- * Beatie's AI service: Groq, through its OpenAI-compatible chat API.
- *
- * Same surface as provider.ts (generate, wasCutOff, currentModel, and its
- * types), so index.ts only imports from here instead. provider.ts stays as
- * it is: song-vibes still uses it, with Gemini, and nothing here touches it
- * beyond borrowing its types.
+ * Groq, through its OpenAI-compatible chat API: the only model service
+ * Beatie and song-vibes use. Everything Groq-specific lives here (models,
+ * endpoint, request and response format, secret names), behind generate(),
+ * wasCutOff() and currentModel().
  */
-import type { CallInfo, ChatMessage, GenerateOptions as BaseOptions, GenerateResult as BaseResult } from './provider.ts'
 
-export type { CallInfo, ChatMessage }
+export type ChatMessage = { role: 'user' | 'assistant'; text: string }
+
+export type GenerateOptions = {
+  /** Upper bound on the answer's length. */
+  maxTokens: number
+  /** Lower is steadier; translation wants it low. */
+  temperature: number
+  /** Ask for a JSON response (used for translations). */
+  json?: boolean
+  /** How long to wait for Groq before giving up as 'busy'. */
+  timeoutMs?: number
+  /** Names the call in the logs, e.g. "explain 4915e7d5 ar". */
+  label?: string
+  /**
+   * A model other than GROQ_MODEL (song-vibes, and Beatie's backup).
+   * Without it, GROQ_MODEL is used.
+   */
+  model?: string
+}
+
+/** What a call cost and how it ended. Logged, never shown to users. */
+export type CallInfo = {
+  /** 'stop' is a complete answer; 'length' means it was cut off. */
+  finishReason: string | null
+  /** Reasoning tokens, when Groq reports them. */
+  thinkingTokens: number | null
+  answerTokens: number | null
+  promptTokens: number | null
+  ms: number
+  /** Until the first piece of the answer arrived. */
+  firstChunkMs: number | null
+  chars: number
+}
 
 /**
- * provider.ts's result, plus `modelGone` on a failure: Groq says the model
- * doesn't exist or has been retired, so the backup is worth a try.
+ * busy:  Groq is down, overloaded, rate limiting us or too slow, worth
+ *        trying again in a minute.
+ * error: anything else (empty answer, bad config).
  *
- * `refused` on a failure: Groq turned the request down without answering
- * (rate limit, server error, model gone), so no tokens were spent on it.
- * `dailyLimit` is a refusal because a per-day limit is used up.
+ * On a failure, `modelGone`: Groq says the model doesn't exist or has been
+ * retired, so the backup is worth a try. `refused`: Groq turned the request
+ * down without answering (rate limit, server error, model gone), so no
+ * tokens were spent on it. `dailyLimit` is a refusal because a per-day
+ * limit is used up.
  */
-export type GenerateResult = BaseResult & { modelGone?: boolean; refused?: boolean; dailyLimit?: boolean }
+export type GenerateResult =
+  | { ok: true; text: string; info: CallInfo }
+  | {
+      ok: false
+      reason: 'busy' | 'error'
+      detail: string
+      info?: CallInfo
+      modelGone?: boolean
+      refused?: boolean
+      dailyLimit?: boolean
+    }
+import { logError, logInfo, logWarn } from '../_shared/log.ts'
 
-/**
- * provider.ts's options, plus `model`: a caller can pick its own model
- * (song-vibes, and Beatie's backup). Without it, GROQ_MODEL is used.
- */
-export type GenerateOptions = BaseOptions & { model?: string }
+import {
+  GROQ_DEFAULT_FALLBACK_MODEL as DEFAULT_FALLBACK_MODEL,
+  GROQ_DEFAULT_MODEL as DEFAULT_MODEL,
+  GROQ_DEFAULT_TIMEOUT_MS as DEFAULT_TIMEOUT_MS,
+  REASONING_HEADROOM,
+} from '../_shared/config.ts'
+
+export { REASONING_HEADROOM }
 
 const ENDPOINT = 'https://api.groq.com/openai/v1/chat/completions'
 
@@ -35,11 +81,10 @@ const KEY_SECRET = 'GROQ_API_KEY'
  * The models come from secrets, read per request, so they can be changed
  * with `supabase secrets set` and no redeploy. The backup is tried once
  * when the primary is busy or Groq says it's gone (index.ts decides when).
+ * The defaults, used when a secret isn't set, are in _shared/config.ts.
  */
 const MODEL_SECRET = 'GROQ_MODEL'
 const FALLBACK_MODEL_SECRET = 'GROQ_FALLBACK_MODEL'
-const DEFAULT_MODEL = 'openai/gpt-oss-120b'
-const DEFAULT_FALLBACK_MODEL = 'qwen/qwen3.8-27b'
 
 /** The model a call will use: the override if given, otherwise GROQ_MODEL. */
 export function currentModel(override?: string) {
@@ -50,16 +95,6 @@ export function fallbackModel() {
   return Deno.env.get(FALLBACK_MODEL_SECRET)?.trim() || DEFAULT_FALLBACK_MODEL
 }
 
-/** How long to wait for the service unless the caller says otherwise. */
-const DEFAULT_TIMEOUT_MS = 40_000
-
-/**
- * Reasoning models count their reasoning in the same max_tokens as the
- * answer, so they get this much extra room on top of options.maxTokens, as
- * provider.ts does for Gemini's thinking, so reasoning can't use up the
- * answer's share and leave it cut off.
- */
-export const REASONING_HEADROOM = 1024
 
 /**
  * Groq's rate limits as its last answer reported them (its x-ratelimit-*
@@ -153,9 +188,8 @@ function unwrapJson(text: string) {
 
 /**
  * Streams the answer, so how far it got is known even when the wait runs
- * out, and logs what it cost in the same line format as provider.ts, with
- * the provider named. options.model picks a model other than GROQ_MODEL;
- * the signature is otherwise the same as provider.ts.
+ * out, and logs what it cost. options.model picks a model other than
+ * GROQ_MODEL.
  */
 export async function generate(
   systemPrompt: string,
@@ -198,8 +232,16 @@ export async function generate(
     firstChunkMs,
     chars: text.length,
   })
-  const describe = (i: CallInfo) =>
-    `model=${model} finish=${i.finishReason ?? '-'} thinking=${i.thinkingTokens ?? '?'} answer=${i.answerTokens ?? '?'} prompt=${i.promptTokens ?? '?'} ms=${i.ms} firstChunkMs=${i.firstChunkMs ?? '-'} chars=${i.chars}`
+  const cost = (i: CallInfo) => ({
+    model,
+    finish: i.finishReason ?? '-',
+    thinking: i.thinkingTokens ?? '?',
+    answer: i.answerTokens ?? '?',
+    prompt: i.promptTokens ?? '?',
+    ms: i.ms,
+    firstChunkMs: i.firstChunkMs ?? '-',
+    chars: i.chars,
+  })
 
   try {
     const res = await fetch(ENDPOINT, {
@@ -214,7 +256,7 @@ export async function generate(
       // be checked; anything not recognised as a daily limit is just 'busy'.
       const message = (await res.text().catch(() => '')).slice(0, 300)
       const dailyLimit = res.status === 429 && /per day|\b(TPD|RPD)\b/i.test(message)
-      console.error(`[beatie] groq ${label}: model=${model} HTTP ${res.status}: ${message}`)
+      logError('groq', 'refused', { call: label, model, status: res.status, message })
       return {
         ok: false,
         reason: 'busy',
@@ -227,7 +269,7 @@ export async function generate(
     if (!res.ok || !res.body) {
       const text = res.ok ? '' : await res.text()
       const detail = `HTTP ${res.status}: ${text.slice(0, 300)}`
-      console.error(`[beatie] groq ${label}: model=${model} ${detail}`)
+      logError('groq', 'request failed', { call: label, model, status: res.status, body: text })
       const modelGone = !res.ok && isModelGone(res.status, text)
       return { ok: false, reason: 'error', detail, info: info(), ...(modelGone ? { modelGone, refused: true } : {}) }
     }
@@ -249,7 +291,7 @@ export async function generate(
           // An error reported mid-stream: rate limits are worth a retry.
           const message = String(event.error.message ?? event.error.code ?? 'stream error')
           const busy = /rate|limit|overloaded|capacity/i.test(message)
-          console.error(`[beatie] groq ${label}: model=${model} stream error: ${message.slice(0, 200)}`)
+          logError('groq', 'stream error', { call: label, model, message })
           return { ok: false, reason: busy ? 'busy' : 'error', detail: message, info: info() }
         }
         const choice = event?.choices?.[0]
@@ -266,14 +308,13 @@ export async function generate(
   } catch (err) {
     // Timeouts and network failures: the service isn't answering in time.
     const i = info()
-    console.warn(
-      `[beatie] groq ${label}: gave up after ${i.ms}ms (${(err as Error).name}): ${describe(i)} last100=${JSON.stringify(text.slice(-100))}`
-    )
+    // The answer so far isn't logged: it can be a translation of the lyrics.
+    logWarn('groq', 'gave up waiting', { call: label, error: (err as Error).name, ...cost(i) })
     return { ok: false, reason: 'busy', detail: (err as Error).message, info: i }
   }
 
   const i = info()
-  console.log(`[beatie] groq ${label}: ${describe(i)}`)
+  logInfo('groq', 'answered', { call: label, ...cost(i) })
   // In case a model puts its reasoning in the text anyway.
   text = text.replace(/<think>[\s\S]*?<\/think>/g, '').trim()
   if (!text) {

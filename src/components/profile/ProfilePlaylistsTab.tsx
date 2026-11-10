@@ -13,6 +13,7 @@ import {
   uploadPlaylistCover,
   type PlaylistSummary,
 } from '@/lib/playlists'
+import { logError } from '@/lib/log'
 
 const GRID = 'grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4'
 
@@ -44,7 +45,7 @@ export function ProfilePlaylistsTab({
     try {
       setPlaylists(await getUserPlaylists(userId))
     } catch (err) {
-      console.error('[beatboxed] profile playlists failed:', err)
+      logError('profile', 'profile playlists failed', { error: err })
       setError(true)
     }
   }, [userId])

@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { logWarn } from './log'
 
 /**
  * Artist genres (Part C). Each artist's raw genres (from Wikidata, or
@@ -27,7 +28,7 @@ export async function fetchArtistGenres(artistId: string): Promise<string[] | nu
   if (!supabase) return null
   const { data, error } = await supabase.functions.invoke('artist-genres', { body: { artistId } })
   if (error) {
-    console.warn('[beatboxed] genre lookup failed:', error.message)
+    logWarn('genres', 'genre lookup failed', { error: error.message })
     return null
   }
   return (data as { genres?: string[] } | null)?.genres ?? null

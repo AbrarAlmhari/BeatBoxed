@@ -2,6 +2,8 @@ import { supabase } from './supabase'
 import { REVIEW_SELECT, toReviewModel, type ReviewRow } from './catalog'
 import { readSeenReviews } from './seenReviews'
 import type { PersonCardModel, ReviewWithAuthor, SongCardModel } from './types'
+import { FEED_MIN_BODY_CHARS, FEED_PAGE_SIZE } from './config'
+export { FEED_MIN_BODY_CHARS, FEED_PAGE_SIZE }
 
 /**
  * Home's review feed: For You and Following.
@@ -11,23 +13,6 @@ import type { PersonCardModel, ReviewWithAuthor, SongCardModel } from './types'
  * reviews RLS policy). This file pages through those ids and turns them into
  * cards.
  */
-
-/**
- * How much body text (trimmed, in characters; the headline doesn't count) a
- * review needs to appear in the feed. 20 is about four words ("The chorus
- * hits so hard"): enough to be a thought, short enough that nobody has to
- * pad a review to reach it, and still enough to keep one-word "fire" posts
- * and star-only ratings out. It's passed to the database functions rather
- * than repeated there, so this is the one place to change it.
- *
- * Shorter and star-only reviews still count in song averages and still
- * show on song pages. Longer reviews get a gentle boost in For You
- * (migration 0038), so length still pays off without being required.
- */
-export const FEED_MIN_BODY_CHARS = 20
-
-/** About a screenful at a time. */
-export const FEED_PAGE_SIZE = 20
 
 export type FeedTab = 'for-you' | 'following'
 

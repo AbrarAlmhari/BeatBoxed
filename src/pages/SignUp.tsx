@@ -8,9 +8,7 @@ import { SubmitButton } from '@/components/auth/SubmitButton'
 import { useAuth } from '@/lib/auth'
 import { authErrorMessage } from '@/lib/authErrors'
 import { ResendConfirmation } from '@/components/auth/ResendConfirmation'
-
-/** As the sign-up mockup says. */
-const PASSWORD_MIN = 8
+import { PASSWORD_MIN } from '@/lib/config'
 
 export default function SignUp() {
   const { signUp, session, loading } = useAuth()

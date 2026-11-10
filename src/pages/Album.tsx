@@ -18,6 +18,7 @@ import {
   syncAlbumTracks,
   type AlbumDetail,
 } from '@/lib/artists'
+import { logError } from '@/lib/log'
 
 /** album | single | compilation -> what the header says. */
 function albumTypeLabel(type: string | null, trackCount: number) {
@@ -88,7 +89,7 @@ export default function Album() {
         }
       })
       .catch((err) => {
-        console.error('[beatboxed] album page failed:', err)
+        logError('album', 'album page failed', { album: id, error: err })
         if (!cancelled) setFailed(true)
       })
       .finally(() => {

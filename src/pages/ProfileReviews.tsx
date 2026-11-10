@@ -8,8 +8,8 @@ import { getProfileDetail, getReviewsByUserPage, type ReviewSort } from '@/lib/c
 import type { ReviewWithSong } from '@/lib/types'
 import { StickyBar, STILL } from '@/components/ui/Tabs'
 import { cn } from '@/lib/cn'
-
-const PAGE = 30
+import { PROFILE_LIST_PAGE_SIZE as PAGE } from '@/lib/config'
+import { logError } from '@/lib/log'
 
 const SORTS: { value: ReviewSort; label: string }[] = [
   { value: 'newest', label: 'Newest' },
@@ -47,7 +47,7 @@ export default function ProfileReviews() {
         setReviews(page)
         setExhausted(page.length < PAGE)
       })
-      .catch((err) => console.error('[beatboxed] reviews list failed:', err))
+      .catch((err) => logError('profile', 'reviews list failed', { error: err }))
       .finally(() => {
         if (!cancelled) setLoading(false)
       })
@@ -68,7 +68,7 @@ export default function ProfileReviews() {
       setReviews((prev) => [...prev, ...next])
       setExhausted(next.length < PAGE)
     } catch (err) {
-      console.error('[beatboxed] load more reviews failed:', err)
+      logError('profile', 'load more reviews failed', { error: err })
     } finally {
       setLoadingMore(false)
     }

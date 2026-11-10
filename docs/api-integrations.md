@@ -30,7 +30,7 @@ Genius (`api.genius.com`) can still be used for artist bios, song metadata, and 
 
 Beatie's answers come from Groq's OpenAI-compatible chat API (`https://api.groq.com/openai/v1/chat/completions`). The key is stored only as the Supabase secret `GROQ_API_KEY` (`supabase secrets set GROQ_API_KEY=...`). It is never in the repo and never reaches the browser; the frontend needs no AI setting at all.
 
-The `song-vibes` function that labels songs for the daily check-in (see `supabase/functions/song-vibes/`) also goes through `groq.ts`, with the same key but its own model, the secret `VIBES_GROQ_MODEL` (default `openai/gpt-oss-20b`), and no backup model. Its labels record the model as `groq/<model>` in `song_vibes.model`. It makes at most 210 calls a day, failures included (`DAILY_CAP`), 5 songs per run.
+The `song-vibes` function that labels songs for the daily check-in (see `supabase/functions/song-vibes/`) also goes through `groq.ts`, with the same key but its own model, the secret `VIBES_GROQ_MODEL` (default `openai/gpt-oss-20b`), and no backup model. Its labels record the model as `groq/<model>` in `song_vibes.model`. It makes at most 210 calls a day, failures included (`VIBES_DAILY_CAP`), 5 songs per run (`VIBES_BATCH`).
 
 ### The `beatie` Edge Function
 
@@ -46,15 +46,14 @@ Every Beatie request goes through `supabase/functions/beatie/`. The browser send
 For each request the function checks the user is signed in, loads the song, artist and album from the database, reads the user's language (`profiles.translation_language`, English if unset), and fetches the lyrics itself through `lyrics-lookup`, asked the same way the Song page asks so both get the same lines.
 
 **Files:**
-- `groq.ts`: the only Groq-specific code (models, endpoint, request and response format, secret names), behind `generate(systemPrompt, messages, options)`, with the same signature and types as `provider.ts`. `index.ts` imports from here.
-- `provider.ts`: the earlier Gemini version of the same surface, no longer called by any function. `groq.ts` borrows its types.
+- `groq.ts`: the only Groq-specific code (models, endpoint, request and response format, secret names), behind `generate(systemPrompt, messages, options)`, with its types. `index.ts` and `song-vibes` import from here.
 - `personality.md`: Beatie's voice and rules, editable without touching code. Used as the system prompt for explanations and chat, followed by the song context. It must stay listed under `static_files` in `supabase/config.toml` to be deployed.
 - `prompts.ts`: the song context, the task wording, the separate short translation instruction (translations don't use the personality), and the lyric-quote check.
 - `index.ts`: the request flow, cache, limits and error codes.
 
 **Cache:** `beatie_cache` (see `docs/data-model.md`). A cache hit is answered without calling the AI service and doesn't count toward any limit. An answer made while the lyrics lookup was failing is shown but not cached, so a temporary lrclib outage can't record "no lyrics" for a song permanently.
 
-**Limits** (constants at the top of `index.ts`): 30 requests per user per day, and 150 AI calls per day for the whole app, retries and backup-model calls included. Both are taken by `beatie_take_quota()` in single statements, so rapid requests can't get past them. Days reset at midnight UTC. Besides the backup model (below), there is never more than one automatic retry per request: once if an explanation or chat answer quotes too much of the lyrics, once if a translation's line count is off.
+**Limits** (in `supabase/functions/_shared/config.ts`, with every Edge Function limit, timeout and default model): 30 requests per user per day, and 150 AI calls per day for the whole app, retries and backup-model calls included. Both are taken by `beatie_take_quota()` in single statements, so rapid requests can't get past them. Days reset at midnight UTC. Besides the backup model (below), there is never more than one automatic retry per request: once if an explanation or chat answer quotes too much of the lyrics, once if a translation's line count is off.
 
 **Lyric safety:** explanations and chat may quote at most one lyric line (a line explanation, only the line being explained). An answer that quotes more is retried once with a stricter instruction, then not shown. Translations are exempt: they translate every line, and appear only on the Song page.
 
@@ -66,7 +65,7 @@ For each request the function checks the user is signed in, loads the song, arti
 
 The live model is set by the Supabase secret **`GROQ_MODEL`** (default **`openai/gpt-oss-120b`**), and a backup by **`GROQ_FALLBACK_MODEL`** (default **`qwen/qwen3.8-27b`**). Both are read on every request, so `supabase secrets set` changes them with no redeploy.
 
-**Backup:** when the main model is busy (HTTP 429 or 5xx, a timeout, a network failure, or a rate limit reported mid-answer) or gone (HTTP 404 or `model_not_found`: Groq doesn't know the name; `model_decommissioned`: Groq has retired it), and at least 20 seconds of the budget remain (`MIN_RETRY_MS`), the same request is tried once on the backup model. That's an extra call, so it takes from the app-wide daily cap first (`takeQuota(null)`), like the other retries. Any other failure (a bad request, an empty answer) is an `error` and doesn't try the backup. The log says which: `primary model busy; trying …` or `primary model not found or retired; trying …`. There's no Gemini fallback.
+**Backup:** when the main model is busy (HTTP 429 or 5xx, a timeout, a network failure, or a rate limit reported mid-answer) or gone (HTTP 404 or `model_not_found`: Groq doesn't know the name; `model_decommissioned`: Groq has retired it), and at least 20 seconds of the budget remain (`MIN_RETRY_MS`), the same request is tried once on the backup model. That's an extra call, so it takes from the app-wide daily cap first (`takeQuota(null)`), like the other retries. Any other failure (a bad request, an empty answer) is an `error` and doesn't try the backup. The log says which: `primary model busy; trying …` or `primary model not found or retired; trying …`.
 
 **Reasoning:** `gpt-oss` models get `reasoning_effort: "low"`; Qwen models get `reasoning_format: "hidden"`, so their reasoning never reaches the answer text. Both reason within the output limit, so they get 1,024 extra output tokens on top of each request's limit (`REASONING_HEADROOM` in `groq.ts`).
 

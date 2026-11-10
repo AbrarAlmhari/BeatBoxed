@@ -5,6 +5,7 @@ import { useAuth } from '@/lib/auth'
 import { useToast } from '@/lib/toast'
 import { REPORT_REASONS, reportProfile, type ReportReason } from '@/lib/reports'
 import { cn } from '@/lib/cn'
+import { logError } from '@/lib/log'
 
 /**
  * Report a profile: pick a reason, add a few words if you want, send. The
@@ -41,7 +42,7 @@ export function ReportSheet({
       onClose()
       toast.show({ message: result === 'already' ? "You've already reported this profile. We'll take a look." : "Thanks, we'll take a look" })
     } catch (err) {
-      console.error('[beatboxed] report failed:', err)
+      logError('profile', 'report failed', { error: err })
       setError("Couldn't send the report. Try again.")
     } finally {
       setPending(false)

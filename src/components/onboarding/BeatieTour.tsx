@@ -7,6 +7,7 @@ import { useAuth } from '@/lib/auth'
 import { useToast } from '@/lib/toast'
 import { useOnboarding } from '@/lib/onboardingContext'
 import { markTour } from '@/lib/onboarding'
+import { logWarn } from '@/lib/log'
 
 /**
  * The Beatie tour on Home (docs/mockups/onboarding, "Tour 1 6" to "Tour 6
@@ -177,7 +178,7 @@ export function BeatieTour() {
       setTourOpen(false)
       const now = new Date().toISOString()
       patch(outcome === 'completed' ? { tutorialCompletedAt: now } : { tutorialSkippedAt: now })
-      if (user) void markTour(user.id, outcome).catch((err) => console.warn('[beatboxed] tour state not saved:', err))
+      if (user) void markTour(user.id, outcome).catch((err) => logWarn('onboarding', 'tour state not saved', { error: err }))
       toast.show({ beatie: true, lead: "You're ready!", message: 'Replay the tour anytime from Settings.' })
     },
     [setTourOpen, patch, user, toast]

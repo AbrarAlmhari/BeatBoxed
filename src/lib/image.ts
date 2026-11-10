@@ -1,3 +1,6 @@
+import { COVER_MAX_BYTES, COVER_TYPES, COVER_SIZE, COVER_QUALITY as QUALITY } from './config'
+export { COVER_MAX_BYTES, COVER_TYPES }
+
 /**
  * Client-side image preparation for playlist covers.
  *
@@ -6,13 +9,6 @@
  * the Library grid quick and the bucket small. Cropping controls are out of
  * scope, so the crop is always centred.
  */
-
-export const COVER_MAX_BYTES = 5 * 1024 * 1024
-export const COVER_TYPES = ['image/png', 'image/jpeg', 'image/webp']
-
-/** Big enough for the largest place a cover is shown, on a 2x screen. */
-const COVER_SIZE = 600
-const QUALITY = 0.85
 
 export type CoverCheck = { ok: true } | { ok: false; message: string }
 

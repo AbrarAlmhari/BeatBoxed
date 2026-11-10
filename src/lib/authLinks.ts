@@ -1,3 +1,4 @@
+import { logWarn } from './log'
 /**
  * Where the links in auth emails (sign-up confirmation, resend, password
  * reset) send people, and what such a link brought with it.
@@ -21,7 +22,7 @@ export function siteUrl() {
   if (LOCAL_HOSTS.has(hostname)) return origin
   const fixed = import.meta.env.VITE_SITE_URL?.trim().replace(/\/+$/, '')
   if (fixed) return fixed
-  console.warn('[beatboxed] VITE_SITE_URL is not set, so email links use this address:', origin)
+  logWarn('auth', 'VITE_SITE_URL is not set, so email links use this address', { origin })
   return origin
 }
 

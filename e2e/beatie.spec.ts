@@ -10,7 +10,7 @@ import {
 
 /**
  * Beatie, with both Edge Functions it touches mocked in the browser:
- * `beatie` (so no Gemini quota is ever used) and `lyrics-lookup` (so every
+ * `beatie` (so no Groq quota is ever used) and `lyrics-lookup` (so every
  * test controls exactly which lyrics, if any, the song has).
  *
  * These cover the app's side: what it asks for, and how it shows each answer

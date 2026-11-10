@@ -22,6 +22,7 @@ import {
   type NotificationPrefKey,
   type NotificationPrefs,
 } from '@/lib/settings'
+import { logError } from '@/lib/log'
 
 const NOTIFICATION_ROWS: { key: NotificationPrefKey; label: string; hint?: string }[] = [
   { key: 'review_liked', label: 'Likes on your reviews' },
@@ -67,7 +68,7 @@ export default function Settings() {
         setPrefs(p)
       })
       .catch((err: unknown) => {
-        console.error('[beatboxed] settings failed to load:', err)
+        logError('settings', 'settings failed to load', { error: err })
         if (!cancelled) toast.show({ message: "Couldn't load your settings." })
       })
       .finally(() => {
@@ -99,7 +100,7 @@ export default function Settings() {
       })
       toast.show({ message: 'Saved' })
     } catch (err) {
-      console.error('[beatboxed] setting save failed:', err)
+      logError('settings', 'setting save failed', { error: err })
       setAccount(previous)
       toast.show({ message: "That didn't save. Try again." })
     }
@@ -113,7 +114,7 @@ export default function Settings() {
       await setNotificationPref(user.id, key, value)
       toast.show({ message: 'Saved' })
     } catch (err) {
-      console.error('[beatboxed] notification setting failed:', err)
+      logError('settings', 'notification setting failed', { error: err })
       setPrefs(previous)
       toast.show({ message: "That didn't save. Try again." })
     }

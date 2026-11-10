@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
+import { logWarn } from '@/lib/log'
 
 type ProfileSummary = {
   display_name: string | null
@@ -33,7 +34,7 @@ export function useProfile() {
       .maybeSingle()
       .then(({ data, error }) => {
         if (cancelled) return
-        if (error) console.warn('[beatboxed] profile lookup failed:', error.message)
+        if (error) logWarn('profile', 'profile lookup failed', { error: error.message })
         setProfile(data ?? null)
         setLoading(false)
       })

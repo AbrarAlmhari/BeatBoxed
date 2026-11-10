@@ -1,5 +1,22 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { corsHeaders, json } from '../_shared/cors.ts'
+import { logError, logInfo, logWarn } from '../_shared/log.ts'
+import {
+  BEATIE_CHAT_BUDGET_MS as CHAT_BUDGET_MS,
+  BEATIE_CHAT_MAX_TOKENS,
+  BEATIE_EXPLAIN_MAX_TOKENS,
+  BEATIE_FAILED_HOLD_MS as FAILED_HOLD_MS,
+  BEATIE_GLOBAL_DAILY_LIMIT as GLOBAL_DAILY_LIMIT,
+  BEATIE_LINE_MAX_TOKENS,
+  BEATIE_MAX_HISTORY as MAX_HISTORY,
+  BEATIE_MAX_MESSAGE_CHARS as MAX_MESSAGE_CHARS,
+  BEATIE_MAX_QUESTION_CHARS as MAX_QUESTION_CHARS,
+  BEATIE_MIN_RETRY_MS as MIN_RETRY_MS,
+  BEATIE_PENDING_STALE_MS as PENDING_STALE_MS,
+  BEATIE_REQUEST_BUDGET_MS as REQUEST_BUDGET_MS,
+  BEATIE_RESPOND_WITHIN_MS as RESPOND_WITHIN_MS,
+  BEATIE_USER_DAILY_LIMIT as USER_DAILY_LIMIT,
+} from '../_shared/config.ts'
 import {
   backupWorthTrying,
   currentModel,
@@ -51,55 +68,12 @@ import {
  *
  * When both models refuse a request without answering, nothing is charged:
  * this user's count and the app's count are both given back.
+ *
+ * Limits, budgets and timeouts are in _shared/config.ts.
  */
 
-/** Per user per day. Cache hits don't count. */
-const USER_DAILY_LIMIT = 30
-/** AI calls per day for the whole app, retries and backups included. */
-const GLOBAL_DAILY_LIMIT = 150
-
-/**
- * How long a request may run, measured from the moment it arrives (before
- * the song and lyrics are loaded), all its AI calls together. Explanations,
- * line explanations and translations are cached and, past
- * RESPOND_WITHIN_MS, finish in the background while the user sees "check
- * back", so they get up to 120 seconds in total: well inside Supabase's
- * 150-second limit for a function, however long the lookups before the
- * first call took. Chat isn't cached and the user is waiting on it, so it
- * gets 40.
- */
-const REQUEST_BUDGET_MS = 120_000
-const CHAT_BUDGET_MS = 40_000
-
-/**
- * The lyric-quote retry, and the backup model when the primary is busy,
- * only start if at least this much budget is left.
- */
-const MIN_RETRY_MS = 20_000
-
-/**
- * A cacheable answer not ready by now is left to finish in the background:
- * the app hears 'pending', and the answer lands in the cache for the next tap.
- */
-const RESPOND_WITHIN_MS = 25_000
-
-/**
- * An empty (in-progress) cache row older than this means its background work
- * died (the function was stopped); it's cleared and the work starts again.
- */
-const PENDING_STALE_MS = 3 * 60_000
-
-/**
- * After a job fails (the AI service down, too slow, or an answer rejected), its row
- * holds FAILED for this long, and taps meanwhile get 'busy' ("taking a
- * break") without calling the AI service again. Then the next tap tries afresh.
- */
-const FAILED_HOLD_MS = 2 * 60_000
+/** A failed job's cache row holds this for FAILED_HOLD_MS. */
 const FAILED = '__beatie_failed__'
-
-const MAX_HISTORY = 10
-const MAX_QUESTION_CHARS = 500
-const MAX_MESSAGE_CHARS = 1000
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const admin = createClient(SUPABASE_URL, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, {
@@ -156,7 +130,7 @@ Deno.serve(async (req) => {
     if (action === 'translate') return await translate(ctx, userId)
     return await chat(ctx, userId, body?.messages)
   } catch (err) {
-    console.error('[beatie]', err)
+    logError('beatie', 'request failed', { error: err })
     return fail('error')
   }
 })
@@ -218,7 +192,7 @@ async function loadContext(
       lyricsStatus = lyrics.length ? 'found' : 'none'
     }
   } catch (err) {
-    console.error('[beatie] lyrics lookup failed', err)
+    logError('beatie', 'lyrics lookup failed', { song: songId, error: err })
     lyricsStatus = 'failed'
   }
 
@@ -261,7 +235,7 @@ async function claimCache(ctx: Ctx, kind: CacheKind, key: string) {
     )
     .select('id')
   if (error) {
-    console.error('[beatie] cache claim failed', error)
+    logError('beatie', 'cache claim failed', { song: ctx.songId, kind, language: ctx.language, error })
     return false
   }
   return (data ?? []).length > 0
@@ -273,7 +247,7 @@ async function fillCache(ctx: Ctx, kind: CacheKind, key: string, content: string
     .update({ content, created_at: new Date().toISOString() })
     .match(cacheKey(ctx, kind, key))
     .eq('content', '')
-  if (error) console.error('[beatie] cache write failed', error)
+  if (error) logError('beatie', 'cache write failed', { song: ctx.songId, kind, language: ctx.language, error })
 }
 
 /** Turns a claim into a failure marker, held for FAILED_HOLD_MS. */
@@ -283,7 +257,7 @@ async function markFailed(ctx: Ctx, kind: CacheKind, key: string) {
     .update({ content: FAILED, created_at: new Date().toISOString() })
     .match(cacheKey(ctx, kind, key))
     .eq('content', '')
-  if (error) console.error('[beatie] cache failure mark failed', error)
+  if (error) logError('beatie', 'cache failure mark failed', { song: ctx.songId, kind, language: ctx.language, error })
 }
 
 /** Removes a claim or a stale answer, so the next request starts fresh. */
@@ -291,7 +265,7 @@ async function clearCache(ctx: Ctx, kind: CacheKind, key: string, onlyClaim: boo
   let q = admin.from('beatie_cache').delete().match(cacheKey(ctx, kind, key))
   if (onlyClaim) q = q.eq('content', '')
   const { error } = await q
-  if (error) console.error('[beatie] cache clear failed', error)
+  if (error) logError('beatie', 'cache clear failed', { song: ctx.songId, kind, language: ctx.language, error })
 }
 
 type Work = { content: string } | { code: Code }
@@ -351,7 +325,7 @@ async function cachedAnswer(
       return r
     })
     .catch(async (err) => {
-      console.error('[beatie] background work failed', err)
+      logError('beatie', 'background work failed', { song: ctx.songId, kind, language: ctx.language, error: err })
       await markFailed(ctx, kind, key)
       return { code: 'error' as Code }
     })
@@ -359,7 +333,7 @@ async function cachedAnswer(
   const timer = new Promise<null>((resolve) => setTimeout(() => resolve(null), RESPOND_WITHIN_MS))
   const done = await Promise.race([job, timer])
   if (done === null) {
-    console.log(`[beatie] ${kind} not ready after ${RESPOND_WITHIN_MS / 1000}s; finishing in the background`)
+    logInfo('beatie', 'not ready, finishing in the background', { song: ctx.songId, kind, language: ctx.language, afterMs: RESPOND_WITHIN_MS })
     if (typeof EdgeRuntime !== 'undefined') EdgeRuntime.waitUntil(job)
     return fail('pending')
   }
@@ -379,7 +353,7 @@ async function takeQuota(userId: string | null, charge: Charge): Promise<Code | 
     p_global_limit: GLOBAL_DAILY_LIMIT,
   })
   if (error) {
-    console.error('[beatie] quota check failed', error)
+    logError('beatie', 'quota check failed', { error })
     return 'error'
   }
   if (data === 'user_limit') return 'limit'
@@ -406,7 +380,7 @@ async function lowerCount(table: string, match: Record<string, string>, by: numb
     if (updateError) break
     if (changed?.length) return
   }
-  console.error(`[beatie] could not give back ${by} from ${table}`)
+  logError('beatie', 'could not give back a charge', { table, by })
 }
 
 /** Both models refused: this request cost nothing, so it isn't charged. */
@@ -445,13 +419,13 @@ async function generateWithBackup(
   const backup = fallbackModel()
   if (backup === currentModel()) return first
   if (deadline - Date.now() < MIN_RETRY_MS) {
-    console.warn(`[beatie] no time left for the backup model (${options.label ?? 'call'})`)
+    logWarn('beatie', 'no time left for the backup model', { call: options.label ?? 'call' })
     return first
   }
   const capped = await takeQuota(null, charge)
   if (capped) return { ok: false, reason: capped, detail: 'quota', refused: !first.ok && first.refused }
   const why = !first.ok && first.modelGone ? 'not found or retired' : 'busy'
-  console.warn(`[beatie] primary model ${why}; trying ${backup} (${options.label ?? 'call'})`)
+  logWarn('beatie', `primary model ${why}; trying the backup`, { call: options.label ?? 'call', backup })
   const second = await generate(system, messages, {
     ...options,
     model: backup,
@@ -498,18 +472,18 @@ async function proseAnswer(
       charge
     )
     if (!res.ok) {
-      console.error('[beatie] provider', res.reason, res.detail)
+      logError('beatie', 'no answer', { call: opts.label, reason: res.reason, detail: res.detail })
       return { code: await refusedCode(res, charge, tries > 0) }
     }
     // A cut-off or looping answer isn't worth a retry: the next one would
     // likely do the same. Logged, then the user sees "couldn't answer".
     if (wasCutOff(res.info)) {
-      console.warn(`[beatie] answer rejected (${opts.label}): cut off at the token limit`)
+      logWarn('beatie', 'answer rejected: cut off at the token limit', { call: opts.label })
       return { code: 'error' }
     }
     const loop = repetitionProblem(res.text)
     if (loop) {
-      console.warn(`[beatie] answer rejected (${opts.label}): ${loop}`)
+      logWarn('beatie', `answer rejected: ${loop}`, { call: opts.label })
       return { code: 'error' }
     }
     const quoted = quotedLyricLines(res.text, ctx.lyrics, ctx.song.title, opts.allowedLine)
@@ -518,12 +492,10 @@ async function proseAnswer(
     }
     // Line numbers only, never the lyrics: enough to tell a real quote from
     // a false alarm by checking the song's lyrics.
-    console.warn(
-      `[beatie] answer rejected (try ${tries + 1}): quoted lyric lines ${quoted.join(', ')} of ${ctx.lyrics.length}`
-    )
+    logWarn('beatie', 'answer rejected: quoted lyric lines', { call: opts.label, try: tries + 1, lines: quoted.join(','), of: ctx.lyrics.length })
     if (tries === 0) {
       if (deadline - Date.now() < MIN_RETRY_MS) {
-        console.warn(`[beatie] no time left for the lyric-quote retry (${opts.label})`)
+        logWarn('beatie', 'no time left for the lyric-quote retry', { call: opts.label })
         break
       }
       // The retry is a real AI call, so it counts against the app's cap.
@@ -533,7 +505,7 @@ async function proseAnswer(
       attempt = [...attempt.slice(0, -1), { role: 'user', text: `${last.text}\n\n${STRICTER}` }]
     }
   }
-  console.error('[beatie] answer quoted too much of the lyrics twice; not shown')
+  logError('beatie', 'answer quoted too much of the lyrics twice; not shown', { call: opts.label })
   return { code: 'error' }
 }
 
@@ -546,7 +518,7 @@ async function explain(ctx: Ctx, userId: string) {
     '',
     async () => {
       const a = await proseAnswer(ctx, userId, [{ role: 'user', text: EXPLAIN_REQUEST }], {
-        maxTokens: 700,
+        maxTokens: BEATIE_EXPLAIN_MAX_TOKENS,
         budgetMs: REQUEST_BUDGET_MS,
         label: `explain ${ctx.songId.slice(0, 8)} ${ctx.language}`,
         maxQuoted: 1,
@@ -568,7 +540,7 @@ async function explainLine(ctx: Ctx, userId: string, line: unknown) {
     key,
     async () => {
       const a = await proseAnswer(ctx, userId, [{ role: 'user', text: explainLineRequest(line) }], {
-        maxTokens: 350,
+        maxTokens: BEATIE_LINE_MAX_TOKENS,
         budgetMs: REQUEST_BUDGET_MS,
         label: `line ${ctx.songId.slice(0, 8)} ${ctx.language}`,
         allowedLine: line,
@@ -595,7 +567,7 @@ async function chat(ctx: Ctx, userId: string, raw: unknown) {
   if (!last || last.role !== 'user' || last.text.length > MAX_QUESTION_CHARS) return fail('bad_request')
 
   const answer = await proseAnswer(ctx, userId, messages, {
-    maxTokens: 400,
+    maxTokens: BEATIE_CHAT_MAX_TOKENS,
     budgetMs: CHAT_BUDGET_MS,
     label: `chat ${ctx.songId.slice(0, 8)} ${ctx.language}`,
     maxQuoted: 1,
@@ -631,7 +603,7 @@ async function translate(ctx: Ctx, userId: string) {
       for (let tries = 0; tries < 2; tries++) {
         if (tries === 1) {
           if (deadline - Date.now() < MIN_RETRY_MS) {
-            console.warn('[beatie] no time left for the translation retry')
+            logWarn('beatie', 'no time left for the translation retry', { song: ctx.songId, language: ctx.language })
             break
           }
           const capped = await takeQuota(null, charge)
@@ -651,16 +623,16 @@ async function translate(ctx: Ctx, userId: string) {
           charge
         )
         if (!res.ok) {
-          console.error('[beatie] provider', res.reason, res.detail)
+          logError('beatie', 'no answer', { song: ctx.songId, language: ctx.language, try: tries + 1, reason: res.reason, detail: res.detail })
           return { code: await refusedCode(res, charge, tries > 0) }
         }
         if (wasCutOff(res.info)) {
-          console.warn('[beatie] translation rejected: cut off at the token limit')
+          logWarn('beatie', 'translation rejected: cut off at the token limit', { song: ctx.songId, language: ctx.language })
           return { code: 'error' }
         }
         const lines = parseLines(res.text, count)
         if (lines) return { content: JSON.stringify(lines) }
-        console.error(`[beatie] translation line count off (try ${tries + 1})`)
+        logError('beatie', 'translation line count off', { song: ctx.songId, language: ctx.language, try: tries + 1 })
       }
       return { code: 'error' }
     },

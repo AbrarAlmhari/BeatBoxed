@@ -15,6 +15,7 @@ import {
   type ReviewSortKey,
 } from '@/lib/profile'
 import type { FeedReview } from '@/lib/feed'
+import { logError } from '@/lib/log'
 
 const FILTERS: { id: ReviewFilter; label: string }[] = [
   { id: 'all', label: 'All' },
@@ -82,7 +83,7 @@ export function ProfileReviewsTab({
       setStatus('ready')
     } catch (err) {
       if (request !== latest.current) return
-      console.error('[beatboxed] profile reviews failed:', err)
+      logError('profile', 'profile reviews failed', { error: err })
       setStatus('error')
     }
   }, [user, userId, filter, sort])
@@ -108,7 +109,7 @@ export function ProfileReviewsTab({
       setItems((prev) => [...prev, ...page.items.filter((r) => !seen.has(r.id))])
       setHasMore(page.hasMore)
     } catch (err) {
-      console.error('[beatboxed] more profile reviews failed:', err)
+      logError('profile', 'more profile reviews failed', { error: err })
       setHasMore(false)
     } finally {
       setLoadingMore(false)

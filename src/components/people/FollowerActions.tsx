@@ -3,6 +3,7 @@ import { UserCheck, X } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
 import { acceptFollowRequest, removeFollower } from '@/lib/catalog'
 import { cn } from '@/lib/cn'
+import { logError } from '@/lib/log'
 
 const base =
   'tap-44 relative flex shrink-0 items-center gap-1.5 rounded-button px-2.5 py-1 text-meta transition-colors duration-200 ease-soft active:scale-[0.97] disabled:opacity-60'
@@ -33,7 +34,7 @@ export function FollowRequestActions({
       else await removeFollower(user.id, followerId)
       onDone(accept)
     } catch (err) {
-      console.error('[beatboxed] follow request action failed:', err)
+      logError('people', 'follow request action failed', { error: err })
       setPending(false)
     }
   }
@@ -90,7 +91,7 @@ export function RemoveFollowerButton({
       await removeFollower(user.id, followerId)
       onRemoved()
     } catch (err) {
-      console.error('[beatboxed] remove follower failed:', err)
+      logError('people', 'remove follower failed', { error: err })
       setPending(false)
       setConfirming(false)
     }

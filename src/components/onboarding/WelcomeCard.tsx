@@ -4,6 +4,7 @@ import { BeatieImage } from '@/components/beatie/BeatieImage'
 import { useAuth } from '@/lib/auth'
 import { useOnboarding } from '@/lib/onboardingContext'
 import { dismissWelcomeCard } from '@/lib/onboarding'
+import { logWarn } from '@/lib/log'
 
 /**
  * "Your music tags are back": once, at the top of Home, for accounts that
@@ -21,7 +22,7 @@ export function WelcomeCard() {
   function dismiss() {
     if (!user) return
     patch({ welcomeCardDismissedAt: new Date().toISOString() })
-    void dismissWelcomeCard(user.id).catch((err) => console.warn('[beatboxed] welcome card not saved:', err))
+    void dismissWelcomeCard(user.id).catch((err) => logWarn('onboarding', 'welcome card not saved', { error: err }))
   }
 
   return (

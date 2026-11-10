@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react'
 import { supabase } from './supabase'
 import { useAuth } from './auth'
 import { getAccountSettings, LANGUAGES, type LanguageCode } from './settings'
+import { BEATIE_CHAT_HISTORY as CHAT_HISTORY, BEATIE_QUESTION_MAX as QUESTION_MAX } from './config'
+export { CHAT_HISTORY, QUESTION_MAX }
+import { logError, logWarn } from './log'
 
 /**
  * Beatie, the music buddy. Every request goes through the `beatie` Edge
@@ -45,22 +48,17 @@ export type BeatieResponse =
     }
   | { ok: false; code: BeatieErrorCode }
 
-/** The most recent messages sent with each chat question. */
-export const CHAT_HISTORY = 10
-/** Longest question Beatie accepts; the server enforces it too. */
-export const QUESTION_MAX = 500
-
 export async function askBeatie(request: BeatieRequest): Promise<BeatieResponse> {
   if (!supabase) return { ok: false, code: 'error' }
   try {
     const { data, error } = await supabase.functions.invoke('beatie', { body: request })
     if (error || !data) {
-      console.error('[beatboxed] beatie request failed:', error)
+      logError('beatie', 'beatie request failed', { error: error })
       return { ok: false, code: 'error' }
     }
     return data as BeatieResponse
   } catch (err) {
-    console.error('[beatboxed] beatie unreachable:', err)
+    logError('beatie', 'beatie unreachable', { error: err })
     return { ok: false, code: 'error' }
   }
 }
@@ -105,7 +103,7 @@ export function useBeatieLanguage(): LanguageCode {
       .then((s) => {
         if (!cancelled) setLanguage(s.translationLanguage || 'en')
       })
-      .catch((err: unknown) => console.warn('[beatboxed] language lookup failed:', err))
+      .catch((err: unknown) => logWarn('beatie', 'language lookup failed', { error: err }))
     return () => {
       cancelled = true
     }

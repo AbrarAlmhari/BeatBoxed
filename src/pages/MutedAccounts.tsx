@@ -7,6 +7,7 @@ import { useAuth } from '@/lib/auth'
 import { useToast } from '@/lib/toast'
 import { getMutedAccounts, mute, mutedAgo, unmute, type MutedAccount } from '@/lib/mutes'
 import { cn } from '@/lib/cn'
+import { logError } from '@/lib/log'
 
 /**
  * Settings → Muted accounts. Unmute keeps the row (as "Mute") until you
@@ -23,7 +24,7 @@ export default function MutedAccounts() {
     getMutedAccounts(user.id)
       .then(setRows)
       .catch((err) => {
-        console.error('[beatboxed] muted accounts failed:', err)
+        logError('mutes', 'muted accounts failed', { error: err })
         setRows([])
       })
   }, [user])
@@ -43,7 +44,7 @@ export default function MutedAccounts() {
       if (isMuted) await unmute(user.id, row.id)
       else await mute(user.id, row.id)
     } catch (err) {
-      console.error('[beatboxed] mute toggle failed:', err)
+      logError('mutes', 'mute toggle failed', { error: err })
       flip(!isMuted)
       toast.show({ message: "Couldn't save that. Try again." })
     }

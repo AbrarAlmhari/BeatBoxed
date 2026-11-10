@@ -1,3 +1,5 @@
+import { SPOTIFY_MAX_REASON_CHARS } from './config.ts'
+
 /**
  * What Spotify said when it refused a request. Its answers come in several
  * shapes: { error: { status, message, reason } } from the Web API, plain text
@@ -12,7 +14,6 @@ export type SpotifyFailure = {
   retryAfterSeconds: number | null
 }
 
-const MAX_REASON = 300
 
 export async function readSpotifyFailure(res: Response): Promise<SpotifyFailure> {
   const text = (await res.text().catch(() => '')).trim()
@@ -34,7 +35,7 @@ export async function readSpotifyFailure(res: Response): Promise<SpotifyFailure>
   const retryAfter = Number(res.headers.get('retry-after') ?? NaN)
   return {
     status: res.status,
-    reason: reason ? reason.slice(0, MAX_REASON) : null,
+    reason: reason ? reason.slice(0, SPOTIFY_MAX_REASON_CHARS) : null,
     code,
     retryAfterSeconds: Number.isFinite(retryAfter) ? retryAfter : null,
   }

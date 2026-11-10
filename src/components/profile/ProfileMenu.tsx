@@ -7,6 +7,7 @@ import { useAuth } from '@/lib/auth'
 import { unmute, useMutedIds } from '@/lib/mutes'
 import { useToast } from '@/lib/toast'
 import { cn } from '@/lib/cn'
+import { logError } from '@/lib/log'
 
 /**
  * The profile's "⋯", a square button beside Edit profile or Follow. Your
@@ -68,7 +69,7 @@ export function ProfileMenu({
       await unmute(user.id, person.id)
       toast.show({ message: `Unmuted ${handle}.` })
     } catch (err) {
-      console.error('[beatboxed] unmute failed:', err)
+      logError('profile', 'unmute failed', { error: err })
       toast.show({ message: "Couldn't unmute. Try again." })
     }
   }

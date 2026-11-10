@@ -1,6 +1,8 @@
 import { failureDetails } from './functionError'
 import { supabase } from './supabase'
 import type { SongCardModel } from './types'
+import { DISCOGRAPHY_SYNC_AFTER_HOURS as SYNC_AFTER_HOURS } from './config'
+import { logWarn } from './log'
 
 /**
  * Reads behind the artist and album pages, plus the cache-fill calls to the
@@ -19,9 +21,6 @@ function requireClient() {
 type Rel<T> = T | T[] | null
 const one = <T,>(v: Rel<T> | undefined): T | null =>
   Array.isArray(v) ? (v[0] ?? null) : (v ?? null)
-
-/** Re-sync a discography at most this often. */
-const SYNC_AFTER_HOURS = 24
 
 export type ArtistAlbum = {
   id: string
@@ -200,7 +199,7 @@ export async function syncDiscography(spotifyId: string) {
     body: { action: 'discography', spotifyId },
   })
   if (error) {
-    console.warn('[beatboxed] discography sync failed:', await failureDetails(error))
+    logWarn('artists', 'discography sync failed', { error: await failureDetails(error) })
     return null
   }
   return data as { albums: number; newReleases: number } | null
@@ -211,7 +210,7 @@ export async function syncArtistBio(spotifyId: string) {
     body: { action: 'bio', spotifyId },
   })
   if (error) {
-    console.warn('[beatboxed] bio lookup failed:', await failureDetails(error))
+    logWarn('artists', 'bio lookup failed', { error: await failureDetails(error) })
     return null
   }
   return data as { bio: string | null; url: string | null } | null
@@ -222,7 +221,7 @@ export async function syncAlbumTracks(spotifyId: string) {
     body: { action: 'album', spotifyId },
   })
   if (error) {
-    console.warn('[beatboxed] album sync failed:', await failureDetails(error))
+    logWarn('artists', 'album sync failed', { error: await failureDetails(error) })
     return null
   }
   return data as { tracks: number; totalTracks: number | null } | null

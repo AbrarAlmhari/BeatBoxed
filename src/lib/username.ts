@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './supabase'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
+import { USERNAME_MIN, USERNAME_MAX } from './config'
+export { USERNAME_MIN, USERNAME_MAX }
+import { logWarn } from './log'
 
 /**
  * The username rule, the same as the database's (migration 0037): 4–20
@@ -8,8 +11,6 @@ import { useDebouncedValue } from '@/hooks/useDebouncedValue'
  * case. It applies to new and changed usernames only; older, shorter ones
  * are kept as they are. Capitals belong in the display name.
  */
-export const USERNAME_MIN = 4
-export const USERNAME_MAX = 20
 export const USERNAME_RULE = `${USERNAME_MIN}–${USERNAME_MAX} characters: letters, numbers, _ and .`
 
 /** What people type, as it will be stored. */
@@ -71,7 +72,7 @@ export function useUsernameStatus(value: string, current?: string | null): Usern
     isUsernameAvailable(debounced)
       .then((ok) => !cancelled && setRemote({ name: debounced, ok }))
       .catch((err) => {
-        console.warn('[beatboxed] username check failed:', err)
+        logWarn('username', 'username check failed', { error: err })
         // Don't block on a failed check; the database still guards it.
         if (!cancelled) setRemote({ name: debounced, ok: null })
       })

@@ -6,6 +6,7 @@ import { FollowRequestActions } from '@/components/people/FollowerActions'
 import { useAuth } from '@/lib/auth'
 import { getFollowRequests } from '@/lib/catalog'
 import type { FollowRequest } from '@/lib/types'
+import { logError } from '@/lib/log'
 
 /**
  * People asking to follow the viewer. Only a private account ever has any:
@@ -24,7 +25,7 @@ export default function FollowRequests() {
     try {
       setRequests(await getFollowRequests(user.id))
     } catch (err) {
-      console.error('[beatboxed] follow requests failed:', err)
+      logError('follows', 'follow requests failed', { error: err })
       setError(true)
     }
   }, [user])

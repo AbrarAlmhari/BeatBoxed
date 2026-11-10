@@ -3,9 +3,7 @@ import { Loader2, MailCheck } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
 import { authErrorMessage } from '@/lib/authErrors'
 import { cn } from '@/lib/cn'
-
-/** Supabase limits how often a confirmation email can be resent. */
-const COOLDOWN_S = 30
+import { RESEND_CONFIRMATION_COOLDOWN_S as COOLDOWN_S } from '@/lib/config'
 
 /** "Resend email" for the sign-up confirmation (sign-up, and Log in). */
 export function ResendConfirmation({ email, className }: { email: string; className?: string }) {

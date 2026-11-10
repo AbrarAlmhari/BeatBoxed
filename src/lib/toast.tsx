@@ -11,6 +11,7 @@ import {
 import { X } from 'lucide-react'
 import { BeatieImage } from '@/components/beatie/BeatieImage'
 import { cn } from '@/lib/cn'
+import { TOAST_DISMISS_MS as DISMISS_MS } from './config'
 
 /**
  * One short confirmation at a time, optionally with an Undo.
@@ -43,9 +44,6 @@ type ToastApi = {
 }
 
 const ToastContext = createContext<ToastApi | null>(null)
-
-/** Long enough to read and act on, short enough not to linger. */
-const DISMISS_MS = 6000
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toast, setToast] = useState<Toast | null>(null)

@@ -15,6 +15,7 @@ import { useToast } from '@/lib/toast'
 import { COVER_FALLBACK, useCoverColors } from '@/lib/coverColors'
 import { getWeeklySong, setMyRating, weekRange, type WeeklySong as Week } from '@/lib/mood'
 import { ScrollRow } from '@/components/ui/ScrollRow'
+import { logError } from '@/lib/log'
 
 const REASON: Record<Week['reason'], string> = {
   most_rated: 'Chosen because it was the most-rated new song last week',
@@ -40,7 +41,7 @@ export default function WeeklySong() {
     try {
       setWeek(await getWeeklySong())
     } catch (err) {
-      console.error('[beatboxed] song of the week failed:', err)
+      logError('song-of-the-week', 'song of the week failed', { error: err })
       setWeek(null)
     }
   }, [])
@@ -58,7 +59,7 @@ export default function WeeklySong() {
       await setMyRating(week.song.id, user.id, stars)
       await load()
     } catch (err) {
-      console.error('[beatboxed] rating failed:', err)
+      logError('song-of-the-week', 'rating failed', { error: err })
       setWeek((w) => w && { ...w, myRating: before })
       toast.show({ message: "Couldn't save your rating. Try again." })
     } finally {

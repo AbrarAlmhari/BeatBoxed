@@ -12,6 +12,7 @@ import {
   removeSongFromPlaylist,
   type PlaylistSummary,
 } from '@/lib/playlists'
+import { logError } from '@/lib/log'
 
 /**
  * "Add to playlist" for a single song, on the Song page and Now Playing.
@@ -50,7 +51,7 @@ export function AddToPlaylistButton({
     if (!open) return
     setPlaylists(null)
     load().catch((err) => {
-      console.error('[beatboxed] could not load playlists:', err)
+      logError('playlist', 'could not load playlists', { error: err })
       setPlaylists([])
     })
   }, [open, load])
@@ -95,7 +96,7 @@ export function AddToPlaylistButton({
       }
       setOpen(false)
     } catch (err) {
-      console.error('[beatboxed] playlist update failed:', err)
+      logError('playlist', 'playlist update failed', { error: err })
       toast.show({ message: "That didn't save. Try again." })
     } finally {
       setBusyId(null)

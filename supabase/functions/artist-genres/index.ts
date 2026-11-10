@@ -1,6 +1,7 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { callerOf, notLoggedIn } from '../_shared/auth.ts'
 import { corsHeaders, json, serverError } from '../_shared/cors.ts'
+import { MUSICBRAINZ_DELAY_MS } from '../_shared/config.ts'
 
 /**
  * Fetches one artist's genres the first time they're needed (the artist
@@ -50,7 +51,7 @@ async function musicbrainzGenres(spotifyId: string): Promise<string[]> {
   const mbid = linked.relations?.find((r) => r.artist)?.artist?.id
   if (!mbid) return []
   // MusicBrainz allows one request a second.
-  await new Promise((r) => setTimeout(r, 1100))
+  await new Promise((r) => setTimeout(r, MUSICBRAINZ_DELAY_MS))
   const res = await fetch(`https://musicbrainz.org/ws/2/artist/${mbid}?inc=genres+tags&fmt=json`, { headers })
   if (!res.ok) return []
   const artist = (await res.json()) as {

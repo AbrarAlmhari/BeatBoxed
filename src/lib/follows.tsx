@@ -10,6 +10,7 @@ import {
 } from 'react'
 import { getFollowedArtistIds, setArtistFollow } from './catalog'
 import { useAuth } from './auth'
+import { logError } from './log'
 
 /**
  * One shared set of followed artist ids for the whole session, so a follow
@@ -96,7 +97,7 @@ export function FollowsProvider({ children }: { children: ReactNode }) {
         setIds(serverIds)
       })
       .catch((err) => {
-        console.error('[beatboxed] could not load followed artists:', err)
+        logError('follows', 'could not load followed artists', { error: err })
         // Loaded-with-error, never a permanently pending button.
         if (!cancelled) setError(true)
       })
@@ -138,7 +139,7 @@ export function FollowsProvider({ children }: { children: ReactNode }) {
         setError(false)
         return next
       } catch (err) {
-        console.error('[beatboxed] follow write failed:', err)
+        logError('follows', 'follow write failed', { error: err })
         if (tapped?.get(artistId) === next) tapped.delete(artistId)
         setIds((prev) => {
           const copy = new Set(prev)

@@ -14,6 +14,7 @@ import { getLyrics, isSongLiked, setSongLike } from '@/lib/catalog'
 import { cn } from '@/lib/cn'
 import { AddToPlaylistButton } from '@/components/playlist/AddToPlaylistButton'
 import type { LyricsResult } from '@/lib/types'
+import { logError, logWarn } from '@/lib/log'
 
 function clock(seconds: number) {
   if (!Number.isFinite(seconds)) return '0:00'
@@ -52,7 +53,7 @@ export default function NowPlaying() {
       .then((v) => {
         if (!cancelled) setLiked(v)
       })
-      .catch((err) => console.warn('[beatboxed] like state failed:', err))
+      .catch((err) => logWarn('now-playing', 'like state failed', { error: err }))
     return () => {
       cancelled = true
     }
@@ -91,7 +92,7 @@ export default function NowPlaying() {
     try {
       await setSongLike(user.id, current.id, nextLiked)
     } catch (err) {
-      console.error('[beatboxed] song like failed:', err)
+      logError('now-playing', 'song like failed', { error: err })
       setLiked(!nextLiked)
     }
   }

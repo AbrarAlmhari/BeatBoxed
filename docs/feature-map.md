@@ -20,7 +20,7 @@
 7. Library — liked songs, playlists, followed artists
 8. Playlist creation and detail view
 9. Settings — theme, translation language, log out
-10. Beatie — the music buddy, powered by Gemini through the `beatie` Edge Function (details in `docs/api-integrations.md`)
+10. Beatie — the music buddy, powered by Groq through the `beatie` Edge Function (details in `docs/api-integrations.md`)
     - **Song page card:** "What's this song about?" (2–3 short paragraphs), then an Ask Beatie chat about that song. The chat is kept only for the current visit, never saved. Off-topic questions are steered back to the song.
     - **Explain this line:** tap a lyric line; a bottom sheet on phones, a popover beside the line on wider screens.
     - **Translate:** a "Translate to <language>" button at the top of the lyrics, shown only when the lyrics' language (detected without AI) differs from the user's Settings language. The whole song is translated in one request and shown line by line under the originals, labelled "Translated by Beatie · may not be exact". Translations appear only on the Song page — never in the feed, reviews or shared content.

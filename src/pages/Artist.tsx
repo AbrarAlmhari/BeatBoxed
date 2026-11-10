@@ -24,6 +24,7 @@ import {
   type ArtistAlbum,
   type ArtistDetail,
 } from '@/lib/artists'
+import { logError } from '@/lib/log'
 
 type Tab = 'albums' | 'singles'
 
@@ -108,7 +109,7 @@ export default function Artist() {
         }
       })
       .catch((err) => {
-        console.error('[beatboxed] artist page failed:', err)
+        logError('artist', 'artist page failed', { artist: id, error: err })
         if (!cancelled) setFailed(true)
       })
       .finally(() => {

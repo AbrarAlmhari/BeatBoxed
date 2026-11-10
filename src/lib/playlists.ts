@@ -1,6 +1,7 @@
 import { supabase } from './supabase'
 import { prepareCover } from './image'
 import type { SongCardModel } from './types'
+import { logWarn } from './log'
 
 /**
  * Everything the playlist screens read and write.
@@ -323,7 +324,7 @@ async function deleteCoverFiles(userId: string, playlistId: string) {
   const { error } = await requireClient()
     .storage.from(COVER_BUCKET)
     .remove(COVER_EXTENSIONS.map((ext) => coverPath(userId, playlistId, ext)))
-  if (error) console.warn('[beatboxed] could not remove cover:', error.message)
+  if (error) logWarn('playlists', 'could not remove cover', { error: error.message })
 }
 
 /**

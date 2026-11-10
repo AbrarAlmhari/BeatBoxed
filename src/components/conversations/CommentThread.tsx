@@ -17,6 +17,7 @@ import {
   type ThreadEntry,
   type ThreadSort,
 } from '@/lib/conversations'
+import { logError } from '@/lib/log'
 
 /** Replies shown under a comment before "View N more replies". */
 const SHOWN_REPLIES = 2
@@ -98,7 +99,7 @@ export function CommentThread({
         return next
       } catch (err) {
         if (n !== latest.current) return null
-        console.error('[beatboxed] thread failed:', err)
+        logError('comments', 'thread failed', { error: err })
         setFailed(true)
         setEntries((e) => e ?? [])
         return null
@@ -170,7 +171,7 @@ export function CommentThread({
     try {
       await setCommentLike(c.id, user.id, next)
     } catch (err) {
-      console.error('[beatboxed] comment like failed:', err)
+      logError('comments', 'comment like failed', { error: err })
       patchComment(c.id, flip)
       toast.show({ message: "Couldn't save that like. Try again." })
     }
@@ -192,7 +193,7 @@ export function CommentThread({
       if (target) setReplyTarget(null)
       return true
     } catch (err) {
-      console.error('[beatboxed] comment failed:', err)
+      logError('comments', 'comment failed', { error: err })
       toast.show({ message: "Couldn't post that. Try again." })
       return false
     }
@@ -205,7 +206,7 @@ export function CommentThread({
       if (replyTarget?.id === c.id) setReplyTarget(null)
       await load(sort)
     } catch (err) {
-      console.error('[beatboxed] comment delete failed:', err)
+      logError('comments', 'comment delete failed', { error: err })
       toast.show({ message: "Couldn't delete that. Try again." })
     }
   }
