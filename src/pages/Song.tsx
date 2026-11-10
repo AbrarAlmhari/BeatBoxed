@@ -28,6 +28,7 @@ import {
 } from '@/lib/catalog'
 import { useAuth } from '@/lib/auth'
 import type { LyricsResult, SongDetail } from '@/lib/types'
+import { logError, logWarn } from '@/lib/log'
 
 type Section = 'about' | 'beatie' | 'lyrics' | 'reviews'
 
@@ -122,7 +123,7 @@ export default function Song() {
       })
       .catch((err: unknown) => {
         if (cancelled) return
-        console.error('[beatboxed] song lookup failed:', err)
+        logError('song', 'song lookup failed', { song: id, error: err })
         setError("Couldn't load this song. Check your connection and retry.")
       })
       .finally(() => {
@@ -141,7 +142,7 @@ export default function Song() {
       .then((v) => {
         if (!cancelled) setLiked(v)
       })
-      .catch((err) => console.warn('[beatboxed] like state failed:', err))
+      .catch((err) => logWarn('song', 'like state failed', { song: id, error: err }))
     return () => {
       cancelled = true
     }
@@ -161,7 +162,7 @@ export default function Song() {
         if (!cancelled) setLyrics(r)
       })
       .catch((err: unknown) => {
-        console.error('[beatboxed] lyrics lookup failed:', err)
+        logError('song', 'lyrics lookup failed', { song: id, error: err })
         if (!cancelled) setLyrics({ status: 'empty' })
       })
       .finally(() => {
@@ -210,7 +211,7 @@ export default function Song() {
     if (!song) return
     getSongRatingStats(song.id)
       .then(setStats)
-      .catch((err) => console.warn('[beatboxed] rating refresh failed:', err))
+      .catch((err) => logWarn('song', 'rating refresh failed', { song: id, error: err }))
   }, [song])
 
   async function toggleLike() {
@@ -224,7 +225,7 @@ export default function Song() {
     try {
       await setSongLike(user.id, song.id, next)
     } catch (err) {
-      console.error('[beatboxed] song like failed:', err)
+      logError('song', 'song like failed', { song: id, error: err })
       setLiked(!next)
     }
   }

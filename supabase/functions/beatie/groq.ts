@@ -61,6 +61,7 @@ export type GenerateResult =
       refused?: boolean
       dailyLimit?: boolean
     }
+import { logError, logInfo, logWarn } from '../_shared/log.ts'
 
 import {
   GROQ_DEFAULT_FALLBACK_MODEL as DEFAULT_FALLBACK_MODEL,
@@ -231,8 +232,16 @@ export async function generate(
     firstChunkMs,
     chars: text.length,
   })
-  const describe = (i: CallInfo) =>
-    `model=${model} finish=${i.finishReason ?? '-'} thinking=${i.thinkingTokens ?? '?'} answer=${i.answerTokens ?? '?'} prompt=${i.promptTokens ?? '?'} ms=${i.ms} firstChunkMs=${i.firstChunkMs ?? '-'} chars=${i.chars}`
+  const cost = (i: CallInfo) => ({
+    model,
+    finish: i.finishReason ?? '-',
+    thinking: i.thinkingTokens ?? '?',
+    answer: i.answerTokens ?? '?',
+    prompt: i.promptTokens ?? '?',
+    ms: i.ms,
+    firstChunkMs: i.firstChunkMs ?? '-',
+    chars: i.chars,
+  })
 
   try {
     const res = await fetch(ENDPOINT, {
@@ -247,7 +256,7 @@ export async function generate(
       // be checked; anything not recognised as a daily limit is just 'busy'.
       const message = (await res.text().catch(() => '')).slice(0, 300)
       const dailyLimit = res.status === 429 && /per day|\b(TPD|RPD)\b/i.test(message)
-      console.error(`[beatie] groq ${label}: model=${model} HTTP ${res.status}: ${message}`)
+      logError('groq', 'refused', { call: label, model, status: res.status, message })
       return {
         ok: false,
         reason: 'busy',
@@ -260,7 +269,7 @@ export async function generate(
     if (!res.ok || !res.body) {
       const text = res.ok ? '' : await res.text()
       const detail = `HTTP ${res.status}: ${text.slice(0, 300)}`
-      console.error(`[beatie] groq ${label}: model=${model} ${detail}`)
+      logError('groq', 'request failed', { call: label, model, status: res.status, body: text })
       const modelGone = !res.ok && isModelGone(res.status, text)
       return { ok: false, reason: 'error', detail, info: info(), ...(modelGone ? { modelGone, refused: true } : {}) }
     }
@@ -282,7 +291,7 @@ export async function generate(
           // An error reported mid-stream: rate limits are worth a retry.
           const message = String(event.error.message ?? event.error.code ?? 'stream error')
           const busy = /rate|limit|overloaded|capacity/i.test(message)
-          console.error(`[beatie] groq ${label}: model=${model} stream error: ${message.slice(0, 200)}`)
+          logError('groq', 'stream error', { call: label, model, message })
           return { ok: false, reason: busy ? 'busy' : 'error', detail: message, info: info() }
         }
         const choice = event?.choices?.[0]
@@ -299,14 +308,13 @@ export async function generate(
   } catch (err) {
     // Timeouts and network failures: the service isn't answering in time.
     const i = info()
-    console.warn(
-      `[beatie] groq ${label}: gave up after ${i.ms}ms (${(err as Error).name}): ${describe(i)} last100=${JSON.stringify(text.slice(-100))}`
-    )
+    // The answer so far isn't logged: it can be a translation of the lyrics.
+    logWarn('groq', 'gave up waiting', { call: label, error: (err as Error).name, ...cost(i) })
     return { ok: false, reason: 'busy', detail: (err as Error).message, info: i }
   }
 
   const i = info()
-  console.log(`[beatie] groq ${label}: ${describe(i)}`)
+  logInfo('groq', 'answered', { call: label, ...cost(i) })
   // In case a model puts its reasoning in the text anyway.
   text = text.replace(/<think>[\s\S]*?<\/think>/g, '').trim()
   if (!text) {

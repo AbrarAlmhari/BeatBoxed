@@ -20,6 +20,7 @@ import { useToast } from '@/lib/toast'
 import { getFollowStates, getFollowedArtistsPage, getProfileDetail } from '@/lib/catalog'
 import { getWrittenReviewCount, type ReviewFilter } from '@/lib/profile'
 import type { ArtistCardModel, FollowState, ProfileDetail } from '@/lib/types'
+import { logError, logWarn } from '@/lib/log'
 
 const FILTERS: ReviewFilter[] = ['all', 'written', 'ratings']
 
@@ -108,7 +109,7 @@ export default function Profile() {
       .then((p) => {
         if (!cancelled) setProfile(p)
       })
-      .catch((err) => console.error('[beatboxed] profile lookup failed:', err))
+      .catch((err) => logError('profile', 'profile lookup failed', { user: userId ?? 'me', error: err }))
       .finally(() => {
         if (!cancelled) setLoading(false)
       })
@@ -131,7 +132,7 @@ export default function Profile() {
       .then((m) => {
         if (!cancelled) setFollowState(m.get(targetId) ?? 'none')
       })
-      .catch((err) => console.warn('[beatboxed] follow state failed:', err))
+      .catch((err) => logWarn('profile', 'follow state failed', { user: userId ?? 'me', error: err }))
       .finally(() => {
         if (!cancelled) setFollowKnown(true)
       })
@@ -152,7 +153,7 @@ export default function Profile() {
       .then((n) => {
         if (!cancelled) setWrittenCount(n)
       })
-      .catch((err) => console.warn('[beatboxed] written count failed:', err))
+      .catch((err) => logWarn('profile', 'written count failed', { user: userId ?? 'me', error: err }))
     return () => {
       cancelled = true
     }
@@ -167,7 +168,7 @@ export default function Profile() {
       .then((a) => {
         if (!cancelled) setArtists(a)
       })
-      .catch((err) => console.warn('[beatboxed] listens-to failed:', err))
+      .catch((err) => logWarn('profile', 'listens-to failed', { user: userId ?? 'me', error: err }))
     return () => {
       cancelled = true
     }

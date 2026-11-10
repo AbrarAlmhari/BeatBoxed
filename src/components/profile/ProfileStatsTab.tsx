@@ -21,6 +21,7 @@ import {
   type StatsRange,
   type UserStats,
 } from '@/lib/stats'
+import { logError } from '@/lib/log'
 
 type Loaded = { status: 'ready'; stats: UserStats } | { status: 'hidden' } | { status: 'error' }
 
@@ -51,7 +52,7 @@ export function ProfileStatsTab({
         const stats = await getUserStats(userId, r)
         setByRange((prev) => ({ ...prev, [r]: stats ? { status: 'ready', stats } : { status: 'hidden' } }))
       } catch (err) {
-        console.error('[beatboxed] stats failed:', err)
+        logError('profile', 'stats failed', { error: err })
         setByRange((prev) => ({ ...prev, [r]: { status: 'error' } }))
       }
     },
@@ -412,7 +413,7 @@ function AllArtistsSheet({
     getAllRatedArtists(userId, range)
       .then((a) => !cancelled && setArtists(a))
       .catch((err) => {
-        console.error('[beatboxed] rated artists failed:', err)
+        logError('profile', 'rated artists failed', { error: err })
         if (!cancelled) setFailed(true)
       })
     return () => {

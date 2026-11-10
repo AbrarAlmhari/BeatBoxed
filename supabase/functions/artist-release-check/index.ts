@@ -6,6 +6,7 @@ import {
   RELEASE_CHECK_BATCH_DELAY_MS as BATCH_DELAY_MS,
   RELEASE_CHECK_BATCH_SIZE as BATCH_SIZE,
 } from '../_shared/config.ts'
+import { logError } from '../_shared/log.ts'
 
 /**
  * Daily sweep for new releases by artists somebody follows.
@@ -141,7 +142,7 @@ Deno.serve(async (req) => {
             }
           } catch (err) {
             // One artist failing must not abandon the rest of the sweep.
-            console.error('[artist-release-check]', artist.spotifyId, err)
+            logError('artist-release-check', 'artist check failed', { artist: artist.spotifyId, error: err })
           }
         })
       )

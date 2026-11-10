@@ -3,6 +3,7 @@ import { Navigate, Outlet } from 'react-router-dom'
 import { Loader2 } from 'lucide-react'
 import { useAuth } from './auth'
 import { getOnboardingState, type OnboardingState } from './onboarding'
+import { logWarn } from './log'
 
 type OnboardingApi = {
   /** null while loading, or when there's no profile row to read. */
@@ -35,7 +36,7 @@ export function OnboardingRoot() {
       setState(await getOnboardingState(userId))
     } catch (err) {
       // Never lock someone out of the app over this: treat as set up.
-      console.warn('[beatboxed] onboarding state failed:', err)
+      logWarn('onboarding', 'onboarding state failed', { error: err })
       setState(null)
     } finally {
       setLoading(false)

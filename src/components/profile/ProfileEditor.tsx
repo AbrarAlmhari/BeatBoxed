@@ -16,6 +16,7 @@ import { MUSIC_TAGS, TAGS_MAX, cleanCustomTag, sameTag, tagLabel } from '@/lib/t
 import { cn } from '@/lib/cn'
 import { BIO_MAX } from '@/lib/profile'
 import type { ProfileDetail } from '@/lib/types'
+import { logError } from '@/lib/log'
 
 const fieldClass =
   'w-full rounded-card border border-line-strong bg-surface px-4 py-3 text-body text-foreground transition-colors duration-200 ease-soft placeholder:text-muted-foreground/70 hover:border-white/20 focus:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary/25 disabled:opacity-60'
@@ -76,7 +77,7 @@ export function ProfileEditor({
     try {
       setAvatarUrl(await uploadAvatar(profile.id, file))
     } catch (err) {
-      console.error('[beatboxed] avatar upload failed:', err)
+      logError('profile', 'avatar upload failed', { error: err })
       setError("Couldn't upload that image. Try again.")
       setPreview(null)
     } finally {
@@ -121,7 +122,7 @@ export function ProfileEditor({
         favoriteGenres: tags,
       })
     } catch (err) {
-      console.error('[beatboxed] profile save failed:', err)
+      logError('profile', 'profile save failed', { error: err })
       const code = (err as { code?: string } | null)?.code
       setError(
         code === '23505'

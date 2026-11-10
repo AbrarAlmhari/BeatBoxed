@@ -19,6 +19,7 @@ import {
   type CheckinPick,
 } from '@/lib/mood'
 import { cn } from '@/lib/cn'
+import { logError, logWarn } from '@/lib/log'
 
 type Stage =
   | { kind: 'loading' }
@@ -64,7 +65,7 @@ export function CheckinCard() {
         }
       })
       .catch((err) => {
-        console.warn('[beatboxed] check-in lookup failed:', err)
+        logWarn('mood', 'check-in lookup failed', { error: err })
         if (live) setStage({ kind: 'hidden' })
       })
     return () => {
@@ -78,7 +79,7 @@ export function CheckinCard() {
       const pick = await pickSong(full, another)
       setStage(pick ? { kind: 'result', pick } : { kind: 'none' })
     } catch (err) {
-      console.error('[beatboxed] check-in pick failed:', err)
+      logError('mood', 'check-in pick failed', { error: err })
       toast.show({ message: "Couldn't find a song just now. Try again." })
       setStage({ kind: 'question', step: QUESTIONS.length - 1 })
     }
@@ -88,7 +89,7 @@ export function CheckinCard() {
     try {
       await skipCheckin()
     } catch (err) {
-      console.warn('[beatboxed] skip failed:', err)
+      logWarn('mood', 'skip failed', { error: err })
     }
     setStage({ kind: 'declined' })
     toast.show({ beatie: true, message })

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './supabase'
+import { logWarn } from './log'
 
 /**
  * Muting (0046). Only the person who mutes is affected, and only they can
@@ -63,7 +64,7 @@ export function useMutedIds(userId: string | undefined): Set<string> {
     listeners.add(setIds)
     loadMutedIds(userId)
       .then(setIds)
-      .catch((err) => console.warn('[beatboxed] mutes lookup failed:', err))
+      .catch((err) => logWarn('mutes', 'mutes lookup failed', { error: err }))
     return () => {
       listeners.delete(setIds)
     }

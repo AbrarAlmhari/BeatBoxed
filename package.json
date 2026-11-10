@@ -10,7 +10,8 @@
     "typecheck": "tsc -b --noEmit",
     "check:functions": "npx -y deno check --node-modules-dir=none --no-lock --min-dep-age=0 supabase/functions/*/index.ts",
     "test:functions": "npx -y deno run --allow-env --allow-net --allow-read --check --node-modules-dir=none --no-lock --min-dep-age=0 supabase/functions/spotify_functions_test.ts",
-    "test:beatie": "npx -y deno run --allow-env --allow-net --allow-read --check --node-modules-dir=none --no-lock --min-dep-age=0 supabase/functions/beatie_functions_test.ts"
+    "test:beatie": "npx -y deno run --allow-env --allow-net --allow-read --check --node-modules-dir=none --no-lock --min-dep-age=0 supabase/functions/beatie_functions_test.ts",
+    "test:logs": "npx -y deno run --check --node-modules-dir=none --no-lock --min-dep-age=0 supabase/functions/log_test.ts"
   },
   "dependencies": {
     "@fontsource/ibm-plex-sans-arabic": "^5.3.0",

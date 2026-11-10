@@ -18,6 +18,7 @@ import {
 import { StickyBar, STILL } from '@/components/ui/Tabs'
 import { cn } from '@/lib/cn'
 import { PROFILE_LIST_PAGE_SIZE as PAGE } from '@/lib/config'
+import { logError } from '@/lib/log'
 
 const SORTS: { value: PlaylistSort; label: string }[] = [
   { value: 'recent', label: 'Newest' },
@@ -64,7 +65,7 @@ export default function ProfilePlaylists() {
         setPlaylists(page)
         setExhausted(page.length < PAGE)
       })
-      .catch((err) => console.error('[beatboxed] playlists list failed:', err))
+      .catch((err) => logError('profile', 'playlists list failed', { error: err }))
       .finally(() => {
         if (!cancelled) setLoading(false)
       })
@@ -87,7 +88,7 @@ export default function ProfilePlaylists() {
       setPlaylists((prev) => [...prev, ...next])
       setExhausted(next.length < PAGE)
     } catch (err) {
-      console.error('[beatboxed] load more playlists failed:', err)
+      logError('profile', 'load more playlists failed', { error: err })
     } finally {
       setLoadingMore(false)
     }

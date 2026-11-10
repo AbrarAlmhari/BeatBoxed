@@ -3,6 +3,7 @@ import { supabase } from './supabase'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import { USERNAME_MIN, USERNAME_MAX } from './config'
 export { USERNAME_MIN, USERNAME_MAX }
+import { logWarn } from './log'
 
 /**
  * The username rule, the same as the database's (migration 0037): 4–20
@@ -71,7 +72,7 @@ export function useUsernameStatus(value: string, current?: string | null): Usern
     isUsernameAvailable(debounced)
       .then((ok) => !cancelled && setRemote({ name: debounced, ok }))
       .catch((err) => {
-        console.warn('[beatboxed] username check failed:', err)
+        logWarn('username', 'username check failed', { error: err })
         // Don't block on a failed check; the database still guards it.
         if (!cancelled) setRemote({ name: debounced, ok: null })
       })

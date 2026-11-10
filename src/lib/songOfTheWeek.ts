@@ -3,6 +3,7 @@ import { useAuth } from './auth'
 import { getWeeklySong, type WeeklySong } from './mood'
 import { weekTimer } from './weekTimer'
 import { SONG_OF_THE_WEEK_TICK_MS as TICK_MS } from './config'
+import { logWarn } from './log'
 
 /**
  * Home's song of the week: the week, a clock that ticks every minute (the
@@ -56,7 +57,7 @@ export function useSongOfTheWeek() {
         setFolded(w.myRating !== null || readFold(userId) === w.weekStart)
       }
     } catch (err) {
-      console.warn('[beatboxed] song of the week failed:', err)
+      logWarn('song-of-the-week', 'song of the week failed', { error: err })
       setWeek(null)
     }
   }, [userId])

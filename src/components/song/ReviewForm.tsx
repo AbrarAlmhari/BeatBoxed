@@ -3,6 +3,7 @@ import { Loader2 } from 'lucide-react'
 import { StarInput } from '@/components/ui/StarInput'
 import { FormAlert } from '@/components/auth/FormAlert'
 import type { ReviewWithAuthor } from '@/lib/types'
+import { logError } from '@/lib/log'
 
 export function ReviewForm({
   existing,
@@ -38,7 +39,7 @@ export function ReviewForm({
         body.trim() ? body.trim() : null
       )
     } catch (err) {
-      console.error('[beatboxed] review submit failed:', err)
+      logError('song', 'review submit failed', { error: err })
       setError("Couldn't save your review. Check your connection and try again.")
       setPending(false)
     }

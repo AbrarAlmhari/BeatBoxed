@@ -13,6 +13,7 @@ import { useToast } from '@/lib/toast'
 import { getFollowList, getFollowListsVisible, getFollowStates, getFollowedArtistsPage, removeFollower } from '@/lib/catalog'
 import type { ArtistCardModel, FollowState, PersonCardModel } from '@/lib/types'
 import { PROFILE_LIST_PAGE_SIZE as PAGE } from '@/lib/config'
+import { logError } from '@/lib/log'
 
 export type ProfileList = 'followers' | 'following' | 'artists'
 
@@ -130,7 +131,7 @@ function usePaged<T>(load: (offset: number) => Promise<T[]>, scroller: React.Ref
         setStatus('ready')
       })
       .catch((err) => {
-        console.error('[beatboxed] list failed:', err)
+        logError('profile', 'list failed', { error: err })
         if (live) setStatus('error')
       })
     return () => {
@@ -147,7 +148,7 @@ function usePaged<T>(load: (offset: number) => Promise<T[]>, scroller: React.Ref
       setItems((prev) => [...prev, ...page])
       setMore(page.length === PAGE)
     } catch (err) {
-      console.error('[beatboxed] list page failed:', err)
+      logError('profile', 'list page failed', { error: err })
     } finally {
       busy.current = false
       setLoadingMore(false)
@@ -325,7 +326,7 @@ function RemoveFollowerMenu({ person, onRemoved }: { person: PersonCardModel; on
       onRemoved()
       toast.show({ message: `Removed ${handle} from your followers` })
     } catch (err) {
-      console.error('[beatboxed] remove follower failed:', err)
+      logError('profile', 'remove follower failed', { error: err })
       toast.show({ message: "Couldn't remove. Try again." })
     } finally {
       setPending(false)

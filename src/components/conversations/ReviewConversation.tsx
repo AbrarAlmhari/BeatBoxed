@@ -18,6 +18,7 @@ import {
 } from '@/lib/conversations'
 import { cn } from '@/lib/cn'
 import type { ReviewWithAuthor } from '@/lib/types'
+import { logError, logWarn } from '@/lib/log'
 
 const personName = (p: Pick<CommentPerson, 'displayName' | 'username'>) =>
   p.displayName || p.username || 'Someone'
@@ -75,7 +76,7 @@ export function ReviewConversation({
         setPreview(p)
         setCount(p.commentCount)
       })
-      .catch((err) => console.warn('[beatboxed] comment preview failed:', err))
+      .catch((err) => logWarn('comments', 'comment preview failed', { error: err }))
   }, [review.id])
 
   useEffect(refresh, [refresh])
@@ -89,7 +90,7 @@ export function ReviewConversation({
       await setReviewLike(review.id, user.id, next)
       refresh()
     } catch (err) {
-      console.error('[beatboxed] like failed:', err)
+      logError('comments', 'like failed', { error: err })
       setLiked(!next)
       setLikeCount((c) => c + (next ? -1 : 1))
     }

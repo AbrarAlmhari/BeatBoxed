@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '@/lib/auth'
 import { unmute, useMutedIds } from '@/lib/mutes'
 import { useToast } from '@/lib/toast'
+import { logError } from '@/lib/log'
 
 /**
  * On a muted person's profile: "You muted @name. Only you can see this."
@@ -32,7 +33,7 @@ export function MuteBanner({ personId, handle }: { personId: string; handle: str
       setJustUnmuted(true)
       timer.current = setTimeout(() => setJustUnmuted(false), 6000)
     } catch (err) {
-      console.error('[beatboxed] unmute failed:', err)
+      logError('mutes', 'unmute failed', { error: err })
       toast.show({ message: "Couldn't unmute. Try again." })
     } finally {
       setPending(false)

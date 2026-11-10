@@ -15,6 +15,7 @@ import { REPORT_REASONS, reportReview, type FeedReview } from '@/lib/feed'
 import { cardGlowStyle, useCoverColors } from '@/lib/coverColors'
 import { useMutedIds } from '@/lib/mutes'
 import { cn } from '@/lib/cn'
+import { logError } from '@/lib/log'
 
 /** "just now", "5m", "3h", "2d", then a date. */
 export function timeAgo(iso: string, now = Date.now()) {
@@ -295,7 +296,7 @@ function ReviewMenu({
       onDeleted()
       toast.show({ message: 'Review deleted' })
     } catch (err) {
-      console.error('[beatboxed] delete review failed:', err)
+      logError('feed', 'delete review failed', { error: err })
       toast.show({ message: "Couldn't delete that. Try again." })
     } finally {
       setPending(false)
@@ -417,7 +418,7 @@ function ReportDialog({
       await reportReview(reporterId, reviewId, reason)
       onReported()
     } catch (err) {
-      console.error('[beatboxed] report failed:', err)
+      logError('feed', 'report failed', { error: err })
       setError(true)
     } finally {
       setPending(false)

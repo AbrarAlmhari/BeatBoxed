@@ -15,6 +15,7 @@ import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import { normalizeSearch, searchCatalog } from '@/lib/catalog'
 import { cn } from '@/lib/cn'
 import type { SongCardModel } from '@/lib/types'
+import { logError } from '@/lib/log'
 
 type Option = { song: SongCardModel; group: 'now-playing' | 'results' }
 
@@ -79,7 +80,7 @@ export function SongPicker({
         if (current && r.mode === 'songs') setResults(r.songs)
       })
       .catch((err: unknown) => {
-        console.error('[beatboxed] song picker search failed:', err)
+        logError('feed', 'song picker search failed', { error: err })
         if (current) setSearchError(true)
       })
       .finally(() => {

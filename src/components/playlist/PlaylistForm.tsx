@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { CoverPicker } from './CoverPicker'
+import { logError } from '@/lib/log'
 
 /**
  * Title and description, used for both creating and editing. Title is the
@@ -62,7 +63,7 @@ export function PlaylistForm({
     try {
       await onSubmit({ title, description, coverFile, removeCover })
     } catch (err) {
-      console.error('[beatboxed] playlist save failed:', err)
+      logError('playlist', 'playlist save failed', { error: err })
       setError("That didn't save. Try again.")
       setSaving(false)
     }

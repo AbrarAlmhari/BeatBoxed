@@ -32,6 +32,7 @@ import type {
   UnifiedResults,
 } from '@/lib/types'
 import { FilterButton } from '@/components/ui/FilterButton'
+import { logError, logWarn } from '@/lib/log'
 
 /** Router state set by the Home search button; see src/pages/Home.tsx. */
 type ExploreNavState = { autoFocus?: boolean } | null
@@ -119,7 +120,7 @@ export default function Explore() {
         if (!cancelled) setRails(r)
       })
       .catch((err: unknown) => {
-        console.error('[beatboxed] explore rails failed:', err)
+        logError('explore', 'explore rails failed', { error: err })
         if (!cancelled) setRailsError(true)
       })
     return () => {
@@ -142,7 +143,7 @@ export default function Explore() {
         if (!cancelled) setRails((r) => (r ? { ...r, recentlyViewed: songs } : r))
       })
       .catch((err: unknown) => {
-        console.error('[beatboxed] could not refresh recently viewed:', err)
+        logError('explore', 'could not refresh recently viewed', { error: err })
       })
     return () => {
       cancelled = true
@@ -173,13 +174,13 @@ export default function Explore() {
               await getFollowStates(user.id, r.people.map((p) => p.id))
             )
           } catch (err) {
-            console.warn('[beatboxed] follow states failed:', err)
+            logWarn('explore', 'follow states failed', { error: err })
           }
         }
       })
       .catch((err: unknown) => {
         if (!current) return
-        console.error('[beatboxed] search failed:', err)
+        logError('explore', 'search failed', { error: err })
         setError('Search failed. Check your connection and try again.')
       })
       .finally(() => {
@@ -201,7 +202,7 @@ export default function Explore() {
         if (current && r.mode === 'lyrics') setLyrics(r.lyrics)
       })
       .catch((err) => {
-        console.error('[beatboxed] lyrics search failed:', err)
+        logError('explore', 'lyrics search failed', { error: err })
         if (current) setLyrics([])
       })
       .finally(() => {

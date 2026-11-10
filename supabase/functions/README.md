@@ -18,3 +18,5 @@ Limits, timeouts and the default models are in `_shared/config.ts`. The model se
 `npm run test:beatie` runs beatie as a local server against a fake Groq, lyrics lookup and database, with no real calls.
 
 `beatie/groq_test.ts` checks groq.ts against a fake Groq server, with no real calls: from this folder, `deno run --allow-env beatie/groq_test.ts`.
+
+Logging goes through `_shared/log.ts` (`logError`, `logWarn`, `logInfo`): one line, `[tag] what happened key=value ...`, with emails replaced and every value cut to 300 characters. Never log keys, tokens, lyrics or answers. `npm run test:logs` checks the format.

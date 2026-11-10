@@ -9,6 +9,7 @@ import {
 } from '@/lib/catalog'
 import type { ArtistCardModel } from '@/lib/types'
 import { PROFILE_LIST_PAGE_SIZE as PAGE } from '@/lib/config'
+import { logError } from '@/lib/log'
 
 /** /profile/:userId/artists, and the same list inside the profile's sheet. */
 export default function ProfileArtists({
@@ -42,7 +43,7 @@ export default function ProfileArtists({
         setArtists(page)
         setExhausted(page.length < PAGE)
       })
-      .catch((err) => console.error('[beatboxed] artists list failed:', err))
+      .catch((err) => logError('profile', 'artists list failed', { error: err }))
       .finally(() => {
         if (!cancelled) setLoading(false)
       })
@@ -62,7 +63,7 @@ export default function ProfileArtists({
       setArtists((prev) => [...prev, ...next])
       setExhausted(next.length < PAGE)
     } catch (err) {
-      console.error('[beatboxed] load more artists failed:', err)
+      logError('profile', 'load more artists failed', { error: err })
     } finally {
       setLoadingMore(false)
     }

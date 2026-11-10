@@ -7,6 +7,7 @@ import { NAV_ITEMS } from '@/lib/nav'
 import { useAuth } from '@/lib/auth'
 import { getNotificationCenter } from '@/lib/catalog'
 import { cn } from '@/lib/cn'
+import { logWarn } from '@/lib/log'
 
 /**
  * Main tabs are reachable from the bottom nav and sidebar, so a back arrow
@@ -42,7 +43,7 @@ export function TopBar() {
       .then((d) => {
         if (!cancelled) setBadge(d.badge)
       })
-      .catch((err) => console.warn('[beatboxed] badge fetch failed:', err))
+      .catch((err) => logWarn('layout', 'badge fetch failed', { error: err }))
     return () => {
       cancelled = true
     }

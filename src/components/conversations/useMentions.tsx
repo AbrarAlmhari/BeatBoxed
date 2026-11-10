@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState, type KeyboardEvent, type RefObject 
 import { getMentionSuggestions, type MentionReason, type MentionSuggestion } from '@/lib/conversations'
 import { PersonAvatar } from './PersonAvatar'
 import { cn } from '@/lib/cn'
+import { logWarn } from '@/lib/log'
 
 const REASON_LABEL: Record<Exclude<MentionReason, null>, string> = {
   thread: 'In this thread',
@@ -57,7 +58,7 @@ export function useMentions({
           setResults({ query: found.query, people })
           setActive(0)
         })
-        .catch((err) => console.warn('[beatboxed] mention suggestions failed:', err))
+        .catch((err) => logWarn('comments', 'mention suggestions failed', { error: err }))
     }, 150)
     return () => clearTimeout(t)
     // found is derived from value and caret, which are the real inputs.

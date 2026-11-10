@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { logError, logWarn } from './log'
 
 /**
  * 30-second previews from the iTunes Search API.
@@ -131,14 +132,14 @@ export async function getPreview(song: {
         })
         .eq('id', song.id)
         .then(({ error }) => {
-          if (error) console.warn('[beatboxed] could not cache iTunes id:', error.message)
+          if (error) logWarn('preview', 'could not cache iTunes id', { error: error.message })
         })
     }
 
     if (!best?.previewUrl) return { status: 'unavailable' }
     return { status: 'ok', url: best.previewUrl, trackId: best.trackId }
   } catch (err) {
-    console.error('[beatboxed] preview lookup failed:', err)
+    logError('preview', 'preview lookup failed', { error: err })
     return { status: 'unavailable' }
   }
 }

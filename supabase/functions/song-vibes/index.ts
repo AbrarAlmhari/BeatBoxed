@@ -31,6 +31,7 @@ import {
   VIBES_MAX_TOKENS,
   VIBES_TIMEOUT_MS,
 } from '../_shared/config.ts'
+import { logError, logInfo } from '../_shared/log.ts'
 
 /**
  * The labeller's own Groq model, separate from Beatie's GROQ_MODEL. Read
@@ -179,7 +180,7 @@ Deno.serve(async (req) => {
 
   const { data, error } = await admin.rpc('claim_song_vibes', { batch_size: BATCH, daily_cap: DAILY_CAP })
   if (error) {
-    console.error('[song-vibes] claim failed:', error.message)
+    logError('song-vibes', 'claim failed', { error })
     return Response.json({ error: 'claim failed' }, { status: 500 })
   }
   const songs = (data ?? []) as Claimed[]
@@ -207,7 +208,7 @@ Deno.serve(async (req) => {
   for (const [ids, again] of [[failed, false], [requeue, true]] as const) {
     if (ids.length === 0) continue
     const { error: releaseError } = await admin.rpc('release_song_vibes', { song_ids: ids, requeue: again })
-    if (releaseError) console.error('[song-vibes] release failed:', releaseError.message)
+    if (releaseError) logError('song-vibes', 'release failed', { error: releaseError })
   }
 
   // The cron job stores this answer (net._http_response): tokens and
@@ -220,7 +221,7 @@ Deno.serve(async (req) => {
     tokens,
     limits: lastRateLimits(),
   }
-  console.log('[song-vibes]', JSON.stringify(summary))
+  logInfo('song-vibes', 'run finished', { summary: JSON.stringify(summary) })
 
   // Kept 30 days in song_vibe_runs (numbers only), for sizing DAILY_CAP.
   // Runs that had nothing to do aren't worth a row.
@@ -243,7 +244,7 @@ Deno.serve(async (req) => {
       tokens_per_minute: limits?.tokensPerMinute ?? null,
       tokens_left_this_minute: limits?.tokensLeftThisMinute ?? null,
     })
-    if (runError) console.error('[song-vibes] run log failed:', runError.message)
+    if (runError) logError('song-vibes', 'run log failed', { error: runError })
   }
 
   return Response.json(summary)

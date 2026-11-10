@@ -15,6 +15,7 @@ import { PlaylistGrid, PlaylistGridSkeleton } from '@/components/playlist/Playli
 import type { FeedReview } from '@/lib/feed'
 import type { SongCardModel } from '@/lib/types'
 import { cn } from '@/lib/cn'
+import { logError } from '@/lib/log'
 
 type Kind = 'songs' | 'reviews' | 'playlists'
 
@@ -93,7 +94,7 @@ function LikedPlaylists({ userId, isOwn, handle }: { userId: string; isOwn: bool
         )
       })
       .catch((err) => {
-        console.error('[beatboxed] liked playlists failed:', err)
+        logError('profile', 'liked playlists failed', { error: err })
         if (live) setItems([])
       })
     return () => {
@@ -131,7 +132,7 @@ function LikedSongs({ userId, isOwn, handle }: { userId: string; isOwn: boolean;
     try {
       setSongs(await getLikedSongs(userId))
     } catch (err) {
-      console.error('[beatboxed] liked songs failed:', err)
+      logError('profile', 'liked songs failed', { error: err })
       setError(true)
     }
   }, [userId])
@@ -157,11 +158,11 @@ function LikedSongs({ userId, isOwn, handle }: { userId: string; isOwn: boolean;
                 return list
               })
             )
-            .catch((err: unknown) => console.error('[beatboxed] undo unlike failed:', err))
+            .catch((err: unknown) => logError('profile', 'undo unlike failed', { error: err }))
         },
       })
     } catch (err) {
-      console.error('[beatboxed] unlike failed:', err)
+      logError('profile', 'unlike failed', { error: err })
       // Put it back where it was.
       setSongs((prev) => {
         const list = [...(prev ?? [])]
@@ -266,7 +267,7 @@ function LikedReviews({ userId, isOwn, handle }: { userId: string; isOwn: boolea
       setHasMore(page.hasMore)
       setRead(page.read)
     } catch (err) {
-      console.error('[beatboxed] liked reviews failed:', err)
+      logError('profile', 'liked reviews failed', { error: err })
       setError(true)
     }
   }, [user, userId])
@@ -287,7 +288,7 @@ function LikedReviews({ userId, isOwn, handle }: { userId: string; isOwn: boolea
       setHasMore(page.hasMore)
       setRead((n) => n + page.read)
     } catch (err) {
-      console.error('[beatboxed] more liked reviews failed:', err)
+      logError('profile', 'more liked reviews failed', { error: err })
       setHasMore(false)
     } finally {
       setLoadingMore(false)

@@ -21,6 +21,7 @@ import { useAuth } from '@/lib/auth'
 import { usePlayer } from '@/lib/player'
 import { getFollowedArtists, getLikedSongs } from '@/lib/catalog'
 import type { ArtistCardModel, SongCardModel } from '@/lib/types'
+import { logError } from '@/lib/log'
 
 type Tab = 'playlists' | 'saved' | 'liked' | 'artists'
 
@@ -61,7 +62,7 @@ export default function LibraryPage() {
     getLikedSongs(user.id)
       .then(setLiked)
       .catch((err) => {
-        console.error('[beatboxed] liked songs failed:', err)
+        logError('library', 'liked songs failed', { error: err })
         setLiked([])
       })
   }, [tab, user, liked])
@@ -71,7 +72,7 @@ export default function LibraryPage() {
     getUserPlaylists(user.id)
       .then(setPlaylists)
       .catch((err) => {
-        console.error('[beatboxed] playlists failed:', err)
+        logError('library', 'playlists failed', { error: err })
         setPlaylists([])
       })
   }, [tab, user, playlists])
@@ -81,7 +82,7 @@ export default function LibraryPage() {
     getFollowedArtists(user.id)
       .then(setArtists)
       .catch((err) => {
-        console.error('[beatboxed] followed artists failed:', err)
+        logError('library', 'followed artists failed', { error: err })
         setArtists([])
       })
   }, [tab, user, artists])

@@ -13,6 +13,7 @@ import { recordPlay } from './catalog'
 import { useAuth } from './auth'
 import type { SongCardModel } from './types'
 import { MIN_PLAY_SECONDS, SKIP_NOTICE_MS } from './config'
+import { logWarn } from './log'
 
 export type PlayerTrack = SongCardModel & {
   itunesTrackId?: number | null
@@ -108,7 +109,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const enqueueWrite = useCallback((write: () => Promise<unknown>) => {
     // A failed write must not wedge the chain for every write after it.
     writes.current = writes.current.then(write).catch((err: unknown) => {
-      console.warn('[beatboxed] play history write failed:', err)
+      logWarn('player', 'play history write failed', { error: err })
     })
   }, [])
   /**
@@ -245,7 +246,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         await audio.play()
       } catch (err) {
         // Autoplay policies can refuse playback not tied to a gesture.
-        console.warn('[beatboxed] playback blocked:', err)
+        logWarn('player', 'playback blocked', { error: err })
         setState((s) => ({ ...s, isPlaying: false }))
       }
     }
@@ -380,7 +381,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         else noPreview.current.add(upcoming.id)
       })
       .catch((err: unknown) => {
-        console.warn('[beatboxed] preview prefetch failed:', err)
+        logWarn('player', 'preview prefetch failed', { error: err })
       })
     return () => {
       cancelled = true

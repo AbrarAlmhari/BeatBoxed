@@ -9,6 +9,7 @@ import { upsertReview } from '@/lib/catalog'
 import { FEED_MIN_BODY_CHARS, feedLength, getMyReviews, type FeedReview } from '@/lib/feed'
 import type { ReviewWithAuthor, SongCardModel } from '@/lib/types'
 import { REVIEW_HEADLINE_MAX as HEADLINE_MAX } from '@/lib/config'
+import { logError, logWarn } from '@/lib/log'
 
 /**
  * "New review": pick a song, then write about it.
@@ -83,7 +84,7 @@ export function ReviewComposer({
         setHeadline(theirs.title ?? '')
         setBody(theirs.body ?? '')
       })
-      .catch((err: unknown) => console.warn('[beatboxed] own review lookup failed:', err))
+      .catch((err: unknown) => logWarn('feed', 'own review lookup failed', { error: err }))
     return () => {
       live = false
     }
@@ -98,7 +99,7 @@ export function ReviewComposer({
       if (!user || ids.length === 0) return
       getMyReviews(user.id, ids)
         .then((m) => setMine((prev) => new Map([...prev, ...m])))
-        .catch((err: unknown) => console.warn('[beatboxed] own reviews lookup failed:', err))
+        .catch((err: unknown) => logWarn('feed', 'own reviews lookup failed', { error: err }))
     },
     [user]
   )
@@ -161,7 +162,7 @@ export function ReviewComposer({
       })
       onPosted({ ...saved, song: chosen }, Boolean(existing))
     } catch (err) {
-      console.error('[beatboxed] posting review failed:', err)
+      logError('feed', 'posting review failed', { error: err })
       // Stay open with everything kept, so nothing typed is lost.
       setPostError("Couldn't post your review. Check your connection and try again.")
     } finally {

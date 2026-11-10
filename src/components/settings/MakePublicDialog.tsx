@@ -3,6 +3,7 @@ import { Loader2 } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { getPendingRequestSummary } from '@/lib/catalog'
 import type { PersonCardModel } from '@/lib/types'
+import { logError } from '@/lib/log'
 
 type Summary = { count: number; people: PersonCardModel[] }
 
@@ -49,7 +50,7 @@ export function MakePublicDialog({
         if (!cancelled) setSummary(s)
       })
       .catch((err: unknown) => {
-        console.error('[beatboxed] pending request count failed:', err)
+        logError('settings', 'pending request count failed', { error: err })
         if (!cancelled) setError(true)
       })
     return () => {

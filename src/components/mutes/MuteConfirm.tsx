@@ -6,6 +6,7 @@ import { PersonAvatar } from '@/components/conversations/PersonAvatar'
 import { useAuth } from '@/lib/auth'
 import { useToast } from '@/lib/toast'
 import { mute } from '@/lib/mutes'
+import { logError } from '@/lib/log'
 
 export type MuteTarget = {
   id: string
@@ -55,7 +56,7 @@ export function MuteConfirm({
         onAction: () => navigate('/settings/muted'),
       })
     } catch (err) {
-      console.error('[beatboxed] mute failed:', err)
+      logError('mutes', 'mute failed', { error: err })
       toast.show({ message: "Couldn't mute. Try again." })
     } finally {
       setPending(false)

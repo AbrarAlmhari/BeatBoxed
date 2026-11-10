@@ -1,4 +1,5 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { logError } from './log.ts'
 import { json } from './cors.ts'
 
 /**
@@ -22,7 +23,7 @@ export async function callerOf(req: Request): Promise<Caller | null> {
   if (!token) return null
   if (token === SERVICE_KEY) return 'service'
   const { data, error } = await admin.auth.getUser(token)
-  if (error && error.status !== 401 && error.status !== 403) console.error('[auth]', error)
+  if (error && error.status !== 401 && error.status !== 403) logError('auth', 'session check failed', { error })
   return data?.user ? 'user' : null
 }
 

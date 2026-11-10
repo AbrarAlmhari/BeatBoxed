@@ -33,6 +33,7 @@ import {
 } from '@/lib/feed'
 import { cn } from '@/lib/cn'
 import { markReviewsSeen } from '@/lib/seenReviews'
+import { logError } from '@/lib/log'
 
 /**
  * Home is the review feed: what people are saying about music, not a place
@@ -217,7 +218,7 @@ export default function Home() {
         const page = await getFeedPage(t, user.id, null)
         patch(t, { items: page.items, next: page.next, status: 'ready' })
       } catch (err) {
-        console.error(`[beatboxed] ${t} feed failed:`, err)
+        logError('home', `${t} feed failed`, { error: err })
         patch(t, { status: 'error' })
       }
     },
@@ -251,7 +252,7 @@ export default function Home() {
         }
       })
     } catch (err) {
-      console.error(`[beatboxed] ${tab} feed page failed:`, err)
+      logError('home', `${tab} feed page failed`, { error: err })
       patch(tab, { loadingMore: false, moreError: true })
     }
   }, [tabs, tab, user, patch])
@@ -566,7 +567,7 @@ function FollowingEmpty({ onFollowed }: { onFollowed: () => void }) {
         if (!cancelled) setPeople(p)
       })
       .catch((err: unknown) => {
-        console.error('[beatboxed] suggestions failed:', err)
+        logError('home', 'suggestions failed', { error: err })
         if (!cancelled) setError(true)
       })
     return () => {

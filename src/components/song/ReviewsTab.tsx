@@ -10,6 +10,7 @@ import { deleteReview, getSongReviews, upsertReview } from '@/lib/catalog'
 import type { ReviewWithAuthor } from '@/lib/types'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { SONG_REVIEWS_PAGE_SIZE as PAGE_SIZE } from '@/lib/config'
+import { logError } from '@/lib/log'
 
 export function ReviewsTab({
   songId,
@@ -54,7 +55,7 @@ export function ReviewsTab({
         setTotal(t)
       })
       .catch((err: unknown) => {
-        console.error('[beatboxed] reviews lookup failed:', err)
+        logError('song', 'reviews lookup failed', { error: err })
         if (!cancelled) {
           setReviews([])
           setTotal(0)
@@ -92,7 +93,7 @@ export function ReviewsTab({
       setReviews([...reviews, ...next.filter((r) => !seen.has(r.id))])
       setTotal(t)
     } catch (err) {
-      console.error('[beatboxed] load more failed:', err)
+      logError('song', 'load more failed', { error: err })
       setError("Couldn't load more reviews.")
     } finally {
       setLoadingMore(false)
@@ -180,7 +181,7 @@ export function ReviewsTab({
       await refreshLoaded(Math.max(previous.length - 1, PAGE_SIZE))
       onStatsChange()
     } catch (err) {
-      console.error('[beatboxed] review delete failed:', err)
+      logError('song', 'review delete failed', { error: err })
       setReviews(previous)
       setTotal((t) => t + 1)
       setError("Couldn't delete your review. Try again.")

@@ -23,6 +23,7 @@ import type {
 } from './types'
 import { RAIL_SIZE, RAIL_LIST_POOL as LIST_POOL, RAIL_PAGE_SIZE, SPOTIFY_TOPUP_THRESHOLD as REMOTE_TOPUP_THRESHOLD, SPOTIFY_TOPUP_TIMEOUT_MS, AVATAR_MAX_BYTES, AVATAR_TYPES } from './config'
 export { RAIL_SIZE, RAIL_PAGE_SIZE, AVATAR_MAX_BYTES, AVATAR_TYPES }
+import { logError, logWarn } from './log'
 
 /**
  * Every read the Home and Explore screens make. Replaces the old mockData.ts —
@@ -266,7 +267,7 @@ export async function recordSongView(songId: string, userId: string) {
       { user_id: userId, song_id: songId, viewed_at: new Date().toISOString() },
       { onConflict: 'user_id,song_id' }
     )
-  if (error) console.warn('[beatboxed] could not record song view:', error.message)
+  if (error) logWarn('catalog', 'could not record song view', { error: error.message })
 }
 
 /**
@@ -287,7 +288,7 @@ export async function recordPlay(userId: string, songId: string) {
     },
     { onConflict: 'user_id,song_id' }
   )
-  if (error) console.warn('[beatboxed] could not record play:', error.message)
+  if (error) logWarn('catalog', 'could not record play', { error: error.message })
 }
 
 /**
@@ -500,7 +501,7 @@ async function withRetry<T>(load: () => Promise<T>, pauseMs = 700): Promise<T> {
   try {
     return await load()
   } catch (err) {
-    console.warn('[beatboxed] retrying after:', err)
+    logWarn('catalog', 'retrying after', { error: err })
     await new Promise((r) => setTimeout(r, pauseMs))
     return load()
   }
@@ -520,8 +521,8 @@ export async function getExploreRails(userId?: string): Promise<ExploreRails> {
   ])
   if (trending.status === 'rejected') throw trending.reason
 
-  if (recent.status === 'rejected') console.warn('[beatboxed] could not load recently viewed:', recent.reason)
-  if (personal.status === 'rejected') console.warn('[beatboxed] could not load For You:', personal.reason)
+  if (recent.status === 'rejected') logWarn('catalog', 'could not load recently viewed', { error: recent.reason })
+  if (personal.status === 'rejected') logWarn('catalog', 'could not load For You', { error: personal.reason })
 
   const recentlyViewed = recent.status === 'fulfilled' ? recent.value : []
   const forYou = personal.status === 'fulfilled' && personal.value.length > 0 ? personal.value : trending.value
@@ -727,12 +728,12 @@ async function topUpFromSpotify(
       { body: { q: query, type }, timeout: SPOTIFY_TOPUP_TIMEOUT_MS }
     )
     if (error) {
-      console.error('[beatboxed] spotify-search failed:', await failureDetails(error))
+      logError('catalog', 'spotify-search failed', { error: await failureDetails(error) })
       return { ok: false, message: SPOTIFY_UNAVAILABLE }
     }
     return { ok: true }
   } catch (err) {
-    console.error('[beatboxed] spotify-search unreachable:', err)
+    logError('catalog', 'spotify-search unreachable', { error: err })
     return { ok: false, message: SPOTIFY_UNAVAILABLE }
   }
 }
@@ -1565,11 +1566,11 @@ export async function searchEverything(
   ])
 
   if (songsRes.status === 'rejected')
-    console.error('[beatboxed] song search failed:', songsRes.reason)
+    logError('catalog', 'song search failed', { error: songsRes.reason })
   if (artistsRes.status === 'rejected')
-    console.error('[beatboxed] artist search failed:', artistsRes.reason)
+    logError('catalog', 'artist search failed', { error: artistsRes.reason })
   if (peopleRes.status === 'rejected')
-    console.error('[beatboxed] people search failed:', peopleRes.reason)
+    logError('catalog', 'people search failed', { error: peopleRes.reason })
 
   const songs =
     songsRes.status === 'fulfilled' && songsRes.value.mode === 'songs'

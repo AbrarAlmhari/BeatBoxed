@@ -3,6 +3,7 @@ import { callerOf, notLoggedIn } from '../_shared/auth.ts'
 import { corsHeaders, json, serverError } from '../_shared/cors.ts'
 import { upsertByShape } from '../_shared/upsertByShape.ts'
 import { NEW_RELEASE_DAYS, SPOTIFY_PAGE as PAGE } from '../_shared/config.ts'
+import { logError } from '../_shared/log.ts'
 import { getSpotifyToken, isSpotifyId, pickImage } from '../_shared/spotify.ts'
 import { readSpotifyFailure, SpotifyRefused, spotifyFailureBody } from '../_shared/spotifyFailure.ts'
 
@@ -251,7 +252,7 @@ async function syncDiscography(artistSpotifyId: string, token: string) {
         target_artist: artistId,
         target_album: albumId,
       })
-      if (error) console.error('[spotify-artist] notify failed:', error.message)
+      if (error) logError('spotify-artist', 'release notification failed', { artist: artistId, album: albumId, error })
       else notified += Number(data ?? 0)
     }
   }
@@ -407,7 +408,7 @@ Deno.serve(async (req) => {
     return json(await syncDiscography(spotifyId, token))
   } catch (err) {
     if (err instanceof SpotifyRefused) {
-      console.error('[spotify-artist]', err)
+      logError('spotify-artist', 'Spotify refused', { call: err.what, status: err.failure.status, code: err.failure.code, retryAfterSeconds: err.failure.retryAfterSeconds, reason: err.failure.reason })
       return json(spotifyFailureBody(err.failure), 502)
     }
     return serverError('spotify-artist', err)

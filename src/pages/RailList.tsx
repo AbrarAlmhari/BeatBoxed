@@ -11,6 +11,7 @@ import { usePlayer } from '@/lib/player'
 import { cn } from '@/lib/cn'
 import { getRailPage, trackKey, type RailId } from '@/lib/catalog'
 import type { SongCardModel } from '@/lib/types'
+import { logError } from '@/lib/log'
 
 const RAILS: Record<RailId, { title: string; subtitle: string; empty: string }> = {
   trending: {
@@ -59,7 +60,7 @@ export default function RailList() {
       setItems(page.items)
       setHasMore(page.hasMore)
     } catch (err) {
-      console.error('[beatboxed] rail list failed:', err)
+      logError('rails', 'rail list failed', { error: err })
       if (request === latest.current) setFailed(true)
     }
   }, [known, user?.id])
@@ -81,7 +82,7 @@ export default function RailList() {
       setItems([...items, ...page.items.filter((s) => !seen.has(trackKey(s)))])
       setHasMore(page.hasMore)
     } catch (err) {
-      console.error('[beatboxed] more rail songs failed:', err)
+      logError('rails', 'more rail songs failed', { error: err })
       setHasMore(false)
     } finally {
       setLoadingMore(false)

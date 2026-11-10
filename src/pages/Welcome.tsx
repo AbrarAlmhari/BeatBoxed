@@ -22,6 +22,7 @@ import { getLikedSongs } from '@/lib/catalog'
 import { useOnboarding } from '@/lib/onboardingContext'
 import { SETUP_ALL_SET, saveSetupStep } from '@/lib/onboarding'
 import type { SongCardModel } from '@/lib/types'
+import { logWarn } from '@/lib/log'
 
 /**
  * /welcome: first-time setup, seven steps then "All set", as in
@@ -100,7 +101,7 @@ function WelcomeFlow({ initialStep }: { initialStep: number }) {
     (next: number) => {
       setStep(next)
       window.scrollTo({ top: 0 })
-      if (user) void saveSetupStep(user.id, next).catch((err) => console.warn('[beatboxed] setup step not saved:', err))
+      if (user) void saveSetupStep(user.id, next).catch((err) => logWarn('welcome', 'setup step not saved', { error: err }))
     },
     [user]
   )

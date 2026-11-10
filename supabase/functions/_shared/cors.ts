@@ -1,3 +1,5 @@
+import { logError } from './log.ts'
+
 export const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers':
@@ -14,6 +16,6 @@ export function json(body: unknown, status = 200) {
 
 /** The details go to the function's logs; the browser gets a plain message. */
 export function serverError(where: string, err: unknown, status = 500) {
-  console.error(`[${where}]`, err)
+  logError(where, 'request failed', { error: err })
   return json({ error: 'Something went wrong. Please try again.' }, status)
 }

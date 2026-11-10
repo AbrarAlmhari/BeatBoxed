@@ -15,6 +15,7 @@ import {
 } from '@/lib/catalog'
 import type { FollowState, PersonCardModel } from '@/lib/types'
 import { PROFILE_LIST_PAGE_SIZE as PAGE } from '@/lib/config'
+import { logError } from '@/lib/log'
 
 /**
  * /profile/:userId/followers and /profile/:userId/following, and the same
@@ -73,7 +74,7 @@ export default function ProfileFollows({
           if (!cancelled) setStates(s)
         }
       })
-      .catch((err) => console.error(`[beatboxed] ${kind} list failed:`, err))
+      .catch((err) => logError('profile', `${kind} list failed`, { error: err }))
       .finally(() => {
         if (!cancelled) setLoading(false)
       })
@@ -97,7 +98,7 @@ export default function ProfileFollows({
         setStates((prev) => new Map([...prev, ...more]))
       }
     } catch (err) {
-      console.error(`[beatboxed] load more ${kind} failed:`, err)
+      logError('profile', `load more ${kind} failed`, { error: err })
     } finally {
       setLoadingMore(false)
     }
