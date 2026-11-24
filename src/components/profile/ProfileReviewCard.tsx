@@ -17,9 +17,9 @@ export function ProfileReviewCard({ review }: { review: ReviewWithSong }) {
   return (
     <Link
       to={review.song ? `/song/${review.song.id}` : '#'}
-      className="flex gap-3 rounded-card border border-line bg-surface p-4 shadow-card transition-colors duration-200 ease-soft hover:bg-surface-2"
+      className="flex gap-3 px-4 py-3 transition-colors duration-200 ease-soft hover:bg-white/[0.03] sm:px-5"
     >
-      <span className="size-14 shrink-0 overflow-hidden rounded-cover">
+      <span className="size-11 shrink-0 overflow-hidden rounded-thumb ring-1 ring-white/10">
         {review.song?.coverUrl ? (
           <img
             src={review.song.coverUrl}
@@ -41,9 +41,9 @@ export function ProfileReviewCard({ review }: { review: ReviewWithSong }) {
         )}
       </span>
 
-      <span className="flex min-w-0 flex-col gap-1">
+      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="flex flex-wrap items-center gap-x-2">
-          <span dir="auto" className="text-card-title">
+          <span dir="auto" className="text-[15px] font-semibold leading-snug">
             {review.song?.title ?? 'Unknown song'}
           </span>
           <StarRating value={review.rating} size={13} />
@@ -52,16 +52,16 @@ export function ProfileReviewCard({ review }: { review: ReviewWithSong }) {
             {review.edited && ' · edited'}
           </span>
         </span>
-        <span dir="auto" className="text-secondary text-muted-foreground">
+        <span dir="auto" className="text-[13.5px] text-muted-foreground">
           {review.song?.artistName}
         </span>
         {review.title && (
-          <span dir="auto" className="text-card-title">
+          <span dir="auto" className="mt-1 block w-full text-[15px] font-semibold leading-snug">
             {review.title}
           </span>
         )}
         {review.body && (
-          <span dir="auto" className="text-body text-muted-foreground">
+          <span dir="auto" className="block w-full whitespace-pre-line text-[15px] leading-[1.45] text-foreground/[0.88]">
             {review.body}
           </span>
         )}

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { FilterButton } from '@/components/ui/FilterButton'
 import { ProfileReviewCard } from '@/components/profile/ProfileReviewCard'
+import { reviewListClass } from '@/components/feed/FeedCard'
 import { ListPageShell } from '@/components/profile/ListPageShell'
 import { useAuth } from '@/lib/auth'
 import { getProfileDetail, getReviewsByUserPage, type ReviewSort } from '@/lib/catalog'
@@ -108,7 +109,7 @@ export default function ProfileReviews() {
       loadingMore={loadingMore}
       onLoadMore={loadMore}
     >
-      <div className="flex flex-col gap-3">
+      <div className={reviewListClass}>
         {reviews.map((r) => (
           <ProfileReviewCard key={r.id} review={r} />
         ))}

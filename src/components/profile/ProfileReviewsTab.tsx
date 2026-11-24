@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { Loader2, PenLine } from 'lucide-react'
 import { FilterButton } from '@/components/ui/FilterButton'
 import { StarRating } from '@/components/ui/StarRating'
-import { FeedCard, timeAgo } from '@/components/feed/FeedCard'
+import { FeedCard, reviewListClass, timeAgo } from '@/components/feed/FeedCard'
 import { Artwork } from '@/components/feed/Artwork'
 import { EmptyState, emptyActionClass, emptySecondaryActionClass } from '@/components/ui/EmptyState'
 import { useLoadMore } from './useLoadMore'
@@ -200,7 +200,7 @@ export function ProfileReviewsTab({
           />
         )
       ) : (
-        <ul className="flex flex-col gap-3">
+        <ul className={reviewListClass}>
           {items.map((r) => (
             <li key={r.id}>
               {isWritten(r) ? (
@@ -236,14 +236,14 @@ function RatingRow({ review }: { review: FeedReview }) {
   return (
     <Link
       to={`/song/${song.id}?review=${review.id}`}
-      className="flex min-h-16 items-center gap-3 rounded-card border border-line bg-surface p-2.5 pr-4 shadow-card transition-colors duration-200 ease-soft hover:bg-surface-2"
+      className="flex min-h-16 items-center gap-3 px-4 py-2.5 transition-colors duration-200 ease-soft hover:bg-white/[0.03] sm:px-5"
     >
-      <Artwork src={song.coverUrl} seed={song.id} alt={`Cover of ${song.title}`} className="size-12" />
+      <Artwork src={song.coverUrl} seed={song.id} alt={`Cover of ${song.title}`} className="size-11 rounded-thumb" />
       <span className="flex min-w-0 flex-1 flex-col">
-        <span dir="auto" className="truncate text-card-title">
+        <span dir="auto" className="truncate text-[15px] font-semibold leading-snug">
           {song.title}
         </span>
-        <span dir="auto" className="truncate text-secondary text-muted-foreground">
+        <span dir="auto" className="truncate text-[13.5px] text-muted-foreground">
           {song.artistName}
         </span>
       </span>
@@ -257,9 +257,9 @@ function RatingRow({ review }: { review: FeedReview }) {
 
 function ReviewsSkeleton() {
   return (
-    <div className="flex flex-col gap-3" aria-hidden>
+    <div className={reviewListClass} aria-hidden>
       {[0, 1].map((i) => (
-        <div key={i} className="flex flex-col gap-4 rounded-card bg-surface p-4">
+        <div key={i} className="flex flex-col gap-4 px-4 py-3 sm:px-5">
           <div className="flex items-center gap-3 rounded-inset bg-surface-2 p-2.5">
             <div className="size-14 animate-pulse rounded-cover bg-white/5" />
             <div className="flex flex-1 flex-col gap-2">
@@ -275,7 +275,7 @@ function ReviewsSkeleton() {
         </div>
       ))}
       {[0, 1].map((i) => (
-        <div key={`r${i}`} className="flex items-center gap-3 rounded-card bg-surface p-2.5">
+        <div key={`r${i}`} className="flex items-center gap-3 px-4 py-2.5 sm:px-5">
           <div className="size-12 animate-pulse rounded-cover bg-surface-2" />
           <div className="flex flex-1 flex-col gap-2">
             <div className="h-3.5 w-1/2 animate-pulse rounded bg-surface-2" />

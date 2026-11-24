@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { PenLine } from 'lucide-react'
-import { FeedCard } from '@/components/feed/FeedCard'
+import { FeedCard, reviewListClass } from '@/components/feed/FeedCard'
 import { ReviewComposer } from '@/components/feed/ReviewComposer'
 import { AskBeatieSheet } from '@/components/beatie/AskBeatieSheet'
 import { CheckinCard } from '@/components/mood/CheckinCard'
@@ -469,17 +469,19 @@ export default function Home() {
           )
         ) : (
           <>
-            {visible.map((r, i) => (
-              // The first card is the tour's "This is your feed".
-              <div
-                key={r.id}
-                data-tour={i === 0 ? 'feed-review' : undefined}
-                data-feed-index={i}
-                data-feed-review={r.id}
-              >
-                <FeedCard review={r} highlight={r.id === highlightId} onDeleted={handleDeleted} />
-              </div>
-            ))}
+            <div className={reviewListClass}>
+              {visible.map((r, i) => (
+                // The first card is the tour's "This is your feed".
+                <div
+                  key={r.id}
+                  data-tour={i === 0 ? 'feed-review' : undefined}
+                  data-feed-index={i}
+                  data-feed-review={r.id}
+                >
+                  <FeedCard review={r} highlight={r.id === highlightId} onDeleted={handleDeleted} />
+                </div>
+              ))}
+            </div>
 
             <div ref={sentinel} aria-hidden className="h-px" />
             {current.loadingMore && (
@@ -507,28 +509,26 @@ export default function Home() {
   )
 }
 
-/** Feed cards in outline: the song strip, who wrote it, a few lines. */
+/** Review rows in outline: avatar, who wrote it, a few lines, the song chip. */
 function FeedSkeleton({ count = 3 }: { count?: number }) {
   return (
-    <div className="flex flex-col gap-4" aria-hidden>
+    <div className={reviewListClass} aria-hidden>
       {Array.from({ length: count }, (_, i) => (
-        <Card key={i} shadow={false} className="flex flex-col gap-4">
-          <div className="flex items-center gap-3 rounded-inset bg-surface-2 p-2.5">
-            <Skeleton tone="inset" className="size-14 rounded-cover" />
-            <div className="flex flex-1 flex-col gap-2">
-              <Skeleton tone="inset" className="h-3.5 w-1/2" />
-              <Skeleton tone="inset" className="h-3 w-1/3" />
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <Skeleton className="size-9 rounded-full" />
-            <Skeleton className="h-3.5 w-28" />
-          </div>
-          <div className="flex flex-col gap-2">
+        <div key={i} className="flex gap-3 px-4 py-3 sm:px-5">
+          <Skeleton className="size-10 shrink-0 rounded-full" />
+          <div className="flex flex-1 flex-col gap-2.5">
+            <Skeleton className="h-3.5 w-40" />
             <Skeleton className="h-3 w-full" />
             <Skeleton className="h-3 w-5/6" />
+            <div className="flex items-center gap-2.5 rounded-inset border border-line p-1.5">
+              <Skeleton className="size-10 rounded-thumb" />
+              <div className="flex flex-1 flex-col gap-1.5">
+                <Skeleton className="h-3 w-1/2" />
+                <Skeleton className="h-2.5 w-1/3" />
+              </div>
+            </div>
           </div>
-        </Card>
+        </div>
       ))}
     </div>
   )

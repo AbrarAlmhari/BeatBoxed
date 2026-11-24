@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Loader2, MoreHorizontal, Pause, Play } from 'lucide-react'
 import { StarRating } from '@/components/ui/StarRating'
@@ -82,137 +82,167 @@ export function FeedCard({
 
   if (muted && hideIfMuted && !isOwn) return null
 
+  const profile = variant === 'profile'
+  const menu = <ReviewMenu review={review} isOwn={isOwn} onDeleted={() => onDeleted(review)} />
+
   return (
     <article
       ref={ref}
       data-review-id={review.id}
       data-highlighted={flash || undefined}
-      style={cardGlowStyle(colors)}
-      className={cn(
-        'flex flex-col gap-4 rounded-card border border-line bg-surface p-4 shadow-card transition-shadow duration-500 ease-soft sm:p-5',
-        flash && 'ring-2 ring-primary/70'
-      )}
+      className={cn(reviewRowClass, flash && 'bg-primary/[0.09]')}
     >
-      {/* The song. Artwork and title open its page; the artist opens theirs. */}
-      <div className="flex items-center gap-3 rounded-inset bg-surface-2 p-2.5">
-        <Link to={`/song/${song.id}`} aria-hidden tabIndex={-1} className="shrink-0">
-          <Artwork src={song.coverUrl} seed={song.id} className="size-14" />
+      {!profile && (
+        <Link to={`/profile/${review.userId}`} className="shrink-0" aria-hidden tabIndex={-1}>
+          <ReviewAvatar name={name} url={review.author?.avatarUrl} />
         </Link>
-        <div className="flex min-w-0 flex-1 flex-col">
-          <Link
-            to={`/song/${song.id}`}
-            dir="auto"
-            className="truncate text-card-title transition-colors duration-200 ease-soft hover:text-accent"
-          >
-            {song.title}
-          </Link>
-          {song.artistId ? (
-            <Link
-              to={`/artist/${song.artistId}`}
-              className="w-fit max-w-full truncate text-secondary text-muted-foreground transition-colors duration-200 ease-soft hover:text-foreground"
-            >
-              {song.artistName}
-            </Link>
-          ) : (
-            <span className="truncate text-secondary text-muted-foreground">
-              {song.artistName}
-            </span>
-          )}
-        </div>
-        <button
-          type="button"
-          onClick={() => (isCurrent ? player.toggle() : player.playQueue([song], 0))}
-          aria-label={isPlaying ? `Pause ${song.title}` : `Play ${song.title}`}
-          className="grid size-11 shrink-0 place-items-center rounded-full bg-primary text-white transition-all duration-200 ease-soft hover:bg-accent active:scale-95"
-        >
-          {isCurrent && player.loading ? (
-            <Loader2 className="size-4 animate-spin" strokeWidth={2.25} />
-          ) : isPlaying ? (
-            <Pause className="size-4 fill-current" strokeWidth={0} />
-          ) : (
-            <Play className="ml-0.5 size-4 fill-current" strokeWidth={0} />
-          )}
-        </button>
-      </div>
-
-      {variant === 'profile' ? (
-        <div className="flex items-center gap-2">
-          <StarRating value={review.rating} size={15} />
-          <span className="min-w-0 flex-1 truncate text-meta text-muted-foreground">
-            {timeAgo(review.createdAt)}
-            {review.edited && ' · edited'}
-          </span>
-          <ReviewMenu review={review} isOwn={isOwn} onDeleted={() => onDeleted(review)} />
-        </div>
-      ) : (
-      /* Who, and how many stars. */
-      <div className="flex items-center gap-3">
-        <Link to={`/profile/${review.userId}`} className="shrink-0">
-          {review.author?.avatarUrl ? (
-            <img
-              src={review.author.avatarUrl}
-              alt=""
-              loading="lazy"
-              className="size-9 rounded-full object-cover"
-            />
-          ) : (
-            <span className="grid size-9 place-items-center rounded-full bg-surface-2 text-card-title text-muted-foreground">
-              {name.charAt(0).toUpperCase()}
-            </span>
-          )}
-        </Link>
-        <div className="flex min-w-0 flex-1 flex-col">
-          <Link
-            to={`/profile/${review.userId}`}
-            dir="auto"
-            className="truncate text-card-title transition-colors duration-200 ease-soft hover:text-accent"
-          >
-            {isOwn ? 'You' : name}
-          </Link>
-          <span className="truncate text-meta text-muted-foreground">
-            {review.author?.username && `@${review.author.username} · `}
-            {timeAgo(review.createdAt)}
-            {review.edited && ' · edited'}
-          </span>
-        </div>
-        <StarRating value={review.rating} size={14} />
-        <ReviewMenu review={review} isOwn={isOwn} onDeleted={() => onDeleted(review)} />
-      </div>
       )}
 
-      {variant === 'profile' ? (
-        <div className="flex flex-col gap-1.5">
-          {review.title && (
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        {/* Who and when, on one line. On their own profile: stars and when. */}
+        {profile ? (
+          <div className="-my-1.5 flex min-h-8 items-center gap-2">
+            <StarRating value={review.rating} size={14} />
+            <span className="min-w-0 flex-1 truncate text-meta text-muted-foreground">
+              {timeAgo(review.createdAt)}
+              {review.edited && ' · edited'}
+            </span>
+            {menu}
+          </div>
+        ) : (
+          <div className="-my-1.5 flex min-h-8 items-center gap-1.5">
+            <ReviewByline
+              href={`/profile/${review.userId}`}
+              name={isOwn ? 'You' : name}
+              meta={
+                <>
+                  {review.author?.username && `@${review.author.username} · `}
+                  {timeAgo(review.createdAt)}
+                  {review.edited && ' · edited'}
+                </>
+              }
+            />
+            {menu}
+          </div>
+        )}
+
+        {review.title &&
+          (profile ? (
             <Link
               to={`/song/${song.id}?review=${review.id}`}
               dir="auto"
-              className="text-card-title transition-colors duration-200 ease-soft hover:text-accent"
+              className="block w-full text-[15px] font-semibold leading-snug transition-colors duration-200 ease-soft hover:text-accent"
             >
               {review.title}
             </Link>
-          )}
-          {review.body && <ClampedBody text={review.body} href={`/song/${song.id}?review=${review.id}`} />}
-        </div>
-      ) : (
-        <div className="flex flex-col gap-1.5">
-          {review.title && (
-            <p dir="auto" className="text-card-title">
+          ) : (
+            <p dir="auto" className="w-full text-[15px] font-semibold leading-snug">
               {review.title}
             </p>
-          )}
-          {review.body && (
-            <p dir="auto" className="whitespace-pre-line text-body text-muted-foreground">
+          ))}
+        {review.body &&
+          (profile ? (
+            <ClampedBody text={review.body} href={`/song/${song.id}?review=${review.id}`} />
+          ) : (
+            <p dir="auto" className={reviewBodyClass}>
               {review.body}
             </p>
-          )}
-        </div>
-      )}
+          ))}
 
-      <ReviewConversation
-        review={review}
-        song={{ id: song.id, title: song.title, artistName: song.artistName, coverUrl: song.coverUrl }}
-      />
+        {/* The song: a small chip. Artwork and title open its page; the artist opens theirs. */}
+        <div
+          style={cardGlowStyle(colors)}
+          className="mt-1.5 flex items-center gap-2.5 rounded-inset border border-line bg-white/[0.025] py-1 pl-1 pr-2"
+        >
+          <Link to={`/song/${song.id}`} aria-hidden tabIndex={-1} className="shrink-0">
+            <Artwork src={song.coverUrl} seed={song.id} className="size-9 rounded-thumb" />
+          </Link>
+          <div className="flex min-w-0 flex-1 flex-col">
+            <Link
+              to={`/song/${song.id}`}
+              dir="auto"
+              className="truncate text-[13.5px] font-semibold leading-tight transition-colors duration-200 ease-soft hover:text-accent"
+            >
+              {song.title}
+            </Link>
+            {song.artistId ? (
+              <Link
+                to={`/artist/${song.artistId}`}
+                className="w-fit max-w-full truncate text-meta text-muted-foreground transition-colors duration-200 ease-soft hover:text-foreground"
+              >
+                {song.artistName}
+              </Link>
+            ) : (
+              <span className="truncate text-meta text-muted-foreground">{song.artistName}</span>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => (isCurrent ? player.toggle() : player.playQueue([song], 0))}
+            aria-label={isPlaying ? `Pause ${song.title}` : `Play ${song.title}`}
+            className="group/play tap-44 grid size-8 shrink-0 place-items-center rounded-full"
+          >
+            <span className="grid size-8 place-items-center rounded-full bg-primary text-white shadow-glow-sm transition-all duration-200 ease-soft group-hover/play:bg-accent group-active/play:scale-95">
+              {isCurrent && player.loading ? (
+                <Loader2 className="size-3.5 animate-spin" strokeWidth={2.25} />
+              ) : isPlaying ? (
+                <Pause className="size-3.5 fill-current" strokeWidth={0} />
+              ) : (
+                <Play className="ml-0.5 size-3.5 fill-current" strokeWidth={0} />
+              )}
+            </span>
+          </button>
+        </div>
+
+        <ReviewConversation
+          review={review}
+          song={{ id: song.id, title: song.title, artistName: song.artistName, coverUrl: song.coverUrl }}
+          leading={profile ? undefined : <StarRating value={review.rating} size={13} glow />}
+        />
+      </div>
     </article>
+  )
+}
+
+/**
+ * A list of review rows: edge to edge with hairline dividers on a phone,
+ * one quiet panel with the same dividers from `sm` up.
+ */
+export const reviewListClass =
+  '-mx-4 flex flex-col divide-y divide-line border-y border-line sm:mx-0 sm:overflow-hidden sm:rounded-card sm:border sm:bg-surface/60 sm:shadow-card'
+
+/** One review row: avatar column, then the content. No box of its own. */
+export const reviewRowClass =
+  'flex scroll-mt-36 gap-3 px-4 pb-1 pt-3 transition-colors duration-500 ease-soft sm:px-5'
+
+/** Review text: 15px, readable, wraps (Arabic lines up on the right). */
+export const reviewBodyClass =
+  'block w-full whitespace-pre-line text-[15px] leading-[1.45] text-foreground/[0.88]'
+
+/** The 40px round avatar, or the first letter on a plain disc. */
+export function ReviewAvatar({ name, url }: { name: string; url?: string | null }) {
+  return url ? (
+    <img src={url} alt="" loading="lazy" className="size-10 rounded-full object-cover ring-1 ring-white/10" />
+  ) : (
+    <span className="grid size-10 place-items-center rounded-full bg-surface-2 text-card-title text-muted-foreground ring-1 ring-white/10">
+      {name.trim().charAt(0).toUpperCase() || '?'}
+    </span>
+  )
+}
+
+/** Name, then handle and time in grey, on one line that truncates. */
+export function ReviewByline({ href, name, meta }: { href: string; name: string; meta: ReactNode }) {
+  return (
+    <span className="flex min-w-0 flex-1 items-baseline gap-1.5">
+      <Link
+        to={href}
+        dir="auto"
+        className="min-w-0 max-w-[65%] shrink-0 truncate text-[15px] font-semibold leading-snug transition-colors duration-200 ease-soft hover:text-accent"
+      >
+        {name}
+      </Link>
+      <span className="min-w-0 truncate text-[13.5px] text-muted-foreground">{meta}</span>
+    </span>
   )
 }
 
@@ -231,7 +261,7 @@ function ClampedBody({ text, href }: { text: string; href: string }) {
   }, [text, open])
 
   return (
-    <div className="flex flex-col items-stretch gap-1">
+    <div className="flex flex-col items-stretch">
       <Link
         ref={ref}
         to={href}
@@ -239,8 +269,10 @@ function ClampedBody({ text, href }: { text: string; href: string }) {
         className={cn(
           // A full-width block, so Arabic lines up on the right like any
           // right-to-left paragraph.
-          'block w-full whitespace-pre-line text-body text-muted-foreground transition-colors duration-200 ease-soft hover:text-foreground',
-          !open && 'line-clamp-4'
+          reviewBodyClass,
+          'transition-colors duration-200 ease-soft hover:text-foreground',
+          // line-clamp needs its own display, so it replaces the block.
+          !open && 'line-clamp-4!'
         )}
       >
         {text}
@@ -249,7 +281,7 @@ function ClampedBody({ text, href }: { text: string; href: string }) {
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="-mx-2 min-h-11 rounded-button px-2 text-button text-accent hover:text-foreground"
+          className="-mx-2 -my-1.5 min-h-11 self-start rounded-button px-2 text-[13.5px] font-semibold text-accent hover:text-foreground"
         >
           Read more
         </button>
@@ -307,7 +339,7 @@ function ReviewMenu({
     'w-full rounded-button px-3 py-2.5 text-left text-body transition-colors duration-200 ease-soft hover:bg-white/5 disabled:opacity-60'
 
   return (
-    <div className="relative">
+    <div className="relative -my-1.5 -mr-3 shrink-0">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -316,7 +348,7 @@ function ReviewMenu({
         aria-expanded={open}
         className="grid size-11 place-items-center rounded-full text-muted-foreground transition-colors duration-200 ease-soft hover:bg-white/5 hover:text-foreground"
       >
-        <MoreHorizontal className="size-[18px]" strokeWidth={1.75} />
+        <MoreHorizontal className="size-[17px]" strokeWidth={1.75} />
       </button>
 
       <Sheet open={open} onClose={close} title="Review options" className="sm:w-56">

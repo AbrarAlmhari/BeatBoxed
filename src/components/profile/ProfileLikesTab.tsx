@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Heart, Loader2, Pause, Play } from 'lucide-react'
 import { Artwork } from '@/components/feed/Artwork'
-import { FeedCard } from '@/components/feed/FeedCard'
+import { FeedCard, reviewListClass } from '@/components/feed/FeedCard'
 import { EmptyState, emptyActionClass, emptySecondaryActionClass } from '@/components/ui/EmptyState'
 import { useLoadMore } from './useLoadMore'
 import { useAuth } from '@/lib/auth'
@@ -317,13 +317,15 @@ function LikedReviews({ userId, isOwn, handle }: { userId: string; isOwn: boolea
 
   return (
     <div className="flex flex-col gap-3">
-      {items.map((r) => (
-        <FeedCard
-          key={r.id}
-          review={r}
-          onDeleted={(gone) => setItems((prev) => (prev ?? []).filter((x) => x.id !== gone.id))}
-        />
-      ))}
+      <div className={reviewListClass}>
+        {items.map((r) => (
+          <FeedCard
+            key={r.id}
+            review={r}
+            onDeleted={(gone) => setItems((prev) => (prev ?? []).filter((x) => x.id !== gone.id))}
+          />
+        ))}
+      </div>
       <div ref={sentinel} aria-hidden className="h-px" />
       {loadingMore && (
         <div role="status" className="flex items-center justify-center gap-2 py-3 text-secondary text-muted-foreground">

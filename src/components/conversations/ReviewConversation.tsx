@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { Heart, MessageSquare } from 'lucide-react'
 import { CommentThread } from './CommentThread'
@@ -39,8 +39,11 @@ export function ReviewConversation({
   openComments = false,
   highlightCommentId = null,
   replyToCommentId = null,
+  leading,
 }: {
   review: ReviewWithAuthor
+  /** Shown first in the action row (the review's stars). */
+  leading?: ReactNode
   /** For the sheet's song row. */
   song?: { id: string; title: string; artistName: string; coverUrl: string | null } | null
   /** From a notification: open the conversation straight away. */
@@ -104,7 +107,7 @@ export function ReviewConversation({
   const first = likers[0]
   const others = Math.max(0, likeCount - 1)
   const likedBy = first ? (
-    <span className="flex min-w-0 items-center gap-2 text-secondary text-muted-foreground">
+    <span className="flex min-w-0 items-center gap-1.5 text-meta text-muted-foreground">
       <AvatarStack
         people={likers.slice(0, 2).map((p) => ({ id: p.id, name: personName(p), avatarUrl: p.avatarUrl }))}
       />
@@ -128,20 +131,28 @@ export function ReviewConversation({
     setOpen(true)
   }
 
+  // Small icons, full 44px tap areas: the buttons overlap the row's
+  // padding rather than adding to it.
+  const action =
+    'group/act flex min-h-11 min-w-11 items-center gap-1.5 rounded-chip px-2.5 text-[13px] font-semibold tabular-nums transition-colors duration-200 ease-soft'
   const actions = (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="-my-1 -ml-2.5 flex min-w-0 items-center gap-0.5">
+      {leading && <span className="mr-1.5 flex shrink-0 items-center pl-2.5">{leading}</span>}
       <button
         type="button"
         onClick={() => void toggleLike()}
         aria-pressed={liked}
         aria-label={liked ? 'Unlike this review' : 'Like this review'}
-        className={cn(
-          'flex min-h-11 items-center gap-2 rounded-chip px-4 text-button transition-colors duration-200 ease-soft',
-          liked ? 'bg-like/15 text-like' : 'bg-surface-2 text-muted-foreground hover:text-foreground'
-        )}
+        className={cn(action, liked ? 'text-like' : 'text-muted-foreground hover:text-like')}
       >
-        <Heart className={cn('size-[18px]', liked && 'fill-like')} strokeWidth={1.75} />
-        {likeCount > 0 && <span className="tabular-nums">{likeCount}</span>}
+        <Heart
+          className={cn(
+            'size-[17px] transition-transform duration-200 ease-soft group-active/act:scale-90',
+            liked && 'fill-like drop-shadow-[0_0_6px_rgb(244_114_182/0.55)]'
+          )}
+          strokeWidth={1.75}
+        />
+        {likeCount > 0 && <span>{likeCount}</span>}
       </button>
       <button
         type="button"
@@ -153,17 +164,14 @@ export function ReviewConversation({
         }}
         aria-expanded={open}
         aria-label={count === 0 ? 'Comments' : commentCountLabel(count)}
-        className={cn(
-          'flex min-h-11 items-center gap-2 rounded-chip px-4 text-button transition-colors duration-200 ease-soft',
-          open && wide ? 'bg-primary/25 text-accent' : 'bg-surface-2 text-muted-foreground hover:text-foreground'
-        )}
+        className={cn(action, open && wide ? 'text-accent' : 'text-muted-foreground hover:text-accent')}
       >
-        <MessageSquare className="size-[18px]" strokeWidth={1.75} />
+        <MessageSquare className="size-[17px]" strokeWidth={1.75} />
         {(wide || count > 0) && (
-          <span aria-hidden className="tabular-nums">{wide ? (count === 0 ? 'Comment' : commentCountLabel(count)) : count}</span>
+          <span aria-hidden>{wide ? (count === 0 ? 'Comment' : commentCountLabel(count)) : count}</span>
         )}
       </button>
-      <span className="ml-auto min-w-0">{likedBy}</span>
+      <span className="ml-auto min-w-0 pl-1">{likedBy}</span>
     </div>
   )
 
@@ -173,36 +181,36 @@ export function ReviewConversation({
   // Collapsed: the top comment and "View all" on a card with comments,
   // nothing more. The box to write in appears once the thread is open.
   const collapsed = top ? (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col">
       {top && (
         <div
           onClick={(e) => {
             // The names are links of their own.
             if (!(e.target as HTMLElement).closest('a, button')) openThread('read')
           }}
-          className="flex cursor-pointer flex-col gap-2 rounded-card border border-line bg-surface-2/40 p-3.5 transition-colors duration-200 ease-soft hover:border-line-strong"
+          className="flex cursor-pointer flex-col rounded-inset border border-line bg-white/[0.025] px-3 pt-2.5 transition-colors duration-200 ease-soft hover:border-line-strong"
         >
-          <div className="flex gap-3">
-            <Link to={`/profile/${top.userId}`} aria-hidden tabIndex={-1}>
+          <div className="flex gap-2.5">
+            <Link to={`/profile/${top.userId}`} aria-hidden tabIndex={-1} className="shrink-0">
               <PersonAvatar
                 name={personName({ displayName: top.author?.displayName ?? null, username: top.author?.username ?? null })}
                 url={top.author?.avatarUrl}
-                className="size-9 text-secondary"
+                className="size-7 text-meta"
               />
             </Link>
-            <div className="flex min-w-0 flex-1 flex-col items-start gap-1.5">
-              <p className="flex w-full items-baseline gap-2">
+            <div className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
+              <p className="flex w-full items-baseline gap-1.5">
                 <Link
                   to={`/profile/${top.userId}`}
                   dir="auto"
-                  className="truncate text-card-title transition-colors duration-200 ease-soft hover:text-accent"
+                  className="truncate text-[13.5px] font-semibold transition-colors duration-200 ease-soft hover:text-accent"
                 >
                   {top.author?.displayName || top.author?.username || 'Someone'}
                 </Link>
                 <span className="text-meta text-muted-foreground">{commentAge(top.createdAt, wide)}</span>
                 {top.likeCount > 0 && (
-                  <span className="ml-auto flex items-center gap-1 text-secondary tabular-nums text-like">
-                    <Heart className="size-4 fill-like" strokeWidth={0} aria-hidden />
+                  <span className="ml-auto flex items-center gap-1 text-meta tabular-nums text-like">
+                    <Heart className="size-3.5 fill-like" strokeWidth={0} aria-hidden />
                     <span className="sr-only">Likes:</span>
                     {top.likeCount}
                   </span>
@@ -210,11 +218,12 @@ export function ReviewConversation({
               </p>
               <div
                 className={cn(
-                  'max-w-full rounded-[18px] px-3.5 py-2 text-body',
-                  top.isAuthor ? 'bg-primary/20' : 'bg-surface-2'
+                  'w-full text-[14px] leading-[1.45] text-foreground/[0.85]',
+                  // The review's author: a thin Primary line on the text's starting side.
+                  top.isAuthor && 'border-s-2 border-primary/60 ps-2'
                 )}
               >
-                <CommentText body={top.body} mentions={top.mentions} className="line-clamp-3" />
+                <CommentText body={top.body} mentions={top.mentions} className="line-clamp-2" />
               </div>
             </div>
           </div>
@@ -222,7 +231,7 @@ export function ReviewConversation({
             <button
               type="button"
               onClick={() => openThread('read')}
-              className="ml-12 flex min-h-10 w-fit items-center gap-2 text-secondary font-semibold text-accent transition-colors duration-200 ease-soft hover:text-foreground"
+              className="tap-44 ml-[38px] flex min-h-9 w-fit items-center gap-2 text-[13px] font-semibold text-accent transition-colors duration-200 ease-soft hover:text-foreground"
             >
               <AvatarStack
                 people={otherCommenters.map((p) => ({ id: p.id, name: personName(p), avatarUrl: p.avatarUrl }))}
@@ -236,7 +245,7 @@ export function ReviewConversation({
   ) : null
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-1.5 pb-2">
       {actions}
 
       {wide && open ? (
@@ -254,7 +263,7 @@ export function ReviewConversation({
           onCount={setCount}
         >
           {({ sort, list, composer }) => (
-            <div className="-mx-4 flex flex-col gap-4 border-t border-line px-4 pt-4 sm:-mx-5 sm:px-5">
+            <div className="flex flex-col gap-4 border-t border-line pb-2 pt-3">
               {sort}
               {list}
               {composer}

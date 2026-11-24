@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Loader2, PenLine, Trash2 } from 'lucide-react'
 import { ReviewCard } from './ReviewCard'
+import { reviewListClass } from '@/components/feed/FeedCard'
 import { ReviewForm } from './ReviewForm'
 import { FormAlert } from '@/components/auth/FormAlert'
 import { useAuth } from '@/lib/auth'
@@ -212,8 +213,8 @@ export function ReviewsTab({
           onCancel={() => setFormOpen(false)}
         />
       ) : myReview ? (
-        <div className="flex flex-col gap-3 rounded-card border border-primary/25 bg-primary/[0.06] p-4">
-          <p className="text-meta text-muted-foreground">Your review</p>
+        <div className="light-edge relative -mx-4 flex flex-col overflow-hidden border-y border-primary/25 bg-primary/[0.06] pb-3 sm:mx-0 sm:rounded-card sm:border">
+          <p className="px-4 pt-3 text-meta text-muted-foreground sm:px-5">Your review</p>
           <ReviewCard
             review={myReview}
             highlight={myReview.id === targetReviewId}
@@ -224,7 +225,7 @@ export function ReviewsTab({
           />
 
           {confirmingDelete ? (
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 px-4 sm:px-5">
               <span className="text-secondary text-foreground">
                 Delete your review?
               </span>
@@ -244,7 +245,7 @@ export function ReviewsTab({
               </button>
             </div>
           ) : (
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2 px-4 sm:px-5">
               <button
                 type="button"
                 onClick={() => setFormOpen(true)}
@@ -283,17 +284,21 @@ export function ReviewsTab({
       {others.length === 0 && !myReview ? (
         <EmptyState face="thinking-sticker" title="No reviews yet" detail="Be the first to rate this song." />
       ) : (
-        others.map((r) => (
-          <ReviewCard
-            key={r.id}
-            review={r}
-            highlight={r.id === targetReviewId}
-            openComments={Boolean(targetCommentId) && r.id === targetReviewId}
-            highlightCommentId={r.id === targetReviewId ? targetCommentId : null}
-            replyToCommentId={r.id === targetReviewId && replyToTarget ? targetCommentId : null}
-            song={song}
-          />
-        ))
+        others.length > 0 && (
+          <div className={reviewListClass}>
+            {others.map((r) => (
+              <ReviewCard
+                key={r.id}
+                review={r}
+                highlight={r.id === targetReviewId}
+                openComments={Boolean(targetCommentId) && r.id === targetReviewId}
+                highlightCommentId={r.id === targetReviewId ? targetCommentId : null}
+                replyToCommentId={r.id === targetReviewId && replyToTarget ? targetCommentId : null}
+                song={song}
+              />
+            ))}
+          </div>
+        )
       )}
 
       {hasMore && (

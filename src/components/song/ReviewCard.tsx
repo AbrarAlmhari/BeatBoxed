@@ -7,8 +7,13 @@ import { ReviewConversation } from '@/components/conversations/ReviewConversatio
 import { MuteConfirm, type MuteTarget } from '@/components/mutes/MuteConfirm'
 import { useAuth } from '@/lib/auth'
 import { useMutedIds } from '@/lib/mutes'
-import { cardGlowStyle, useCoverColors } from '@/lib/coverColors'
 import { cn } from '@/lib/cn'
+import {
+  ReviewAvatar,
+  ReviewByline,
+  reviewBodyClass,
+  reviewRowClass,
+} from '@/components/feed/FeedCard'
 import type { ReviewWithAuthor } from '@/lib/types'
 
 const dateFmt = new Intl.DateTimeFormat(undefined, {
@@ -38,7 +43,6 @@ export function ReviewCard({
 }) {
   const ref = useRef<HTMLElement>(null)
   const [flash, setFlash] = useState(false)
-  const colors = useCoverColors(song?.coverUrl)
   const { user } = useAuth()
   const isOwn = user?.id === review.userId
   // Someone you muted: their review isn't listed (their own profile still
@@ -56,7 +60,6 @@ export function ReviewCard({
   }, [highlight, highlightCommentId])
 
   const name = review.author?.displayName || review.author?.username || 'Someone'
-  const initial = name.trim().charAt(0).toUpperCase() || '?'
 
   if (muted && !isOwn) return null
 
@@ -64,42 +67,25 @@ export function ReviewCard({
     <article
       ref={ref}
       data-review-id={review.id}
-      style={cardGlowStyle(colors)}
-      className={cn(
-        'flex scroll-mt-36 flex-col gap-3 rounded-card border border-line bg-surface p-4 shadow-card transition-colors duration-500 ease-soft sm:p-5',
-        flash && 'ring-2 ring-primary/60'
-      )}
+      className={cn(reviewRowClass, flash && 'bg-primary/[0.09]')}
     >
-      <div className="flex gap-3">
-        <Link to={`/profile/${review.userId}`} className="shrink-0">
-          {review.author?.avatarUrl ? (
-            <img
-              src={review.author.avatarUrl}
-              alt=""
-              loading="lazy"
-              className="size-10 rounded-full object-cover"
-            />
-          ) : (
-            <span className="grid size-10 place-items-center rounded-full bg-surface-2 text-card-title text-muted-foreground">
-              {initial}
-            </span>
-          )}
-        </Link>
+      <Link to={`/profile/${review.userId}`} className="shrink-0" aria-hidden tabIndex={-1}>
+        <ReviewAvatar name={name} url={review.author?.avatarUrl} />
+      </Link>
 
-        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <Link
-              to={`/profile/${review.userId}`}
-              dir="auto"
-              className="min-w-0 text-card-title transition-colors duration-200 ease-soft hover:text-accent"
-            >
-              {name}
-            </Link>
-            <StarRating value={review.rating} size={14} />
-            <span className="text-meta text-muted-foreground">
-              {dateFmt.format(new Date(review.createdAt))}
-              {review.edited && ' · edited'}
-            </span>
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <div className="-my-1.5 flex min-h-8 items-center gap-1.5">
+            <ReviewByline
+              href={`/profile/${review.userId}`}
+              name={name}
+              meta={
+                <>
+                  {review.author?.username && `@${review.author.username} · `}
+                  {dateFmt.format(new Date(review.createdAt))}
+                  {review.edited && ' · edited'}
+                </>
+              }
+            />
             {!isOwn && user && (
               <ReviewCardMenu
                 person={{
@@ -113,26 +99,28 @@ export function ReviewCard({
           </div>
 
           {review.title && (
-            <p dir="auto" className="text-card-title">
+            <p dir="auto" className="w-full text-[15px] font-semibold leading-snug">
               {review.title}
             </p>
           )}
 
           {review.body && (
-            <p dir="auto" className="text-body text-muted-foreground">
+            <p dir="auto" className={reviewBodyClass}>
               {review.body}
             </p>
           )}
+
+        <div className="mt-1">
+          <ReviewConversation
+            review={review}
+            song={song ?? null}
+            openComments={openComments}
+            highlightCommentId={highlightCommentId}
+            replyToCommentId={replyToCommentId}
+            leading={<StarRating value={review.rating} size={13} />}
+          />
         </div>
       </div>
-
-      <ReviewConversation
-        review={review}
-        song={song ?? null}
-        openComments={openComments}
-        highlightCommentId={highlightCommentId}
-        replyToCommentId={replyToCommentId}
-      />
     </article>
   )
 }
@@ -143,16 +131,16 @@ function ReviewCardMenu({ person }: { person: MuteTarget }) {
   const [muting, setMuting] = useState<MuteTarget | null>(null)
   const handle = person.username ? `@${person.username}` : person.name
   return (
-    <div className="relative ml-auto">
+    <div className="relative -my-1.5 -mr-3 shrink-0">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-label="Review options"
         aria-haspopup="dialog"
         aria-expanded={open}
-        className="-my-2 grid size-11 place-items-center rounded-full text-muted-foreground transition-colors duration-200 ease-soft hover:bg-white/5 hover:text-foreground"
+        className="grid size-11 place-items-center rounded-full text-muted-foreground transition-colors duration-200 ease-soft hover:bg-white/5 hover:text-foreground"
       >
-        <MoreHorizontal className="size-[18px]" strokeWidth={1.75} />
+        <MoreHorizontal className="size-[17px]" strokeWidth={1.75} />
       </button>
       <Sheet open={open} onClose={() => setOpen(false)} title="Review options" className="sm:w-56">
         <button
