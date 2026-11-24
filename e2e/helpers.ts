@@ -223,6 +223,9 @@ async function removeCoverFolder(userId: string) {
   })
 }
 
+/** A title with at least one letter or digit, so search can find it. */
+const searchable = (title: string) => /[\p{L}\p{N}]/u.test(title)
+
 /** Two songs with different titles, for ordering and exclusion checks. */
 export async function twoDistinctSongs(): Promise<[PlayableSong, PlayableSong]> {
   const res = await admin(
@@ -240,7 +243,7 @@ export async function twoDistinctSongs(): Promise<[PlayableSong, PlayableSong]> 
     const key = r.title.trim().toLowerCase()
     // Distinct titles, because the rail collapses same-title duplicates and
     // the assertions below identify cards by title.
-    if (seen.has(key)) continue
+    if (seen.has(key) || !searchable(r.title)) continue
     seen.add(key)
     picked.push({ id: r.id, title: r.title, artistName: r.artists?.name ?? '' })
     if (picked.length === 2) break
@@ -263,7 +266,9 @@ export async function distinctSongs(count: number): Promise<PlayableSong[]> {
   const seen = new Set<string>()
   for (const r of rows) {
     const key = r.title.trim().toLowerCase()
-    if (seen.has(key)) continue
+    // A title of only punctuation (a song named in Morse code) can't be
+    // typed into search and found, so it's no use to these tests.
+    if (seen.has(key) || !searchable(r.title)) continue
     seen.add(key)
     picked.push({ id: r.id, title: r.title, artistName: r.artists?.name ?? '' })
     if (picked.length === count) break
