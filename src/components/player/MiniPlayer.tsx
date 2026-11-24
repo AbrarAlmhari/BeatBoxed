@@ -35,12 +35,12 @@ export function MiniPlayer() {
       // player" needs a handle of its own for assistive tech and tests.
       role="region"
       aria-label="Mini player"
-      className="glass-bar fixed inset-x-0 bottom-[68px] z-30 border-t border-line md:bottom-0 md:left-20 lg:left-60"
+      className="glass-bar fixed inset-x-0 bottom-[68px] z-30 border-t border-line shadow-[0_-12px_30px_-18px_rgb(139_92_246/0.45)] md:bottom-0 md:left-20 lg:left-60"
       style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
     >
       <div className="h-0.5 w-full bg-line">
         <div
-          className="h-full bg-primary transition-[width] duration-200 ease-linear"
+          className="h-full bg-gradient-to-r from-primary to-accent shadow-[0_0_8px_rgb(139_92_246/0.8)] transition-[width] duration-200 ease-linear"
           style={{ width: `${pct}%` }}
         />
       </div>
@@ -114,7 +114,7 @@ export function MiniPlayer() {
           disabled={loading || unavailable}
           aria-label={isPlaying ? 'Pause' : 'Play'}
           className={cn(
-            'grid size-11 shrink-0 place-items-center rounded-full text-foreground transition-all duration-200 ease-soft hover:bg-white/5 active:scale-95',
+            'grid size-11 shrink-0 place-items-center rounded-full bg-primary text-white shadow-glow-sm transition-all duration-200 ease-soft hover:bg-accent active:scale-95',
             (loading || unavailable) && 'opacity-40'
           )}
         >

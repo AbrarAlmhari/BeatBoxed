@@ -129,7 +129,11 @@ export function tabClass(active: boolean, fill = true) {
     '-mb-px min-h-12 shrink-0 border-b-2 text-button transition-colors duration-200 ease-soft',
     fill ? 'flex-1 md:flex-none md:px-5' : 'px-4 md:px-5',
     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary',
-    active ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'
+    // The active tab is lit from its underline: a soft Primary glow rising
+    // into the label.
+    active
+      ? 'border-primary bg-[radial-gradient(60%_55%_at_50%_100%,rgb(139_92_246/0.16),transparent)] text-foreground [text-shadow:0_0_14px_rgb(192_132_252/0.35)]'
+      : 'border-transparent text-muted-foreground hover:text-foreground'
   )
 }
 

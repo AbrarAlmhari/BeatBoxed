@@ -79,6 +79,11 @@ export const SongOfTheWeekFull = forwardRef<
       aria-label="Song of the week"
       className="relative flex min-h-[170px] items-center gap-3.5 border-b border-line pb-5 pr-6 sm:gap-5"
     >
+      {/* A soft light behind the sleeve and record. Gradient, not blur, so it scrolls smoothly. */}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute -left-10 top-1/2 -z-10 h-64 w-80 -translate-y-1/2 bg-[radial-gradient(closest-side,rgb(139_92_246/0.26),rgb(236_72_153/0.07)_60%,transparent)]"
+      />
       {/* Far enough out of the sleeve that the timer in its centre shows. */}
       <Link to="/week" tabIndex={-1} aria-hidden className="relative h-[146px] w-[204px] shrink-0">
         {/* The record, sliding out of the sleeve. */}

@@ -8,7 +8,7 @@ export function BottomTabBar() {
   const tapToTop = useTapToTop()
   return (
     <nav
-      className="glass-bar fixed inset-x-0 bottom-0 z-40 border-t border-line md:hidden"
+      className="glass-bar light-edge fixed inset-x-0 bottom-0 z-40 border-t border-line md:hidden"
       style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
       aria-label="Primary"
     >
@@ -32,14 +32,16 @@ export function BottomTabBar() {
                 <>
                   <span
                     className={cn(
-                      'grid place-items-center rounded-full px-4 py-1 transition-colors duration-200',
-                      isActive ? 'bg-primary/15' : 'bg-transparent'
+                      'grid place-items-center rounded-full px-4 py-1 transition-[background-color,box-shadow] duration-200',
+                      isActive
+                        ? 'bg-primary/15 shadow-[0_0_16px_-3px_rgb(139_92_246/0.55),inset_0_1px_0_rgb(255_255_255/0.06)]'
+                        : 'bg-transparent'
                     )}
                   >
                     <Icon
                       className={cn(
                         'size-[21px] transition-colors duration-200',
-                        isActive && 'text-primary'
+                        isActive && 'text-primary drop-shadow-[0_0_6px_rgb(139_92_246/0.7)]'
                       )}
                       strokeWidth={isActive ? 2.25 : 1.75}
                     />

@@ -9,10 +9,13 @@ export function StarRating({
   value,
   size = 16,
   className,
+  glow = true,
 }: {
   value: number
   size?: number
   className?: string
+  /** A soft warm light around the filled stars (one filter per rating). */
+  glow?: boolean
 }) {
   const pct = Math.max(0, Math.min(1, value / 5)) * 100
 
@@ -40,7 +43,9 @@ export function StarRating({
     >
       {row(false)}
       <span
-        className="absolute inset-y-0 left-0 overflow-hidden"
+        // The glow is on the clipping box, so it spreads past the clip
+        // instead of filling it.
+        className={cn('absolute inset-y-0 left-0 overflow-hidden', glow && 'drop-shadow-[0_0_3px_rgb(245_185_74/0.5)]')}
         style={{ width: `${pct}%` }}
       >
         {row(true)}

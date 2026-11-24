@@ -49,14 +49,14 @@ export function Sidebar() {
                 <span
                   aria-hidden
                   className={cn(
-                    'absolute left-0 h-5 w-[3px] rounded-r-full bg-primary transition-opacity duration-200',
+                    'absolute left-0 h-5 w-[3px] rounded-r-full bg-primary shadow-[0_0_10px_rgb(139_92_246/0.9)] transition-opacity duration-200',
                     isActive ? 'opacity-100' : 'opacity-0'
                   )}
                 />
                 <Icon
                   className={cn(
                     'size-[22px] shrink-0 transition-colors duration-200',
-                    isActive && 'text-primary'
+                    isActive && 'text-primary drop-shadow-[0_0_6px_rgb(139_92_246/0.6)]'
                   )}
                   strokeWidth={isActive ? 2.25 : 1.75}
                 />

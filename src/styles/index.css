@@ -106,7 +106,14 @@
   --radius-thumb: 8px;
   --radius-inset: 12px;
 
-  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px -12px rgb(0 0 0 / 0.6);
+  /* A card sits on the page with a faint light along its top edge. */
+  --shadow-card: inset 0 1px 0 rgb(255 255 255 / 0.045), 0 1px 2px rgb(0 0 0 / 0.4),
+    0 8px 24px -12px rgb(0 0 0 / 0.6);
+  /* Primary's glow: small for icon buttons, regular for buttons, wide for
+     the few lit surfaces (song of the week, the player's play button). */
+  --shadow-glow-sm: inset 0 1px 0 rgb(255 255 255 / 0.2), 0 3px 12px -3px rgb(139 92 246 / 0.7);
+  --shadow-glow: inset 0 1px 0 rgb(255 255 255 / 0.2), 0 6px 20px -8px rgb(139 92 246 / 0.75);
+  --shadow-glow-lg: 0 0 0 1px rgb(139 92 246 / 0.18), 0 18px 50px -24px rgb(139 92 246 / 0.6);
   /* Sheets, dialogs and popovers: further off the page than a card. */
   --shadow-raised: 0 -2px 8px rgb(0 0 0 / 0.3), 0 24px 48px -16px rgb(0 0 0 / 0.7);
 
@@ -200,6 +207,28 @@
   }
 }
 
+/*
+ * A lit surface's top edge: a thin line of light that fades out at both
+ * ends. Drawn with a pseudo-element, so it costs nothing while scrolling.
+ * The element needs a position (relative, sticky or fixed).
+ */
+@utility light-edge {
+  &::before {
+    content: '';
+    pointer-events: none;
+    position: absolute;
+    inset-inline: 12%;
+    top: 0;
+    height: 1px;
+    background: linear-gradient(
+      to right,
+      transparent,
+      color-mix(in oklab, var(--color-accent) 70%, transparent),
+      transparent
+    );
+  }
+}
+
 @keyframes sheet-up {
   from {
     transform: translateY(100%);
@@ -272,9 +301,19 @@
     overflow-wrap: anywhere;
   }
 
-  /* Keyboard focus only — pointer clicks stay clean. */
+  /* Keyboard focus only — pointer clicks stay clean. A soft halo around
+     the outline, so focus reads as lit rather than boxed. */
   :focus-visible {
     @apply outline-primary outline-2 outline-offset-2;
+    box-shadow: 0 0 0 5px rgb(139 92 246 / 0.22);
+  }
+
+  /*
+   * Primary buttons and links glow softly underneath, with a light top
+   * edge. In the base layer, so a button that sets its own shadow keeps it.
+   */
+  :where(button, a).bg-primary:not(:disabled) {
+    box-shadow: var(--shadow-glow);
   }
 
   ::selection {
