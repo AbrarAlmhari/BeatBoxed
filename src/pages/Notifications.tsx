@@ -323,11 +323,11 @@ export default function Notifications() {
             <section key={heading} className="flex flex-col gap-2" aria-labelledby={`notif-${heading}`}>
               <h2
                 id={`notif-${heading}`}
-                className="px-1 text-meta font-semibold uppercase tracking-wide text-muted-foreground"
+                className="section-label px-1"
               >
                 {heading}
               </h2>
-              <ul className="flex flex-col gap-1.5">
+              <ul className="-mx-4 flex flex-col divide-y divide-line sm:mx-0 sm:gap-1.5 sm:divide-y-0">
                 {items.map((d) => {
                   const { item, alsoActorIds } = d
                   const rendered =
@@ -346,8 +346,10 @@ export default function Notifications() {
                       key={key}
                       data-notification-type={item.kind === 'notification' ? item.notification.type : 'announcement'}
                       className={cn(
-                        'flex items-start gap-3 rounded-card p-4 transition-colors duration-200 ease-soft',
-                        d.unread ? 'bg-surface' : 'hover:bg-surface/60'
+                        'flex items-start gap-3 px-4 py-3 transition-colors duration-200 ease-soft sm:rounded-card sm:p-4',
+                        d.unread
+                          ? 'bg-[linear-gradient(90deg,rgb(139_92_246/0.16),transparent_70%)] sm:bg-surface'
+                          : 'hover:bg-surface/60'
                       )}
                     >
                       {/* The avatar opens the actor's profile; the rest of
@@ -376,7 +378,7 @@ export default function Notifications() {
                             <span className="whitespace-nowrap"> · {shortAgo(item.at)}</span>
                           </span>
                           {d.unread && (
-                            <span aria-label="Unread" className="mt-2 size-2.5 shrink-0 rounded-full bg-accent" />
+                            <span aria-label="Unread" className="mt-2 size-2.5 shrink-0 rounded-full bg-like" />
                           )}
                         </button>
                         {rendered.quote && (
@@ -416,7 +418,7 @@ export default function Notifications() {
                         <img
                           src={rendered.coverUrl}
                           alt=""
-                          className="size-14 shrink-0 rounded-inset object-cover"
+                          className="size-11 shrink-0 rounded-[10px] object-cover"
                         />
                       )}
                     </li>

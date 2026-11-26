@@ -4,7 +4,6 @@ import { ChevronRight, LogOut } from 'lucide-react'
 import { Toggle } from '@/components/ui/Toggle'
 import { BeatieImage } from '@/components/beatie/BeatieImage'
 import { Card } from '@/components/ui/Card'
-import { SectionHeader } from '@/components/ui/SectionHeader'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { MakePublicDialog } from '@/components/settings/MakePublicDialog'
 import { ChangePassword } from '@/components/settings/ChangePassword'
@@ -274,7 +273,7 @@ export default function Settings() {
               await signOut()
               navigate('/login', { replace: true })
             }}
-            className="flex min-h-11 w-fit items-center gap-2 rounded-button border border-line-strong bg-surface-2 px-4 text-button text-muted-foreground transition-colors duration-200 ease-soft hover:text-danger"
+            className="flex min-h-11 w-full items-center justify-center gap-2 rounded-button border border-danger/30 bg-danger/10 px-4 text-button text-danger transition-colors duration-200 ease-soft hover:bg-danger/20 sm:w-fit"
           >
             <LogOut className="size-4" strokeWidth={1.75} aria-hidden />
             Log out
@@ -287,8 +286,8 @@ export default function Settings() {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="flex flex-col gap-3">
-      <SectionHeader title={title} />
+    <section className="flex flex-col gap-2">
+      <h2 className="section-label px-1">{title}</h2>
       <Card>{children}</Card>
     </section>
   )

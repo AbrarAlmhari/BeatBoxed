@@ -19,7 +19,7 @@ import type { ProfileDetail } from '@/lib/types'
 import { logError } from '@/lib/log'
 
 const fieldClass =
-  'w-full rounded-card border border-line-strong bg-surface px-4 py-3 text-body text-foreground transition-colors duration-200 ease-soft placeholder:text-muted-foreground/70 hover:border-white/20 focus:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary/25 disabled:opacity-60'
+  'min-h-[46px] w-full rounded-tile border border-line-strong bg-surface px-4 py-2.5 text-body text-foreground transition-colors duration-200 ease-soft placeholder:text-muted-foreground/70 hover:border-white/20 focus:border-[#a78bfa] focus:outline-none focus:ring-2 focus:ring-primary/25 disabled:opacity-60'
 
 /**
  * Edit profile (docs/mockups/onboarding): Cancel · Edit profile · Save at
@@ -169,11 +169,13 @@ export function ProfileEditor({
 
       {error && <FormAlert tone="error">{error}</FormAlert>}
 
-      <div className="flex items-center gap-4">
+      <div className="flex flex-col items-center gap-2">
         {shown ? (
-          <img src={shown} alt="" className="size-20 rounded-full object-cover" />
+          <span className="rounded-full p-[3px]" style={{ background: 'var(--profile-ring)' }}>
+            <img src={shown} alt="" className="size-[86px] rounded-full object-cover" />
+          </span>
         ) : (
-          <span className="grid size-20 place-items-center rounded-full bg-gradient-to-br from-primary/60 to-primary font-heading text-[30px] font-bold text-white">
+          <span className="grid size-[92px] place-items-center rounded-full bg-gradient-to-br from-primary/60 to-primary font-heading text-[30px] font-bold text-white">
             {(displayName || profile.username || '?').charAt(0).toUpperCase()}
           </span>
         )}
@@ -181,7 +183,7 @@ export function ProfileEditor({
           type="button"
           onClick={() => fileRef.current?.click()}
           disabled={uploading}
-          className="flex min-h-11 items-center gap-2 rounded-chip border border-line-strong px-5 text-button text-foreground transition-colors duration-200 ease-soft hover:bg-white/5 disabled:opacity-60"
+          className="flex min-h-11 items-center gap-2 rounded-chip px-4 text-button text-[#c4b5fd] transition-colors duration-200 ease-soft hover:text-foreground disabled:opacity-60"
         >
           {uploading && <Loader2 className="size-4 animate-spin motion-reduce:animate-none" strokeWidth={2} aria-hidden />}
           {uploading ? 'Uploading…' : 'Change photo'}
@@ -190,7 +192,7 @@ export function ProfileEditor({
       </div>
 
       <label className="flex flex-col gap-1.5">
-        <span className="text-secondary font-medium text-muted-foreground">Display name</span>
+        <span className="section-label">Display name</span>
         <input
           value={displayName}
           onChange={(e) => setDisplayName(e.target.value)}
@@ -207,7 +209,7 @@ export function ProfileEditor({
       <UsernameField value={username} onChange={setUsername} status={usernameStatus} disabled={pending} />
 
       <label className="flex flex-col gap-1.5">
-        <span className="text-secondary font-medium text-muted-foreground">Bio</span>
+        <span className="section-label">Bio</span>
         <textarea
           value={bio}
           onChange={(e) => setBio(e.target.value.slice(0, BIO_MAX))}
