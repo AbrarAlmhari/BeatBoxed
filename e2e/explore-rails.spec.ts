@@ -25,7 +25,13 @@ test.describe('explore rails', () => {
     await page.goto('/')
     await expect(page.getByRole('tab', { name: 'For You' })).toBeVisible()
     await expect(page.getByRole('tab', { name: 'Following' })).toBeVisible()
-    await expect(page.getByRole('button', { name: /what song is on your mind/i })).toBeVisible()
+    // The way in to writing: the row on desktop, Create in the bottom bar on phones.
+    const phone = (page.viewportSize()?.width ?? 1280) < 768
+    await expect(
+      phone
+        ? page.getByRole('button', { name: 'Create', exact: true })
+        : page.getByRole('button', { name: /what song is on your mind/i })
+    ).toBeVisible()
     await expect(rail(page, 'Trending')).toHaveCount(0)
     await expect(page.getByRole('heading', { name: 'Continue Listening' })).toHaveCount(0)
   })

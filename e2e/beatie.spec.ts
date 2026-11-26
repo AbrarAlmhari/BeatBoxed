@@ -353,7 +353,7 @@ test.describe('Beatie', () => {
     await login(page, fresh.email)
     await page.goto('/')
 
-    // The pill sits in the tab row but isn't a tab.
+    // The pill (the header's Beatie button on phones) isn't a tab.
     const pill = page.getByRole('button', { name: 'Ask Beatie', exact: true })
     await expect(pill).toBeVisible()
     await expect(page.getByRole('tablist').getByRole('button', { name: 'Ask Beatie' })).toHaveCount(0)
@@ -381,11 +381,14 @@ test.describe('Beatie', () => {
     await expect(page.getByRole('dialog', { name: 'Ask Beatie' })).toBeVisible()
     await page.keyboard.press('Escape')
 
-    // Under 370px only Beatie's face shows, but the name is still announced.
+    // Under 370px only Beatie's face shows (on phones it's the round button
+    // in the header), but the name is still announced.
     await page.setViewportSize({ width: 360, height: 780 })
     await expect(pill).toBeVisible()
-    await expect(pill.getByText('Ask Beatie')).toHaveCSS('position', 'absolute')
     await expect(pill).toHaveAccessibleName('Ask Beatie')
+    const small = await pill.boundingBox()
+    expect(Math.round(small!.width)).toBeGreaterThanOrEqual(40)
+    expect(small!.width).toBeLessThan(60)
   })
 
   test('the hello bubble also goes away by itself', async ({ page }) => {

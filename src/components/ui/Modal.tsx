@@ -6,6 +6,9 @@ import { isPhoneWidth, useBackToClose, useScrollLock, useSwipeToClose } from '@/
 /** The grab handle on a phone sheet. Shared with Sheet. Decorative. */
 export const SHEET_HANDLE = 'mx-auto mt-2.5 h-1 w-9 shrink-0 rounded-full bg-white/15 sm:hidden'
 
+/** Open dialogs, newest last: Escape closes only the one on top. */
+const openStack: object[] = []
+
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
 
@@ -62,7 +65,10 @@ export function Modal({
     const first = panel.current?.querySelector<HTMLElement>(FOCUSABLE)
     ;(initialFocus?.current ?? first ?? panel.current)?.focus()
 
+    const me = {}
+    openStack.push(me)
     const onKey = (e: KeyboardEvent) => {
+      if (openStack[openStack.length - 1] !== me) return
       if (e.key === 'Escape') {
         e.stopPropagation()
         close.current()
@@ -87,6 +93,7 @@ export function Modal({
 
     return () => {
       document.removeEventListener('keydown', onKey)
+      openStack.splice(openStack.indexOf(me), 1)
       opener?.focus?.({ preventScroll: true })
     }
     // initialFocus is a ref: reading .current at open time is the point.

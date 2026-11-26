@@ -41,8 +41,23 @@ async function seedLabelledSongs() {
 
 const card = (page: Page) => page.getByRole('region', { name: 'Your daily check-in' })
 
+/** Phones: the "Match my mood" chip opens the questions in a sheet. */
+const moodChip = (page: Page) => page.getByRole('button', { name: 'Match my mood' })
+const onPhone = (page: Page) => (page.viewportSize()?.width ?? 1280) < 768
+
+/** Starts the check-in: "Let's go" on the card, or the chip on a phone. */
+async function start(page: Page) {
+  if (onPhone(page)) await moodChip(page).click()
+  else await card(page).getByRole('button', { name: "Let's go" }).click()
+}
+
+/** Picks each answer; the phone's sheet then needs Next. */
 async function answer(c: Locator, labels: string[]) {
-  for (const l of labels) await c.getByRole('button', { name: l, exact: true }).click()
+  for (const l of labels) {
+    await c.getByRole('button', { name: l, exact: true }).click()
+    const next = c.getByRole('button', { name: 'Next', exact: true })
+    if (await next.isVisible()) await next.click()
+  }
 }
 
 test.describe.configure({ mode: 'serial' })
@@ -63,11 +78,12 @@ test('the check-in: four questions with Back, then a song that fits, Ask me abou
   const me = await createTestUser('mw-flow')
   await login(page, me.email)
   const c = card(page)
-  await expect(c.getByText("4 quick taps and I'll find your song for today")).toBeVisible()
-  await c.getByRole('button', { name: "Let's go" }).click()
+  if (onPhone(page)) await expect(moodChip(page)).toBeVisible()
+  else await expect(c.getByText("4 quick taps and I'll find your song for today")).toBeVisible()
+  await start(page)
 
   await expect(c.getByText('Question 1 of 4')).toBeVisible()
-  await c.getByRole('button', { name: 'Happy', exact: true }).click()
+  await answer(c, ['Happy'])
   await expect(c.getByText('Question 2 of 4')).toBeVisible()
   // Back keeps the earlier answer.
   await c.getByRole('button', { name: 'Back' }).click()
@@ -108,12 +124,13 @@ test('after the check-in Home shows "Today: <song>", which reopens it', async ({
   const me = await createTestUser('mw-bar')
   await login(page, me.email)
   const c = card(page)
-  await c.getByRole('button', { name: "Let's go" }).click()
+  await start(page)
   await answer(c, ['Sad', 'Match how I feel', 'Slow and soft', 'Surprise me'])
   await expect(c.getByText("Here's what I found for you.")).toBeVisible()
 
   await page.reload()
-  const bar = page.getByRole('button', { name: /^Today:/ })
+  // A phone reopens today's song from the chip; the card shows a "Today:" bar.
+  const bar = onPhone(page) ? moodChip(page) : page.getByRole('button', { name: /^Today:/ })
   await expect(bar).toBeVisible()
   await expect(c.getByRole('button', { name: "Let's go" })).toHaveCount(0)
   await bar.click()
@@ -123,13 +140,16 @@ test('after the check-in Home shows "Today: <song>", which reopens it', async ({
 test('"Not today" hides it until tomorrow', async ({ page }) => {
   const me = await createTestUser('mw-skip')
   await login(page, me.email)
+  if (onPhone(page)) await moodChip(page).click()
   await card(page).getByRole('button', { name: 'Not today' }).click()
   await expect(page.getByText("No problem. I'll ask again tomorrow.")).toBeVisible()
   await expect(card(page)).toHaveCount(0)
+  await expect(moodChip(page)).toHaveCount(0)
   await page.reload()
   await expect(page.getByRole('region', { name: 'Song of the week' })).toBeVisible()
   await expect(card(page)).toHaveCount(0)
   await expect(page.getByRole('button', { name: /^Today:/ })).toHaveCount(0)
+  await expect(moodChip(page)).toHaveCount(0)
 })
 
 test('when nothing fits it says so honestly', async ({ page }) => {
@@ -137,7 +157,7 @@ test('when nothing fits it says so honestly', async ({ page }) => {
   await login(page, me.email)
   await page.route('**/rest/v1/rpc/pick_checkin_song', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: '[]' }))
   const c = card(page)
-  await c.getByRole('button', { name: "Let's go" }).click()
+  await start(page)
   await answer(c, ['Stressed', 'Help me focus', 'Upbeat', 'Artists I already love'])
   await expect(c.getByText("I couldn't find a good match today.")).toBeVisible()
   await expect(c.getByRole('link')).toHaveCount(0)

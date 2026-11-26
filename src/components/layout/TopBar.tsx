@@ -113,9 +113,12 @@ export function TopBar() {
             window.dispatchEvent(new Event(BEATIE_OPENED))
             create.openBeatie()
           }}
-          className="tap-44 round-btn border border-primary/40 bg-primary/20 transition-colors duration-200 ease-soft hover:bg-primary/30 active:scale-95 md:hidden"
+          className="group grid size-11 shrink-0 place-items-center rounded-full active:scale-95 md:hidden"
         >
-          <BeatieImage mood="mark" size={24} />
+          {/* A 40px circle in a 44px tap area. */}
+          <span className="round-btn border border-primary/40 bg-primary/20 transition-colors duration-200 ease-soft group-hover:bg-primary/30">
+            <BeatieImage mood="mark" size={24} />
+          </span>
         </button>
       )}
 
@@ -124,15 +127,21 @@ export function TopBar() {
         aria-label={badge > 0 ? `Notifications, ${badge} new` : 'Notifications'}
         className={({ isActive }) =>
           cn(
-            'tap-44 round-btn relative bg-white/[0.06] transition-all duration-200 ease-soft hover:bg-white/5 hover:text-foreground active:scale-95',
+            'group grid size-11 shrink-0 place-items-center rounded-full transition-all duration-200 ease-soft hover:text-foreground active:scale-95',
             // Stays active on /notifications/requests too, so the bell doesn't
             // go dim once you step into the requests list.
-            isActive ? 'bg-primary/15 text-foreground' : 'text-muted-foreground'
+            isActive ? 'text-foreground' : 'text-muted-foreground'
           )
         }
       >
         {({ isActive }) => (
-          <>
+          // A 40px circle in a 44px tap area.
+          <span
+            className={cn(
+              'round-btn relative transition-colors duration-200 ease-soft',
+              isActive ? 'bg-primary/15' : 'bg-white/[0.06] group-hover:bg-white/10'
+            )}
+          >
             <Bell
               className={cn('size-5', isActive && 'text-primary')}
               strokeWidth={isActive ? 2.25 : 1.75}
@@ -140,10 +149,10 @@ export function TopBar() {
             {badge > 0 && (
               <span
                 aria-hidden
-                className="absolute right-2 top-2 size-2.5 rounded-full bg-like ring-2 ring-background"
+                className="absolute right-1.5 top-1.5 size-2.5 rounded-full bg-like ring-2 ring-background"
               />
             )}
-          </>
+          </span>
         )}
       </NavLink>
     </header>

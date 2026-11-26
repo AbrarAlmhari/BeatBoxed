@@ -47,7 +47,13 @@ async function feedSettled(page: Page) {
 }
 
 async function openComposer(page: Page) {
-  await page.getByRole('button', { name: /what song is on your mind/i }).click()
+  // Phones: the bottom bar's Create, then Write a review. Desktop: the row on Home.
+  if ((page.viewportSize()?.width ?? 1280) < 768) {
+    await page.getByRole('button', { name: 'Create', exact: true }).click()
+    await page.getByRole('dialog', { name: 'Create' }).getByRole('button', { name: /Write a review/ }).click()
+  } else {
+    await page.getByRole('button', { name: /what song is on your mind/i }).click()
+  }
   const dialog = composerDialog(page)
   await expect(dialog).toBeVisible()
   return dialog

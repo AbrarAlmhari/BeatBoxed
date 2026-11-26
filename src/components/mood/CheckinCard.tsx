@@ -77,6 +77,11 @@ export function CheckinCard({ variant = 'card' }: { variant?: 'card' | 'sheet' }
     }
   }, [user])
 
+  // Opened from the chip before today's song had loaded: show it once it has.
+  useEffect(() => {
+    if (sheet && sheetOpen && stage.kind === 'bar' && stage.pick) setStage({ kind: 'result', pick: stage.pick })
+  }, [sheet, sheetOpen, stage])
+
   async function finish(full: CheckinAnswers, another = false) {
     setStage({ kind: 'picking' })
     try {
@@ -139,7 +144,8 @@ export function CheckinCard({ variant = 'card' }: { variant?: 'card' | 'sheet' }
           onBack={() =>
             setStage(stage.step === 0 ? { kind: 'intro' } : { kind: 'question', step: stage.step - 1 })
           }
-          onSkip={() => void notToday("Skipped for today. I'll ask again tomorrow.")}
+          // The sheet's "Not today" is the intro's, so it says the same.
+          onSkip={() => void notToday(sheet ? undefined : "Skipped for today. I'll ask again tomorrow.")}
           onAnswer={(value) => {
             const key = QUESTIONS[stage.step].key
             const next = { ...answers, [key]: value } as Partial<CheckinAnswers>
