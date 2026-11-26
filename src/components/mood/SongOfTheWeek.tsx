@@ -93,7 +93,7 @@ export const SongOfTheWeekFull = forwardRef<
       </Link>
 
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="text-[10px] font-extrabold uppercase tracking-[0.1em] text-week">Song of the week</span>
+        <span className="truncate text-[10px] font-extrabold uppercase tracking-[0.1em] text-week">Song of the week</span>
         <Link
           to="/week"
           dir="auto"
@@ -101,23 +101,23 @@ export const SongOfTheWeekFull = forwardRef<
         >
           {s.title}
         </Link>
-        <span className="flex min-w-0 items-center gap-1 text-[12px] text-muted-foreground">
-          <span dir="auto" className="min-w-0 truncate">
-            {s.artistName}
-          </span>
-          <span aria-hidden>·</span>
-          <span data-week-left className="shrink-0 tabular-nums">
-            {timer.label}
-          </span>
+        <span dir="auto" className="truncate text-[12px] text-muted-foreground">
+          {s.artistName}
         </span>
       </div>
 
+      {/* The rating and, under it, the time left this week. */}
+      <div className="flex shrink-0 flex-col items-center gap-1">
       <Link
         to="/week"
         className="btn-primary min-h-0! h-[34px] shrink-0 rounded-full! px-3.5 text-[13px]"
       >
         {week.myRating ? `You rated it ${week.myRating}★` : 'Rate'}
       </Link>
+        <span data-week-left className="whitespace-nowrap text-[11px] tabular-nums text-muted-foreground">
+          {timer.label}
+        </span>
+      </div>
 
       <button
         type="button"

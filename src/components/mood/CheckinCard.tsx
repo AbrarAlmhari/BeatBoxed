@@ -239,7 +239,9 @@ export function CheckinCard({ variant = 'card' }: { variant?: 'card' | 'sheet' }
           className="chip-v3 tap-44 shrink-0 hover:text-foreground"
         >
           <Sparkles className="size-4 text-[#c4b5fd]" strokeWidth={2} aria-hidden />
-          Match my mood
+          {/* Under 400px only "Mood" shows; the full name is still announced. */}
+          <span className="max-[399px]:sr-only">Match my mood</span>
+          <span aria-hidden className="min-[400px]:hidden">Mood</span>
         </button>
         <Modal open={sheetOpen} onClose={() => setSheetOpen(false)} labelledBy={headId}>
           <h2 id={headId} className="sr-only">
