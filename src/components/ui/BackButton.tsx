@@ -24,7 +24,7 @@ export function BackButton({ className }: { className?: string }) {
       onClick={goBack}
       aria-label="Go back"
       className={cn(
-        'grid size-10 shrink-0 place-items-center rounded-full text-muted-foreground transition-all duration-200 ease-soft hover:bg-white/5 hover:text-foreground active:scale-95',
+        'tap-44 grid size-10 shrink-0 place-items-center rounded-full bg-white/[0.06] text-foreground transition-all duration-200 ease-soft hover:bg-white/10 hover:text-foreground active:scale-95',
         className
       )}
     >

@@ -108,7 +108,7 @@ export function AddToPlaylistButton({
   const trigger =
     variant === 'subtle'
       ? 'grid size-11 place-items-center rounded-full text-muted-foreground transition-all duration-200 ease-soft hover:bg-white/5 hover:text-foreground active:scale-95'
-      : 'flex min-h-11 shrink-0 items-center gap-1.5 rounded-button border border-line-strong bg-surface-2 px-3.5 text-button text-muted-foreground transition-colors duration-200 ease-soft hover:text-foreground'
+      : 'flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-button border border-line-strong bg-white/[0.07] px-3.5 text-button text-foreground transition-colors duration-200 ease-soft hover:bg-white/10 max-md:size-[46px] max-md:px-0'
 
   return (
     // relative so the desktop popover anchors to this button.
@@ -123,8 +123,8 @@ export function AddToPlaylistButton({
         aria-expanded={open}
         className={trigger}
       >
-        <ListPlus className="size-4" strokeWidth={2} aria-hidden />
-        {variant === 'default' && 'Add to playlist'}
+        <ListPlus className="size-[18px] md:size-4" strokeWidth={2} aria-hidden />
+        {variant === 'default' && <span className="max-md:sr-only">Add to playlist</span>}
       </button>
 
       <Sheet open={open} onClose={() => setOpen(false)} title="Add to playlist">

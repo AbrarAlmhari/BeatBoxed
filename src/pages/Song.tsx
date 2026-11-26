@@ -294,10 +294,12 @@ export default function Song() {
 
   return (
     <div className="relative isolate flex flex-col gap-8 pt-2">
-      <header className="relative flex flex-col items-center gap-5 pb-2 text-center sm:flex-row sm:items-end sm:text-left">
+      <header className="relative flex flex-col items-center gap-4 pb-2 text-center sm:flex-row sm:items-end sm:gap-5 sm:text-left">
         <PageGlow strength="hero" colors={coverColors ?? COVER_FALLBACK} />
+        {/* Phone: violet light fading down from behind the header. */}
+        <span aria-hidden className="pointer-events-none absolute -inset-x-4 -top-24 -z-10 h-80 bg-gradient-to-b from-primary/25 to-transparent md:hidden" />
         {/* Wrapped in the album link when there's an album to open. */}
-        <AlbumLink albumId={song.album?.id ?? null} className="aspect-square w-52 shrink-0 overflow-hidden rounded-card shadow-card sm:w-56">
+        <AlbumLink albumId={song.album?.id ?? null} className="aspect-square w-32 shrink-0 overflow-hidden rounded-[18px] shadow-[0_16px_40px_-14px_rgb(0_0_0/0.85)] sm:w-56 sm:rounded-card">
           {song.album?.coverUrl ? (
             <img
               src={song.album.coverUrl}
@@ -318,8 +320,8 @@ export default function Song() {
           )}
         </AlbumLink>
 
-        <div className="flex min-w-0 flex-col gap-2">
-          <h1 dir="auto" className="text-page-title">
+        <div className="flex w-full min-w-0 flex-col gap-2 sm:w-auto">
+          <h1 dir="auto" className="font-heading text-[24px] font-bold leading-tight md:text-page-title">
             {song.title}
           </h1>
 
@@ -344,7 +346,7 @@ export default function Song() {
             )}
           </div>
 
-          <div className="flex flex-wrap items-center justify-center gap-3 sm:justify-start">
+          <div className="order-last mt-2 flex items-center justify-center gap-2.5 max-md:w-full sm:flex-wrap sm:justify-start sm:gap-3">
             {/* The main action on this page, so it gets the primary style. */}
             <button
               type="button"
@@ -368,7 +370,7 @@ export default function Song() {
               }
               disabled={isCurrent && player.unavailable}
               aria-label={isCurrent && player.isPlaying ? 'Pause' : 'Play preview'}
-              className="flex min-h-11 items-center gap-2 rounded-button bg-primary px-5 text-button text-white transition-all duration-200 ease-soft hover:bg-accent active:scale-[0.98] disabled:opacity-50 disabled:hover:bg-primary"
+              className="btn-primary min-h-[46px] px-5 text-button transition-all duration-200 ease-soft active:scale-[0.98] disabled:opacity-50 max-md:flex-1"
             >
               {isCurrent && player.loading ? (
                 <Loader2 className="size-[18px] animate-spin" strokeWidth={2.5} aria-hidden />
@@ -390,17 +392,17 @@ export default function Song() {
               aria-pressed={liked}
               aria-label={liked ? 'Remove from liked songs' : 'Add to liked songs'}
               className={cn(
-                'flex min-h-11 items-center gap-1.5 rounded-button border px-3.5 text-button transition-colors duration-200 ease-soft active:scale-[0.97]',
+                'flex min-h-11 items-center justify-center gap-1.5 rounded-button border px-3.5 text-button transition-colors duration-200 ease-soft active:scale-[0.97] max-md:size-[46px] max-md:px-0',
                 liked
-                  ? 'border-primary/60 bg-primary/15 text-foreground'
-                  : 'border-line-strong bg-surface-2 text-muted-foreground hover:text-foreground'
+                  ? 'border-like/50 bg-like/15 text-foreground'
+                  : 'border-line-strong bg-white/[0.07] text-foreground hover:bg-white/10'
               )}
             >
               <Heart
-                className={cn('size-4', liked && 'fill-primary text-primary')}
+                className={cn('size-[18px] md:size-4', liked && 'fill-like text-like')}
                 strokeWidth={1.75}
               />
-              {liked ? 'Liked' : 'Like'}
+              <span className="max-md:sr-only">{liked ? 'Liked' : 'Like'}</span>
             </button>
 
             <AddToPlaylistButton songId={song.id} />
@@ -456,11 +458,11 @@ export default function Song() {
       <section id="about" ref={aboutRef} aria-label="About" className="scroll-mt-36">
         <SectionHeader title="About" className="mb-4" />
         <Card padding="none">
-          <dl className="grid grid-cols-3 divide-x divide-line">
+          <dl className="grid divide-y divide-line md:grid-cols-3 md:divide-x md:divide-y-0">
           {facts.map(([label, value, albumId]) => (
-            <div key={label} className="flex min-w-0 flex-col gap-1 px-3 py-4 sm:px-5">
-              <dt className="text-meta text-muted-foreground">{label}</dt>
-              <dd dir="auto" className="break-words text-card-title">
+            <div key={label} className="flex min-h-12 min-w-0 items-center justify-between gap-3 px-4 md:flex-col md:items-start md:justify-start md:gap-1 md:px-5 md:py-4">
+              <dt className="shrink-0 text-[13px] text-muted-foreground md:text-meta">{label}</dt>
+              <dd dir="auto" className="min-w-0 truncate text-end text-[14px] font-semibold md:text-start md:text-card-title md:whitespace-normal">
                 {albumId ? (
                   <Link
                     to={`/album/${albumId}`}

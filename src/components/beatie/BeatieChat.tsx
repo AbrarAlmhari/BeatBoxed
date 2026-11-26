@@ -138,7 +138,7 @@ export function BeatieChat({
               m.role === 'user' ? (
                 <li
                   key={i}
-                  className="max-w-[88%] self-end rounded-card bg-primary/15 px-3.5 py-2.5 text-foreground"
+                  className="max-w-[88%] self-end rounded-[18px] rounded-ee-md bg-[#7c3aed] px-3.5 py-2.5 text-white"
                 >
                   <span className="sr-only">You:</span>
                   <BeatieText text={m.text} />
@@ -146,10 +146,10 @@ export function BeatieChat({
               ) : (
                 // Beatie's replies carry its mark, like an avatar in a chat.
                 <li key={i} className="flex max-w-[92%] items-start gap-2 self-start">
-                  <span className="mt-1 grid size-7 shrink-0 place-items-center rounded-full bg-primary/15">
+                  <span className="mt-1 grid size-[30px] shrink-0 place-items-center rounded-full bg-primary/20">
                     <BeatieImage mood="mark" size={22} />
                   </span>
-                  <div className="min-w-0 rounded-card bg-surface-2 px-3.5 py-2.5 text-foreground">
+                  <div className="min-w-0 rounded-[18px] rounded-ss-md border border-line bg-surface px-3.5 py-2.5 text-foreground">
                     <span className="sr-only">Beatie:</span>
                     <BeatieText text={m.text} />
                   </div>
@@ -175,13 +175,13 @@ export function BeatieChat({
             dir="auto"
             placeholder="Ask Beatie about this song…"
             autoComplete="off"
-            className="min-w-0 flex-1 rounded-button border border-white/10 bg-surface-2 px-3.5 py-2.5 text-body text-foreground transition-colors duration-200 ease-soft placeholder:text-muted-foreground/70 focus:border-primary/70 focus:outline-none disabled:opacity-60"
+            className="h-[46px] min-w-0 flex-1 rounded-button border border-white/10 bg-surface-2 px-3.5 text-body text-foreground transition-colors duration-200 ease-soft placeholder:text-muted-foreground/70 focus:border-[#a78bfa] focus:outline-none disabled:opacity-60"
           />
           <button
             type="submit"
             disabled={pending || question.trim() === ''}
             aria-label="Ask Beatie"
-            className="grid size-11 shrink-0 place-items-center rounded-button bg-primary text-white transition-all duration-200 ease-soft hover:bg-accent active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-primary"
+            className="grid size-[46px] shrink-0 place-items-center rounded-button bg-[linear-gradient(135deg,#8b5cf6,#7c3aed)] bg-primary text-white transition-all duration-200 ease-soft hover:bg-accent active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-primary"
           >
             <ArrowUp className="size-5" strokeWidth={2.25} />
           </button>

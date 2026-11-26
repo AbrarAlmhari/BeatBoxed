@@ -123,10 +123,10 @@ export function LyricsView({ songId, lines }: { songId: string; lines: string[] 
                 aria-expanded={openLine === i}
                 className={cn(
                   'w-full rounded-button px-2 py-1.5 text-start transition-colors duration-150 ease-soft hover:bg-white/[0.04]',
-                  openLine === i && 'bg-primary/10'
+                  openLine === i && 'bg-primary/20 text-[#e4dbff]'
                 )}
               >
-                <span dir="auto" className="block text-body">
+                <span dir="auto" className="block text-[16px] leading-relaxed">
                   {line}
                 </span>
                 {shown?.[i] && (
