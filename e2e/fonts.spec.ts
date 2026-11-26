@@ -59,7 +59,7 @@ test('titles use Sora and body text uses Inter, with the Song of the Week title 
   await expect(week).toBeVisible()
   expect(await page.locator('body').evaluate((b) => getComputedStyle(b).fontFamily)).toMatch(/^"?Inter/)
   expect(await week.evaluate((el) => getComputedStyle(el).fontVariantNumeric)).toContain('tabular-nums')
-  const title = page.locator('a.font-heading.line-clamp-2').first()
+  const title = page.getByRole('region', { name: 'Song of the week' }).locator('a.font-heading').first()
   await expect(title).toBeVisible()
   expect(await title.evaluate((el) => getComputedStyle(el).fontFamily)).toMatch(/^"?Sora/)
 

@@ -142,8 +142,14 @@ test.describe('header', () => {
     const more = page.getByRole('button', { name: 'More options' }).locator('visible=true')
     const f = (await follow.boundingBox())!
     const m = (await more.boundingBox())!
-    expect(Math.abs(f.height - m.height)).toBeLessThan(2)
-    expect(m.x - (f.x + f.width)).toBeLessThan(20)
+    if (test.info().project.name === 'mobile') {
+      // Phones: ⋯ sits in the header row at the top right, above Follow.
+      expect(m.y + m.height).toBeLessThan(f.y)
+      expect(m.x + m.width).toBeGreaterThan((page.viewportSize()?.width ?? 0) - 60)
+    } else {
+      expect(Math.abs(f.height - m.height)).toBeLessThan(2)
+      expect(m.x - (f.x + f.width)).toBeLessThan(20)
+    }
     await expect(page.locator('[data-listens-to]')).toContainText(`Listens to ${artists[0].name}`)
 
     await more.click()

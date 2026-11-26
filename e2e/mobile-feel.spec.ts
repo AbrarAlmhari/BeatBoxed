@@ -95,7 +95,8 @@ test.describe('typing on a phone', () => {
   test('text boxes are 16px on phone screens, and pinch-zoom stays allowed', async ({ page }, info) => {
     await page.goto('/login')
     const size = await page.getByRole('textbox', { name: 'Email' }).evaluate((el) => getComputedStyle(el).fontSize)
-    expect(size).toBe(info.project.name === 'mobile' ? '16px' : '15px')
+    // Body text is 14px (v3); phones raise text boxes to 16px.
+    expect(size).toBe(info.project.name === 'mobile' ? '16px' : '14px')
 
     const viewport = await page.locator('meta[name="viewport"]').getAttribute('content')
     expect(viewport).not.toMatch(/maximum-scale|user-scalable/)

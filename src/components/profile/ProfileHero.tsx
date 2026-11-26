@@ -6,6 +6,7 @@ import { PageGlow } from '@/components/ui/PageGlow'
 import { tagLabel } from '@/lib/tags'
 import { ProfileMenu } from './ProfileMenu'
 import { cn } from '@/lib/cn'
+import { useWideLayout } from '@/lib/conversations'
 import { MuteBanner } from '@/components/mutes/MuteBanner'
 import type { ProfileList } from './ProfileListSheet'
 import type { ArtistCardModel, FollowState, ProfileDetail } from '@/lib/types'
@@ -50,6 +51,7 @@ export function ProfileHero({
   onEditTags?: () => void
 }) {
   const navigate = useNavigate()
+  const wide = useWideLayout()
   const name = profile.displayName || profile.username || 'Listener'
   const menuPerson = { id: profile.id, username: profile.username, name, avatarUrl: profile.avatarUrl }
   // React Router keeps its own position in history; 0 means this page was
@@ -121,6 +123,8 @@ export function ProfileHero({
       </div>
 
       {/* Phones: the ringed picture with the three counts beside it. */}
+      {!wide && (
+      <>
       <div className="flex items-center gap-4 md:hidden">
         <Avatar url={profile.avatarUrl} name={name} />
         <ul aria-label="Profile counts" className="flex flex-1 justify-around text-center">
@@ -150,7 +154,10 @@ export function ProfileHero({
         </h1>
         {profile.username && <p className="truncate text-[13px] text-muted-foreground">@{profile.username}</p>}
       </div>
+      </>
+      )}
 
+      {wide && (
       <div className="hidden items-center gap-4 md:flex md:gap-5">
         <Avatar url={profile.avatarUrl} name={name} />
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -173,6 +180,7 @@ export function ProfileHero({
           />
         </div>
       </div>
+      )}
 
       {!isOwn && (
         <MuteBanner personId={profile.id} handle={profile.username ? `@${profile.username}` : name} />

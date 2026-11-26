@@ -112,10 +112,10 @@ export function MediaCard({
       </div>
 
       <div className="min-w-0 pb-1">
-        <p dir="auto" className="truncate text-[14px] font-semibold md:text-card-title">
+        <p dir="auto" className="truncate text-card-title max-md:text-[14px]">
           {title}
         </p>
-        <p dir="auto" className="mt-0.5 truncate text-[12.5px] text-muted-foreground md:text-secondary">
+        <p dir="auto" className="mt-0.5 truncate text-secondary text-muted-foreground max-md:text-[12.5px]">
           {subtitle}
         </p>
 

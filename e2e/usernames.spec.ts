@@ -99,7 +99,8 @@ test.describe('usernames', () => {
 
     await login(page, legacy.email)
     await page.goto(`/profile/${legacy.id}`)
-    await expect(page.getByText(`@${shortName}`)).toBeVisible()
+    // Phones show the handle twice (centred in the header and under the name).
+    await expect(page.getByText(`@${shortName}`).locator('visible=true').first()).toBeVisible()
     // No rename prompt anywhere.
     await expect(page.getByText(/rename|choose a new username/i)).toHaveCount(0)
 
