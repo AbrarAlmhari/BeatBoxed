@@ -60,7 +60,7 @@ export function ProfileHero({
     <button
       type="button"
       onClick={onEdit}
-      className="inline-flex min-h-11 items-center gap-2 rounded-button border border-line-strong bg-surface-2 px-4 text-button text-foreground transition-colors duration-200 ease-soft hover:bg-white/10"
+      className="btn-secondary px-4 text-button transition-colors duration-200 ease-soft hover:bg-white/10 max-md:flex-1"
     >
       <Pencil className="size-4" strokeWidth={1.75} aria-hidden />
       Edit profile
@@ -81,12 +81,15 @@ export function ProfileHero({
       <ProfileMenu person={menuPerson} isOwn={isOwn} />
     </>
   )
+  // Phones: the "⋯" moves up beside the handle when it's someone else's
+  // profile; your own keeps it next to Edit profile.
+  const phoneActions = isOwn ? actions : main
   const gear = (
     <Link
       to="/settings"
       aria-label="Settings"
       title="Settings"
-      className="grid size-11 shrink-0 place-items-center rounded-full bg-black/30 text-foreground backdrop-blur-md transition-colors duration-200 ease-soft hover:bg-black/45"
+      className="tap-44 round-btn bg-white/[0.06] text-foreground transition-colors duration-200 ease-soft hover:bg-white/10"
     >
       <Settings className="size-5" strokeWidth={1.75} />
     </Link>
@@ -104,17 +107,51 @@ export function ProfileHero({
             type="button"
             onClick={() => navigate(-1)}
             aria-label="Back"
-            className="grid size-11 place-items-center rounded-full bg-black/30 text-foreground backdrop-blur-md transition-colors duration-200 ease-soft hover:bg-black/45"
+            className="tap-44 round-btn bg-white/[0.06] text-foreground transition-colors duration-200 ease-soft hover:bg-white/10"
           >
-            <ArrowLeft className="size-5" strokeWidth={2} />
+            <ArrowLeft className="size-5 rtl:rotate-180" strokeWidth={2} />
           </button>
         ) : (
-          <span />
+          <span className="w-10" />
         )}
-        {isOwn && gear}
+        <p aria-hidden className="min-w-0 truncate px-2 text-[15px] font-semibold">
+          {profile.username ? `@${profile.username}` : name}
+        </p>
+        {isOwn ? gear : <ProfileMenu person={menuPerson} isOwn={isOwn} />}
       </div>
 
-      <div className="flex items-center gap-4 md:gap-5">
+      {/* Phones: the ringed picture with the three counts beside it. */}
+      <div className="flex items-center gap-4 md:hidden">
+        <Avatar url={profile.avatarUrl} name={name} />
+        <ul aria-label="Profile counts" className="flex flex-1 justify-around text-center">
+          {showReviewCount && (
+            <li className="flex min-h-11 flex-1 flex-col items-center justify-center">
+              <PhoneNum value={profile.reviewCount} />{' '}
+              <PhoneLabel>{profile.reviewCount === 1 ? 'review' : 'reviews'}</PhoneLabel>
+            </li>
+          )}
+          <li className="flex-1">
+            <button type="button" onClick={() => onOpenList('followers')} className="flex min-h-11 w-full flex-col items-center justify-center">
+              <PhoneNum value={profile.followerCount} />{' '}
+              <PhoneLabel>{profile.followerCount === 1 ? 'follower' : 'followers'}</PhoneLabel>
+            </button>
+          </li>
+          <li className="flex-1">
+            <button type="button" onClick={() => onOpenList('following')} className="flex min-h-11 w-full flex-col items-center justify-center">
+              <PhoneNum value={profile.followingCount} />{' '}
+              <PhoneLabel>following</PhoneLabel>
+            </button>
+          </li>
+        </ul>
+      </div>
+      <div className="-mt-1 flex min-w-0 flex-col md:hidden">
+        <h1 dir="auto" className="truncate font-heading text-[18px] font-bold leading-tight">
+          {name}
+        </h1>
+        {profile.username && <p className="truncate text-[13px] text-muted-foreground">@{profile.username}</p>}
+      </div>
+
+      <div className="hidden items-center gap-4 md:flex md:gap-5">
         <Avatar url={profile.avatarUrl} name={name} />
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <div className="flex items-center gap-3">
@@ -153,7 +190,7 @@ export function ProfileHero({
         <ul aria-label="Music tags" className="flex flex-wrap gap-2">
           {profile.favoriteGenres.map((t) => (
             <li key={t}>
-              <span className="inline-flex min-h-8 items-center rounded-chip bg-primary/20 px-3.5 text-button text-accent">
+              <span className="inline-flex h-7 items-center rounded-chip border border-[#a78bfa]/45 bg-primary/10 px-3 text-[12.5px] font-semibold text-[#e4dbff] md:h-8 md:px-3.5 md:text-button">
                 {tagLabel(t)}
               </span>
             </li>
@@ -175,7 +212,7 @@ export function ProfileHero({
       <ListensTo artists={artists} total={profile.artistCount} onOpen={() => onOpenList('artists')} />
 
       {/* Phones: actions at the end of the header. */}
-      <div className="flex items-center gap-2 md:hidden">{actions}</div>
+      <div className="flex items-center gap-2 md:hidden">{phoneActions}</div>
     </header>
   )
 }
@@ -184,7 +221,7 @@ export function ProfileHero({
 function Avatar({ url, name }: { url: string | null; name: string }) {
   return (
     <span
-      className="shrink-0 rounded-full p-[3px] size-[72px] md:size-24"
+      className="shrink-0 rounded-full p-[3px] size-[82px] md:size-24"
       style={{ background: 'var(--profile-ring)' }}
     >
       {url ? (
@@ -322,4 +359,12 @@ function Count({ value, label, onClick }: { value: number; label: string; onClic
       </button>
     </li>
   )
+}
+
+/** The phone header's counts: a big number over a small capitalised word. */
+function PhoneNum({ value }: { value: number }) {
+  return <span className="font-heading text-[18px] font-bold leading-tight tabular-nums">{value.toLocaleString()}</span>
+}
+function PhoneLabel({ children }: { children: ReactNode }) {
+  return <span className="text-[12px] capitalize text-muted-foreground">{children}</span>
 }

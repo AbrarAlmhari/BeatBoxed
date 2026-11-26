@@ -148,7 +148,16 @@ export default function Artist() {
     <div className="relative isolate flex flex-col gap-8 pt-2">
       <header className="relative flex flex-col gap-5 pb-2 sm:flex-row sm:items-end">
         <PageGlow strength="hero" colors={photoColors ?? COVER_FALLBACK} />
-        <div className="size-44 shrink-0 self-center overflow-hidden rounded-full shadow-card sm:size-48 sm:self-auto">
+        {/* Phone: a wide banner from the artist photo, fading into the page. */}
+        <div aria-hidden className="relative -mx-4 -mt-4 h-[210px] overflow-hidden md:hidden">
+          {artist.imageUrl ? (
+            <img src={artist.imageUrl} alt="" className="size-full object-cover object-[50%_25%]" />
+          ) : (
+            <div className="size-full bg-surface-2" />
+          )}
+          <span className="absolute inset-0 bg-gradient-to-b from-background/10 via-background/35 to-background" />
+        </div>
+        <div className="size-44 shrink-0 self-center overflow-hidden rounded-full shadow-card max-md:hidden sm:size-48 sm:self-auto">
           {artist.imageUrl ? (
             <img
               src={artist.imageUrl}
@@ -162,13 +171,13 @@ export default function Artist() {
           )}
         </div>
 
-        <div className="flex min-w-0 flex-1 flex-col items-center gap-3 sm:items-start">
-          <h1 dir="auto" className="text-page-title">
+        <div className="relative flex min-w-0 flex-1 flex-col items-center gap-3 max-md:-mt-[76px] max-md:items-start sm:items-start">
+          <h1 dir="auto" className="font-heading text-[32px] font-bold leading-tight tracking-[-0.01em] md:text-page-title">
             {artist.name}
           </h1>
 
           {artist.genreBuckets.length > 0 && (
-            <ul aria-label="Genres" className="flex flex-wrap justify-center gap-2 sm:justify-start">
+            <ul aria-label="Genres" className="flex flex-wrap gap-2 max-md:justify-start md:justify-center sm:justify-start">
               {artist.genreBuckets.map((g) => (
                 <li key={g}>
                   <Chip>{genreLabel(g)}</Chip>
@@ -177,13 +186,14 @@ export default function Artist() {
             </ul>
           )}
 
-          <p className="flex items-center gap-1.5 text-secondary tabular-nums text-muted-foreground">
-            <Users className="size-4" strokeWidth={1.75} aria-hidden />
-            {artist.followerCount}{' '}
-            {artist.followerCount === 1 ? 'follower' : 'followers'} on Beatboxed
-          </p>
-
-          <FollowButton artistId={artist.id} />
+          <div className="flex w-full flex-wrap items-center justify-center gap-3 max-md:justify-between sm:justify-start">
+            <p className="flex items-center gap-1.5 text-secondary tabular-nums text-muted-foreground">
+              <Users className="size-4" strokeWidth={1.75} aria-hidden />
+              {artist.followerCount}{' '}
+              {artist.followerCount === 1 ? 'follower' : 'followers'} on Beatboxed
+            </p>
+            <FollowButton artistId={artist.id} />
+          </div>
         </div>
       </header>
 

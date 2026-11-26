@@ -55,11 +55,11 @@ export function TopGenresCard({ genres, className }: { genres: StatsGenre[]; cla
                   className="-mx-1.5 grid min-h-11 w-[calc(100%+0.75rem)] grid-cols-[6.5rem_1fr_auto] items-center gap-2.5 rounded-inset px-1.5 text-left transition-colors duration-200 ease-soft hover:bg-white/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 >
                   <span className="truncate text-secondary font-semibold text-foreground/85">{g.label}</span>
-                  <span className="block h-3 overflow-hidden rounded-r bg-white/[0.04]" aria-hidden>
+                  <span className="block h-2 overflow-hidden rounded-full bg-white/[0.06]" aria-hidden>
                     <span
                       className={cn(
-                        'block h-full rounded-r transition-[width] duration-700 ease-soft motion-reduce:transition-none',
-                        isTop ? 'bg-primary' : 'bg-primary/45'
+                        'block h-full rounded-full bg-[linear-gradient(90deg,#8b5cf6,#c4b5fd)] transition-[width] duration-700 ease-soft motion-reduce:transition-none',
+                        !isTop && 'opacity-60'
                       )}
                       style={{ width: grown ? `${(g.count / max) * 100}%` : 0 }}
                     />
