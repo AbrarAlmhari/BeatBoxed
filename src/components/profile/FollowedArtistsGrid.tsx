@@ -18,22 +18,22 @@ export function FollowedArtistsGrid({
   onUnfollowed?: (artistId: string) => void
 }) {
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
+    <div className="flex flex-col divide-y divide-line md:grid md:grid-cols-3 md:gap-4 md:divide-y-0 lg:grid-cols-4">
       {artists.map((a) => (
         <div
           key={a.id}
-          className="flex flex-col items-center gap-3 rounded-card border border-line bg-surface p-4 text-center shadow-card"
+          className="flex items-center gap-3 py-2.5 md:flex-col md:rounded-card md:border md:border-line md:bg-surface md:p-4 md:text-center md:shadow-card"
         >
           {a.imageUrl ? (
             <img
               src={a.imageUrl}
               alt=""
               loading="lazy"
-              className="size-20 rounded-full object-cover"
+              className="size-14 shrink-0 rounded-full object-cover md:size-20"
             />
           ) : (
             <span
-              className="size-20 rounded-full"
+              className="size-14 shrink-0 rounded-full md:size-20"
               style={{
                 background: `linear-gradient(135deg,
                   color-mix(in oklab, var(--color-primary) ${20 + tintFor(a.id) * 50}%, var(--color-surface-2)),
@@ -45,7 +45,7 @@ export function FollowedArtistsGrid({
           <Link
             to={`/artist/${a.id}`}
             dir="auto"
-            className="line-clamp-2 text-card-title transition-colors duration-200 ease-soft hover:text-accent"
+            className="line-clamp-2 min-w-0 flex-1 text-[15px] font-semibold transition-colors md:flex-none md:text-card-title duration-200 ease-soft hover:text-accent"
           >
             {a.name}
           </Link>

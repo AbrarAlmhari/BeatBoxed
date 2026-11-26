@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
+import { useWideLayout } from '@/lib/conversations'
 import { useSearchParams } from 'react-router-dom'
 import { Plus } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
@@ -56,6 +58,9 @@ export default function LibraryPage() {
   const [artists, setArtists] = useState<ArtistCardModel[] | null>(null)
   const [playlists, setPlaylists] = useState<PlaylistSummary[] | null>(null)
   const [creating, setCreating] = useState(false)
+  const wide = useWideLayout()
+  const [slot, setSlot] = useState<HTMLElement | null>(null)
+  useEffect(() => setSlot(document.getElementById('topbar-actions')), [])
 
   // The bottom bar's Create → New playlist lands here with ?new=1: Mine,
   // with the new-playlist form open.
@@ -165,6 +170,23 @@ export default function LibraryPage() {
                 }}
               />
             </Card>
+          ) : !wide ? (
+            // Phone: a round "+" beside the title once there are playlists;
+            // an empty list keeps the big button in its card below.
+            slot &&
+            playlists !== null &&
+            playlists.length > 0 &&
+            createPortal(
+              <button
+                type="button"
+                onClick={() => setCreating(true)}
+                aria-label="New playlist"
+                className="tap-44 round-btn bg-primary/20 text-[#e4dbff] transition-colors duration-200 ease-soft hover:bg-primary/30 active:scale-95"
+              >
+                <Plus className="size-5" strokeWidth={2.25} aria-hidden />
+              </button>,
+              slot
+            )
           ) : (
             <button
               type="button"
@@ -182,7 +204,15 @@ export default function LibraryPage() {
             <EmptyState
               face="happy-sticker"
               title="No playlists yet"
-              detail="Make one above, then add songs from any song page."
+              detail={wide ? 'Make one above, then add songs from any song page.' : 'Make one, then add songs from any song page.'}
+              action={
+                !wide && !creating ? (
+                  <button type="button" onClick={() => setCreating(true)} className="btn-primary px-4 text-[14.5px]">
+                    <Plus className="size-4" strokeWidth={2} aria-hidden />
+                    New playlist
+                  </button>
+                ) : undefined
+              }
             />
           ) : (
             <PlaylistGrid playlists={playlists} />

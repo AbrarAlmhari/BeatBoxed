@@ -10,6 +10,8 @@ export type MediaCardProps = {
   tint: number
   /** Real artwork when available; falls back to the gradient when null or broken. */
   coverUrl?: string | null
+  /** A rank badge on the cover (Trending). */
+  rank?: number
   ratingAvg?: number | null
   reviewCount?: number
   /** When set the card becomes a real link, so middle-click and open-in-new-tab work. */
@@ -22,7 +24,7 @@ export type MediaCardProps = {
 }
 
 const CARD_CLASS =
-  'group flex w-full flex-col gap-3 rounded-card border border-line bg-surface p-3 text-left shadow-card transition-all duration-250 ease-soft hover:-translate-y-1 hover:bg-surface-2 active:translate-y-0 active:scale-[0.98]'
+  'group flex w-full flex-col gap-2 rounded-card border border-line bg-surface p-2 text-left md:gap-3 md:p-3 shadow-card transition-all duration-250 ease-soft hover:-translate-y-1 hover:bg-surface-2 active:translate-y-0 active:scale-[0.98]'
 
 export function MediaCard({
   title,
@@ -31,6 +33,7 @@ export function MediaCard({
   coverUrl,
   ratingAvg,
   reviewCount,
+  rank,
   to,
   onPlay,
   isCurrent = false,
@@ -42,7 +45,13 @@ export function MediaCard({
 
   const body: ReactNode = (
     <>
-      <div className="relative aspect-square w-full overflow-hidden rounded-cover">
+      <div className="relative aspect-square w-full overflow-hidden rounded-tile">
+        {rank != null && (
+          <span className="absolute left-1.5 top-1.5 z-10 grid size-[22px] place-items-center rounded-[7px] bg-black/70 text-[11px] font-bold tabular-nums text-white">
+            <span className="sr-only">Number </span>
+            {rank}
+          </span>
+        )}
         {showCover ? (
           <img
             src={coverUrl!}
@@ -103,16 +112,16 @@ export function MediaCard({
       </div>
 
       <div className="min-w-0 pb-1">
-        <p dir="auto" className="truncate text-card-title">
+        <p dir="auto" className="truncate text-[14px] font-semibold md:text-card-title">
           {title}
         </p>
-        <p dir="auto" className="mt-0.5 truncate text-secondary text-muted-foreground">
+        <p dir="auto" className="mt-0.5 truncate text-[12.5px] text-muted-foreground md:text-secondary">
           {subtitle}
         </p>
 
         {ratingAvg != null && (
-          <p className="mt-1.5 flex items-center gap-1 text-meta tabular-nums text-muted-foreground">
-            <Star className="size-3.5 shrink-0 fill-star text-star" />
+          <p className="mt-1 flex items-center gap-1 text-[12px] tabular-nums text-muted-foreground">
+            <Star className="size-3 shrink-0 fill-star text-star" aria-hidden />
             <span className="text-foreground">{ratingAvg.toFixed(1)}</span>
             {reviewCount != null && <span>({reviewCount})</span>}
           </p>

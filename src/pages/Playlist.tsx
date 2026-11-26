@@ -321,7 +321,7 @@ export default function Playlist() {
     <div className="relative isolate flex flex-col gap-8 pt-2">
       <header className="relative flex flex-col gap-5 pb-2 sm:flex-row sm:items-end">
         <PageGlow strength="hero" colors={coverColors ?? COVER_FALLBACK} />
-        <div className="w-48 shrink-0 self-center sm:w-52 sm:self-auto">
+        <div className="w-28 shrink-0 self-center sm:w-52 sm:self-auto">
           {isOwner ? (
             <>
               <button
@@ -398,7 +398,8 @@ export default function Playlist() {
             />
           ) : (
             <>
-              <h1 dir="auto" className="text-center text-page-title sm:text-left">
+              <p className="section-label text-center sm:text-left">Playlist</p>
+              <h1 dir="auto" className="-mt-2 text-center font-heading text-[24px] font-bold leading-tight sm:text-left sm:text-page-title">
                 {playlist.title}
               </h1>
               {playlist.description && (
@@ -504,7 +505,7 @@ export default function Playlist() {
                       ? player.toggle()
                       : player.playQueue(songs, 0)
                   }
-                  className="flex min-h-11 items-center gap-2 rounded-button bg-primary px-5 text-button text-white transition-all duration-200 ease-soft hover:bg-primary/90 active:scale-[0.97] disabled:opacity-50"
+                  className="btn-primary min-h-[46px] px-5 text-button transition-all duration-200 ease-soft active:scale-[0.97] disabled:opacity-50 max-md:basis-full"
                 >
                   {playingThis && player.isPlaying ? (
                     <>

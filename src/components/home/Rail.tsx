@@ -7,7 +7,7 @@ import { usePlayer, type PlayerTrack } from '@/lib/player'
 import { ScrollRow } from '@/components/ui/ScrollRow'
 
 /** Card width steps up with viewport so rails never feel cramped on phones. */
-const CARD_WIDTH = 'w-[44vw] max-w-[190px] sm:w-[190px] lg:w-[200px]'
+const CARD_WIDTH = 'w-[140px] sm:w-[190px] lg:w-[200px]'
 
 function RailShell({
   title,
@@ -31,7 +31,10 @@ export function Rail({
   songs,
   emptyMessage,
   seeAllTo,
+  ranked = false,
 }: {
+  /** Numbered covers (Trending). */
+  ranked?: boolean
   title: string
   songs: PlayerTrack[]
   emptyMessage: string
@@ -73,6 +76,7 @@ export function Rail({
               title={song.title}
               subtitle={song.artistName}
               coverUrl={song.coverUrl}
+              rank={ranked ? i + 1 : undefined}
               ratingAvg={song.ratingAvg}
               reviewCount={song.reviewCount}
               tint={songs.length > 1 ? i / (songs.length - 1) : 0.5}

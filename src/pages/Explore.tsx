@@ -254,7 +254,7 @@ export default function Explore() {
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search songs, artists, people, or lyrics..."
             aria-label="Search"
-            className="w-full rounded-button border border-line-strong bg-surface-2 py-3 pl-11 pr-11 text-body [&::-webkit-search-cancel-button]:appearance-none text-foreground transition-colors duration-200 ease-soft placeholder:text-muted-foreground/70 hover:border-white/20 focus:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary/25"
+            className="h-12 w-full rounded-tile border border-line-strong bg-surface py-0 pl-11 pr-11 text-body [&::-webkit-search-cancel-button]:appearance-none text-foreground transition-colors duration-200 ease-soft placeholder:text-muted-foreground/70 hover:border-white/20 focus:border-[#a78bfa] focus:outline-none focus:ring-2 focus:ring-primary/25"
           />
           {query && (
             <button
@@ -331,6 +331,7 @@ export default function Explore() {
             <>
               <Rail
                 title="Trending"
+                ranked
                 songs={rails.trending}
                 seeAllTo="/explore/trending"
                 emptyMessage="No reviews yet. Be the first to rate a song."

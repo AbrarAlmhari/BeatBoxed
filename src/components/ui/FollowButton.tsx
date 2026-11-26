@@ -81,8 +81,8 @@ export function FollowButton({
         writeFailed
           ? 'border-danger/60 bg-danger/10 text-danger'
           : following
-            ? 'border-primary/60 bg-primary/15 text-foreground'
-            : 'border-line-strong bg-surface-2 text-muted-foreground hover:text-foreground'
+            ? 'btn-following font-semibold'
+            : 'border-transparent bg-primary font-semibold text-white hover:bg-primary/90'
       )}
     >
       {/* Only the initial load spins. A write in flight shows nothing: the

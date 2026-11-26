@@ -1,9 +1,10 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
+import { ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/cn'
 
 const SEE_ALL =
-  '-my-2 inline-flex min-h-11 shrink-0 items-center rounded-button px-2 text-button text-muted-foreground transition-colors duration-200 ease-soft hover:text-accent'
+  '-my-2 inline-flex min-h-11 shrink-0 items-center gap-0.5 rounded-button px-2 text-[13px] font-semibold text-[#c4b5fd] transition-colors duration-200 ease-soft hover:text-foreground'
 
 /**
  * A section's heading: title, an optional muted subtitle under it, and an
@@ -39,10 +40,12 @@ export function SectionHeader({
         ('to' in seeAll ? (
           <Link to={seeAll.to} className={SEE_ALL}>
             {seeAll.label ?? 'See all'}
+            <ChevronRight className="size-4 rtl:rotate-180" aria-hidden />
           </Link>
         ) : (
           <button type="button" onClick={seeAll.onClick} className={SEE_ALL}>
             {seeAll.label ?? 'See all'}
+            <ChevronRight className="size-4 rtl:rotate-180" aria-hidden />
           </button>
         ))}
     </div>

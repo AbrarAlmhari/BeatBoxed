@@ -101,6 +101,8 @@ export function TopBar() {
       )}
 
       <div className="flex-1" />
+      {/* A page's own button beside its title (Library's "+"). */}
+      <div id="topbar-actions" className="contents" />
 
       {home && (
         <button
