@@ -148,7 +148,8 @@ export function Sheet({
               data-sheet
               style={phone ? undefined : (place ?? { visibility: 'hidden', top: 0, left: 0 })}
               className={cn(
-                'fixed z-[61] flex flex-col gap-1 border border-line bg-surface shadow-raised outline-none',
+                'fixed z-[61] flex flex-col gap-1 border border-line shadow-raised outline-none',
+                phone ? 'bg-sheet' : 'bg-surface',
                 phone
                   ? // Phone: bottom sheet, full width, rounded top corners only.
                     'animate-sheet-up inset-x-0 bottom-0 max-h-[70vh] overflow-y-auto overscroll-contain rounded-t-sheet border-b-0 p-4 pt-0 pb-[max(1rem,env(safe-area-inset-bottom))] motion-reduce:animate-none'

@@ -109,7 +109,7 @@ export function Modal({
         aria-labelledby={labelledBy}
         tabIndex={-1}
         className={cn(
-          'animate-page-in relative flex w-full flex-col border border-line bg-surface shadow-raised outline-none motion-reduce:animate-none',
+          'animate-page-in relative flex w-full flex-col border border-line bg-sheet shadow-raised sm:bg-surface outline-none motion-reduce:animate-none',
           // Phone: bottom sheet, full width, rounded top corners only.
           'max-h-[92dvh] rounded-t-sheet border-b-0 pb-[env(safe-area-inset-bottom)]',
           // Desktop: centred dialog.

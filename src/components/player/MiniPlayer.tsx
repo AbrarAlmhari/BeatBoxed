@@ -35,7 +35,7 @@ export function MiniPlayer() {
       // player" needs a handle of its own for assistive tech and tests.
       role="region"
       aria-label="Mini player"
-      className="glass-bar fixed inset-x-0 bottom-[68px] z-30 border-t border-line shadow-[0_-12px_30px_-18px_rgb(139_92_246/0.45)] md:bottom-0 md:left-20 lg:left-60"
+      className="glass-bar fixed inset-x-0 bottom-[calc(60px+env(safe-area-inset-bottom))] z-30 border-t border-line shadow-[0_-12px_30px_-18px_rgb(139_92_246/0.45)] md:bottom-0 md:left-20 lg:left-60"
       style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
     >
       <div className="h-0.5 w-full bg-line">

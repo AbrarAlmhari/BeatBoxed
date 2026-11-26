@@ -79,7 +79,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           // screen reader is already saying.
           role="status"
           aria-live="polite"
-          className="pointer-events-none fixed inset-x-0 bottom-24 z-50 flex justify-center px-4 sm:bottom-6 lg:pl-64"
+          className="pointer-events-none fixed inset-x-0 bottom-[calc(76px+env(safe-area-inset-bottom))] z-50 flex justify-center px-4 sm:bottom-6 lg:pl-64"
         >
           <div
             className={cn(

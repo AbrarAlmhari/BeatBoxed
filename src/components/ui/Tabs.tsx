@@ -63,7 +63,7 @@ export function Tabs<T extends string>({
   const Bar = sticky ? StickyBar : 'div'
   return (
     <Bar className={cn(STILL, underline && 'border-b border-line-strong', sticky && 'px-4 sm:px-6 lg:px-8', className)}>
-      <div role="tablist" aria-label={label} onKeyDown={onKey} className="flex md:gap-2">
+      <div role="tablist" aria-label={label} onKeyDown={onKey} className="no-scrollbar flex overflow-x-auto md:gap-2">
         {tabs.map((t) => {
           const active = t.id === value
           return (
@@ -126,14 +126,14 @@ export function StickyBar({ className, children }: { className?: string; childre
  */
 export function tabClass(active: boolean, fill = true) {
   return cn(
-    '-mb-px min-h-12 shrink-0 border-b-2 text-button transition-colors duration-200 ease-soft',
+    '-mb-px min-h-11 shrink-0 whitespace-nowrap border-b-2 text-[14.5px] transition-colors duration-200 ease-soft',
     fill ? 'flex-1 md:flex-none md:px-5' : 'px-4 md:px-5',
     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary',
     // The active tab is lit from its underline: a soft Primary glow rising
     // into the label.
     active
-      ? 'border-primary bg-[radial-gradient(60%_55%_at_50%_100%,rgb(139_92_246/0.16),transparent)] text-foreground [text-shadow:0_0_14px_rgb(192_132_252/0.35)]'
-      : 'border-transparent text-muted-foreground hover:text-foreground'
+      ? 'border-primary font-bold text-foreground [text-shadow:0_0_14px_rgb(192_132_252/0.35)]'
+      : 'border-transparent font-semibold text-tab-idle hover:text-foreground'
   )
 }
 

@@ -57,6 +57,15 @@ export default function LibraryPage() {
   const [playlists, setPlaylists] = useState<PlaylistSummary[] | null>(null)
   const [creating, setCreating] = useState(false)
 
+  // The bottom bar's Create → New playlist lands here with ?new=1: Mine,
+  // with the new-playlist form open.
+  useEffect(() => {
+    if (params.get('new') !== '1') return
+    setTabState('playlists')
+    setCreating(true)
+    setParams({}, { replace: true })
+  }, [params, setParams])
+
   useEffect(() => {
     if (tab !== 'liked' || !user || liked) return
     getLikedSongs(user.id)

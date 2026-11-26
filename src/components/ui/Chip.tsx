@@ -32,7 +32,7 @@ export function Chip({
 }) {
   if (!onClick) {
     return (
-      <span className="shrink-0 whitespace-nowrap rounded-chip border border-line-strong bg-surface-2 px-3 py-1 text-meta text-muted-foreground">
+      <span className="inline-flex h-7 shrink-0 items-center whitespace-nowrap rounded-chip border border-line-strong px-3 text-meta text-muted-foreground">
         {children}
       </span>
     )
@@ -44,16 +44,14 @@ export function Chip({
       onClick={onClick}
       aria-pressed={active}
       className={cn(
-        'shrink-0 whitespace-nowrap rounded-chip border px-3.5 py-1.5 text-button',
+        'chip-v3 shrink-0',
         touchTarget && 'tap-44 relative',
         'transition-colors duration-200 ease-soft active:scale-[0.97]',
         active
           ? solid
             ? 'border-transparent bg-foreground text-background'
-            : 'border-primary/60 bg-primary/15 text-foreground'
-          : solid
-            ? 'border-transparent bg-surface-2 text-muted-foreground hover:text-foreground'
-            : 'border-transparent bg-surface text-muted-foreground hover:bg-surface-2 hover:text-foreground'
+            : 'chip-on'
+          : 'hover:text-foreground'
       )}
     >
       {children}

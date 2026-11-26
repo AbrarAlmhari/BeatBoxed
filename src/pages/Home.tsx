@@ -2,8 +2,6 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { PenLine } from 'lucide-react'
 import { FeedCard, reviewListClass } from '@/components/feed/FeedCard'
-import { ReviewComposer } from '@/components/feed/ReviewComposer'
-import { AskBeatieSheet } from '@/components/beatie/AskBeatieSheet'
 import { CheckinCard } from '@/components/mood/CheckinCard'
 import { SongOfTheWeekFull, SongOfTheWeekMini } from '@/components/mood/SongOfTheWeek'
 import { AskBeatiePill, BeatieHello, useBeatieHello } from '@/components/beatie/AskBeatiePill'
@@ -17,6 +15,7 @@ import { PageGlow } from '@/components/ui/PageGlow'
 import { Skeleton, SkeletonList } from '@/components/ui/Skeleton'
 import { Tabs, useStuck } from '@/components/ui/Tabs'
 import { useAuth } from '@/lib/auth'
+import { useCreate } from '@/lib/create'
 import { useProfile } from '@/hooks/useProfile'
 import { useToast } from '@/lib/toast'
 import { useSongOfTheWeek } from '@/lib/songOfTheWeek'
@@ -109,8 +108,7 @@ export default function Home() {
    */
   const [pinned, setPinned] = useState<FeedReview[]>([])
   const [highlightId, setHighlightId] = useState<string | null>(null)
-  const [composing, setComposing] = useState(false)
-  const [askingBeatie, setAskingBeatie] = useState(false)
+  const create = useCreate()
   const hello = useBeatieHello()
 
   /* Song of the week: full at the top, or folded into the tab row. */
@@ -319,7 +317,6 @@ export default function Home() {
   }
 
   function handlePosted(review: FeedReview) {
-    setComposing(false)
     // A rating with little or no text is saved to the song but doesn't
     // belong in the feed, so it isn't pinned there either.
     if (feedLength(review.body ?? '') < FEED_MIN_BODY_CHARS) {
@@ -346,6 +343,13 @@ export default function Home() {
       onAction: () => navigate(`/song/${review.song.id}`),
     })
   }
+
+  // While Home is open, a review posted from the shared composer (Create
+  // or the row below) goes to the top of the feed.
+  useEffect(() => {
+    create.setPostedHandler(handlePosted)
+  })
+  useEffect(() => () => create.setPostedHandler(null), [create])
 
   function handleDeleted(review: FeedReview) {
     const drop = (list: FeedReview[]) => list.filter((r) => r.id !== review.id)
@@ -398,7 +402,7 @@ export default function Home() {
           <AskBeatiePill
             onOpen={() => {
               hello.dismiss()
-              setAskingBeatie(true)
+              create.openBeatie()
             }}
           />
         </div>
@@ -418,7 +422,7 @@ export default function Home() {
       {/* The way in to writing: looks like a field, opens the composer. */}
       <button
         type="button"
-        onClick={() => setComposing(true)}
+        onClick={() => create.openComposer()}
         aria-label="Write a review: what song is on your mind?"
         data-tour="composer"
         className={cn(cardClass({ interactive: true }), 'flex items-center gap-3 text-left')}
@@ -461,7 +465,7 @@ export default function Home() {
               title="No takes yet"
               detail="Be the first: pick a song and say what you hear in it."
               action={
-                <button type="button" onClick={() => setComposing(true)} className={emptyActionClass}>
+                <button type="button" onClick={() => create.openComposer()} className={emptyActionClass}>
                   Write a review
                 </button>
               }
@@ -497,13 +501,6 @@ export default function Home() {
         )}
       </section>
 
-      <AskBeatieSheet open={askingBeatie} onClose={() => setAskingBeatie(false)} />
-
-      <ReviewComposer
-        open={composing}
-        onClose={() => setComposing(false)}
-        onPosted={handlePosted}
-      />
     </div>
     </div>
   )

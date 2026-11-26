@@ -9,6 +9,7 @@ import { BeatieTour } from '@/components/onboarding/BeatieTour'
 import { PlayerProvider, usePlayer } from '@/lib/player'
 import { FollowsProvider } from '@/lib/follows'
 import { ToastProvider, useToast } from '@/lib/toast'
+import { CreateProvider } from '@/lib/create'
 
 /**
  * The provider wraps the shell rather than a page, so audio survives
@@ -19,7 +20,9 @@ export function AppShell() {
     <FollowsProvider>
       <PlayerProvider>
         <ToastProvider>
-          <ShellBody />
+          <CreateProvider>
+            <ShellBody />
+          </CreateProvider>
         </ToastProvider>
       </PlayerProvider>
     </FollowsProvider>
@@ -59,7 +62,10 @@ function ShellBody() {
           className={cn(
             'mx-auto w-full max-w-[1400px] px-4 pt-0 sm:px-6 lg:px-8',
             // Clear the bottom nav, and the mini player when it's showing.
-            miniPlayerShown ? 'pb-44 md:pb-28' : 'pb-28 md:pb-12'
+            // Bar 60 + home indicator + 16; the mini player adds its own height.
+            miniPlayerShown
+              ? 'pb-[calc(140px+env(safe-area-inset-bottom))] md:pb-28'
+              : 'pb-[calc(76px+env(safe-area-inset-bottom))] md:pb-12'
           )}
         >
           <TopBar />
