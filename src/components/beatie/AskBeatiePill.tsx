@@ -8,7 +8,10 @@ const HELLO_MS = 6000
 /** How long it takes to fold away (none with reduced motion). */
 const LEAVE_MS = 250
 
-const helloKey = (userId: string) => `beatboxed:beatie-hello-seen:${userId}`
+/** Fired on window when a Beatie button outside Home opens the sheet. */
+export const BEATIE_OPENED = 'beatboxed:beatie-opened'
+
+const helloKey =(userId: string) => `beatboxed:beatie-hello-seen:${userId}`
 
 /**
  * Remembered per user in this browser. Storage can be unavailable (private
@@ -51,6 +54,13 @@ export function useBeatieHello(): BeatieHelloState {
     const t = setTimeout(dismiss, HELLO_MS)
     return () => clearTimeout(t)
   }, [user, dismiss])
+
+  // The phone header's Beatie button lives in the top bar; tapping it
+  // dismisses the bubble too.
+  useEffect(() => {
+    window.addEventListener(BEATIE_OPENED, dismiss)
+    return () => window.removeEventListener(BEATIE_OPENED, dismiss)
+  }, [dismiss])
 
   // Folds away, then leaves the page.
   useEffect(() => {

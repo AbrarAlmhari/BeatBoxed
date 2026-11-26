@@ -13,7 +13,8 @@ import { Card, cardClass } from '@/components/ui/Card'
 import { EmptyState, emptyActionClass, emptySecondaryActionClass } from '@/components/ui/EmptyState'
 import { PageGlow } from '@/components/ui/PageGlow'
 import { Skeleton, SkeletonList } from '@/components/ui/Skeleton'
-import { Tabs, useStuck } from '@/components/ui/Tabs'
+import { useStuck } from '@/components/ui/Tabs'
+import { useWideLayout } from '@/lib/conversations'
 import { useAuth } from '@/lib/auth'
 import { useCreate } from '@/lib/create'
 import { useProfile } from '@/hooks/useProfile'
@@ -109,6 +110,7 @@ export default function Home() {
   const [pinned, setPinned] = useState<FeedReview[]>([])
   const [highlightId, setHighlightId] = useState<string | null>(null)
   const create = useCreate()
+  const wide = useWideLayout()
   const hello = useBeatieHello()
 
   /* Song of the week: full at the top, or folded into the tab row. */
@@ -368,7 +370,7 @@ export default function Home() {
     // Full width, so the glow spreads past the feed column on desktop.
     <div className="relative isolate">
       <PageGlow strength="soft" />
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-5 pb-4">
+    <div className="mx-auto flex w-full max-w-2xl flex-col gap-3 pb-4 md:gap-5">
       <h1 className="sr-only">Home</h1>
 
       {/* Stays under the top bar while the feed scrolls. Solid once stuck
@@ -385,26 +387,22 @@ export default function Home() {
         )}
       >
         {/* The pill sits on the tab row's line but outside the tablist. */}
-        <div className="flex items-center gap-2 border-b border-line-strong">
-          <Tabs
-            tabs={TABS}
-            value={tab}
-            onChange={setTab}
-            label="Feed"
-            idPrefix="feed"
-            fill={false}
-            underline={false}
-          />
+        <div className="flex min-h-[50px] items-center gap-2 py-2">
+          <FeedChips value={tab} onChange={setTab} />
           <div className="flex-1" />
           {sotw.week && sotw.timer && sotw.folded && (
             <SongOfTheWeekMini ref={miniRecord} timer={sotw.timer} onOpen={openWeek} />
           )}
-          <AskBeatiePill
-            onOpen={() => {
-              hello.dismiss()
-              create.openBeatie()
-            }}
-          />
+          {/* Phone: the mood questions behind a chip; Beatie is in the header. */}
+          {!wide && <CheckinCard variant="sheet" />}
+          {wide && (
+            <AskBeatiePill
+              onOpen={() => {
+                hello.dismiss()
+                create.openBeatie()
+              }}
+            />
+          )}
         </div>
       </div>
       {/* Outside the sticky row, so it scrolls away instead of covering posts. */}
@@ -415,7 +413,7 @@ export default function Home() {
       {sotw.week && sotw.timer && !sotw.folded && (
         <SongOfTheWeekFull ref={bigRecord} week={sotw.week} timer={sotw.timer} onFold={foldWithArrow} />
       )}
-      <CheckinCard />
+      {wide && <CheckinCard />}
 
       <WelcomeCard />
 
@@ -425,7 +423,7 @@ export default function Home() {
         onClick={() => create.openComposer()}
         aria-label="Write a review: what song is on your mind?"
         data-tour="composer"
-        className={cn(cardClass({ interactive: true }), 'flex items-center gap-3 text-left')}
+        className={cn(cardClass({ interactive: true }), 'flex items-center gap-3 text-left max-md:hidden')}
       >
         {avatarUrl ? (
           <img src={avatarUrl} alt="" className="size-10 shrink-0 rounded-full object-cover" />
@@ -502,6 +500,51 @@ export default function Home() {
       </section>
 
     </div>
+    </div>
+  )
+}
+
+/**
+ * For You and Following as chips: still a tablist (arrow keys move between
+ * them), same ids as before so the panel stays labelled.
+ */
+function FeedChips({ value, onChange }: { value: FeedTab; onChange: (t: FeedTab) => void }) {
+  const refs = useRef<Record<string, HTMLButtonElement | null>>({})
+  function onKey(e: React.KeyboardEvent) {
+    const i = TABS.findIndex((t) => t.id === value)
+    let next = -1
+    if (e.key === 'ArrowRight') next = (i + 1) % TABS.length
+    else if (e.key === 'ArrowLeft') next = (i - 1 + TABS.length) % TABS.length
+    else if (e.key === 'Home') next = 0
+    else if (e.key === 'End') next = TABS.length - 1
+    if (next < 0) return
+    e.preventDefault()
+    onChange(TABS[next].id)
+    refs.current[TABS[next].id]?.focus()
+  }
+  return (
+    <div role="tablist" aria-label="Feed" onKeyDown={onKey} className="flex gap-2">
+      {TABS.map((t) => {
+        const active = t.id === value
+        return (
+          <button
+            key={t.id}
+            ref={(el) => {
+              refs.current[t.id] = el
+            }}
+            type="button"
+            role="tab"
+            id={`feed-tab-${t.id}`}
+            aria-selected={active}
+            aria-controls={`feed-panel-${t.id}`}
+            tabIndex={active ? 0 : -1}
+            onClick={() => onChange(t.id)}
+            className={cn('chip-v3 tap-44 transition-colors duration-200 ease-soft', active ? 'chip-on' : 'hover:text-foreground')}
+          >
+            {t.label}
+          </button>
+        )
+      })}
     </div>
   )
 }

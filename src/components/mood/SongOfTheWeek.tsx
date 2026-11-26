@@ -1,6 +1,6 @@
 import { forwardRef, type CSSProperties } from 'react'
 import { Link } from 'react-router-dom'
-import { ChevronUp, Star } from 'lucide-react'
+import { ChevronUp } from 'lucide-react'
 import { Artwork } from '@/components/feed/Artwork'
 import { cn } from '@/lib/cn'
 import type { WeeklySong } from '@/lib/mood'
@@ -77,65 +77,53 @@ export const SongOfTheWeekFull = forwardRef<
   return (
     <section
       aria-label="Song of the week"
-      className="relative flex min-h-[170px] items-center gap-3.5 border-b border-line pb-5 pr-6 sm:gap-5"
+      className="card-featured relative flex h-24 items-center gap-3 overflow-hidden pl-3 pr-2 shadow-glow-lg"
     >
-      {/* A soft light behind the sleeve and record. Gradient, not blur, so it scrolls smoothly. */}
-      <span
-        aria-hidden
-        className="pointer-events-none absolute -left-10 top-1/2 -z-10 h-64 w-80 -translate-y-1/2 bg-[radial-gradient(closest-side,rgb(139_92_246/0.26),rgb(236_72_153/0.07)_60%,transparent)]"
-      />
-      {/* Far enough out of the sleeve that the timer in its centre shows. */}
-      <Link to="/week" tabIndex={-1} aria-hidden className="relative h-[146px] w-[204px] shrink-0">
-        {/* The record, sliding out of the sleeve. */}
+      {/* The sleeve, with the record peeking out to its right. */}
+      <Link to="/week" tabIndex={-1} aria-hidden className="relative h-[72px] w-[92px] shrink-0">
         <span
           ref={recordRef}
-          className="absolute left-[86px] top-[14px] size-[118px] rounded-full shadow-[0_14px_30px_-12px_rgb(0_0_0/0.9)] motion-safe:animate-[record-out_700ms_cubic-bezier(0.2,0.8,0.2,1)_both]"
+          className="absolute left-[24px] top-[3px] size-[66px] rounded-full shadow-[0_8px_18px_-8px_rgb(0_0_0/0.9)] motion-safe:animate-[record-out_700ms_cubic-bezier(0.2,0.8,0.2,1)_both]"
         >
-          <Record timer={timer} labelSize={42} className="size-full" />
+          <Record timer={timer} labelSize={24} className="size-full" />
         </span>
-        <span className="absolute left-0 top-2 size-[126px] -rotate-[4deg] overflow-hidden rounded-md shadow-[8px_14px_28px_-10px_rgb(0_0_0/0.9)]">
+        <span className="absolute left-0 top-0 size-[72px] overflow-hidden rounded-[10px] shadow-[6px_8px_18px_-8px_rgb(0_0_0/0.9)]">
           <Artwork src={s.coverUrl} seed={s.id} className="size-full" />
         </span>
       </Link>
 
-      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-        <span className="text-[11px] font-extrabold uppercase tracking-[0.1em] text-week">Song of the week</span>
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="text-[10px] font-extrabold uppercase tracking-[0.1em] text-week">Song of the week</span>
         <Link
           to="/week"
           dir="auto"
-          className="line-clamp-2 font-heading text-[21px] font-bold leading-[1.1] tracking-[-0.01em] transition-colors duration-200 ease-soft hover:text-accent"
+          className="truncate font-heading text-[15px] font-bold leading-tight transition-colors duration-200 ease-soft hover:text-accent"
         >
           {s.title}
         </Link>
-        <span dir="auto" className="truncate text-meta text-foreground/80">
-          {s.artistName}
+        <span className="flex min-w-0 items-center gap-1 text-[12px] text-muted-foreground">
+          <span dir="auto" className="min-w-0 truncate">
+            {s.artistName}
+          </span>
+          <span aria-hidden>·</span>
+          <span data-week-left className="shrink-0 tabular-nums">
+            {timer.label}
+          </span>
         </span>
-        <span className="flex flex-wrap items-center gap-x-1 text-meta text-foreground/80">
-          {week.average !== null && (
-            <>
-              <span className="flex items-center gap-1 font-bold tabular-nums text-star">
-                <Star className="size-3.5 fill-star" strokeWidth={0} aria-hidden />
-                <span className="sr-only">Average rating </span>
-                {week.average.toFixed(1)}
-              </span>
-              <span aria-hidden>·</span>
-            </>
-          )}
-          <span data-week-left className="tabular-nums">{timer.label}</span>
-        </span>
-        <Link
-          to="/week"
-          className="mt-1.5 flex h-10 w-fit items-center rounded-full bg-primary px-4 text-button text-white transition-colors duration-200 ease-soft hover:bg-accent"
-        >
-          {week.myRating ? `You rated it ${week.myRating}★` : 'Rate it'}
-        </Link>
       </div>
+
+      <Link
+        to="/week"
+        className="btn-primary min-h-0! h-[34px] shrink-0 rounded-full! px-3.5 text-[13px]"
+      >
+        {week.myRating ? `You rated it ${week.myRating}★` : 'Rate'}
+      </Link>
 
       <button
         type="button"
         onClick={onFold}
         aria-label="Fold song of the week into the top bar"
-        className="absolute -right-2 top-0 grid size-11 place-items-center rounded-full text-muted-foreground transition-colors duration-200 ease-soft hover:bg-white/5 hover:text-foreground"
+        className="grid h-11 w-8 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors duration-200 ease-soft hover:bg-white/5 hover:text-foreground"
       >
         <ChevronUp className="size-5" strokeWidth={2} aria-hidden />
       </button>

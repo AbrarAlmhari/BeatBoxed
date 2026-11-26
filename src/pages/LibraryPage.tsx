@@ -99,7 +99,7 @@ export default function LibraryPage() {
   return (
     <div className="relative isolate flex flex-col gap-6 pt-2">
       <PageGlow strength="soft" />
-      <h1 className="text-page-title">Library</h1>
+      <h1 className="text-page-title max-md:sr-only">Library</h1>
 
       <Tabs tabs={TABS} value={tab} onChange={setTab} label="Library" idPrefix="library" sticky />
 

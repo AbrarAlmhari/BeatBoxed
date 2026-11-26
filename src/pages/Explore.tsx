@@ -238,7 +238,7 @@ export default function Explore() {
     <div className="relative isolate flex flex-col gap-8">
       <PageGlow strength="soft" />
       <div className="flex flex-col gap-4">
-        <h1 className="text-page-title">Explore</h1>
+        <h1 className="text-page-title max-md:sr-only">Explore</h1>
 
         <div className="flex items-stretch">
         <div className="relative min-w-0 flex-1">

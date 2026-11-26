@@ -133,7 +133,7 @@ export default function Settings() {
 
   return (
     <div className="flex max-w-2xl flex-col gap-8 pt-2">
-      <h1 className="text-page-title">Settings</h1>
+      <h1 className="text-page-title max-md:sr-only">Settings</h1>
 
       <Section title="Language">
         <div className="flex flex-col gap-2">

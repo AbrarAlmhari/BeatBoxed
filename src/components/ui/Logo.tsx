@@ -27,6 +27,8 @@ const GLOW = {
   sm: `drop-shadow(0 0 3px ${primary(35)})
        drop-shadow(0 0 8px ${primary(25)})
        drop-shadow(0 0 18px ${accent(15)})`,
+  /** v3 top bar: the dark artwork turned light and lit violet. */
+  v3: 'invert(1) hue-rotate(180deg) saturate(1.4) drop-shadow(0 0 8px rgba(139,92,246,0.55))',
 } as const
 
 export function Logo({

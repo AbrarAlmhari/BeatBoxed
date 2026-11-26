@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowLeft, Loader2, Pause, Play } from 'lucide-react'
+import { ArrowLeft, Loader2, Pause, Play, Sparkles, X } from 'lucide-react'
+import { Modal } from '@/components/ui/Modal'
 import { BeatieImage } from '@/components/beatie/BeatieImage'
 import { AskBeatieSheet } from '@/components/beatie/AskBeatieSheet'
 import { Artwork } from '@/components/feed/Artwork'
@@ -41,7 +42,10 @@ type Stage =
  * The pick is the database's (pick_checkin_song); the tags and the "Why
  * this one" line are fixed templates filled from what it returns.
  */
-export function CheckinCard() {
+export function CheckinCard({ variant = 'card' }: { variant?: 'card' | 'sheet' } = {}) {
+  const sheet = variant === 'sheet'
+  const [sheetOpen, setSheetOpen] = useState(false)
+  const headId = useId()
   const { user } = useAuth()
   const toast = useToast()
   const [stage, setStage] = useState<Stage>({ kind: 'loading' })
@@ -95,35 +99,9 @@ export function CheckinCard() {
     toast.show({ beatie: true, message })
   }
 
-  if (stage.kind === 'loading' || stage.kind === 'hidden') return null
-  if (stage.kind === 'declined') return null
-
-  if (stage.kind === 'bar') {
+  function renderSteps() {
     return (
-      <button
-        type="button"
-        onClick={() => stage.pick && setStage({ kind: 'result', pick: stage.pick })}
-        disabled={!stage.pick}
-        className="flex min-h-14 w-full items-center gap-3 rounded-chip border border-success/30 bg-surface px-3 py-2 text-left transition-colors duration-200 ease-soft hover:border-success/50"
-      >
-        <BeatieImage mood="happy" size={40} />
-        <span className="min-w-0 flex-1 truncate text-body">
-          Today:{' '}
-          <span dir="auto" className="font-semibold text-success">
-            {stage.pick?.title ?? '…'}
-          </span>
-          {stage.pick && <span className="text-muted-foreground"> · {stage.pick.artistName}</span>}
-        </span>
-        <span className="shrink-0 px-2 text-button text-accent">Open</span>
-      </button>
-    )
-  }
-
-  return (
-    <section
-      aria-label="Your daily check-in"
-      className="relative overflow-hidden rounded-card border border-primary/40 bg-surface p-5"
-    >
+      <>
       {stage.kind === 'intro' && (
         <div className="flex flex-col gap-4">
           <div className="flex items-center gap-4">
@@ -154,6 +132,8 @@ export function CheckinCard() {
 
       {stage.kind === 'question' && (
         <Question
+          sheet={sheet}
+          onClose={() => setSheetOpen(false)}
           step={stage.step}
           answers={answers}
           onBack={() =>
@@ -230,6 +210,70 @@ export function CheckinCard() {
           }}
         />
       )}
+      </>
+    )
+  }
+
+  if (stage.kind === 'loading' || stage.kind === 'hidden') return null
+  if (stage.kind === 'declined') return null
+
+  // Phone: a "Match my mood" chip; the same steps open in a bottom sheet.
+  if (sheet) {
+    const openSheet = () => {
+      if (stage.kind === 'intro') setStage({ kind: 'question', step: 0 })
+      else if (stage.kind === 'bar' && stage.pick) setStage({ kind: 'result', pick: stage.pick })
+      setSheetOpen(true)
+    }
+    return (
+      <>
+        <button
+          type="button"
+          onClick={openSheet}
+          aria-haspopup="dialog"
+          className="chip-v3 tap-44 shrink-0 hover:text-foreground"
+        >
+          <Sparkles className="size-4 text-[#c4b5fd]" strokeWidth={2} aria-hidden />
+          Match my mood
+        </button>
+        <Modal open={sheetOpen} onClose={() => setSheetOpen(false)} labelledBy={headId}>
+          <h2 id={headId} className="sr-only">
+            Match my mood
+          </h2>
+          <section aria-label="Your daily check-in" className="flex flex-col gap-4 overflow-y-auto px-5 pb-5 pt-2">
+            {renderSteps()}
+          </section>
+        </Modal>
+      </>
+    )
+  }
+
+  if (stage.kind === 'bar') {
+    return (
+      <button
+        type="button"
+        onClick={() => stage.pick && setStage({ kind: 'result', pick: stage.pick })}
+        disabled={!stage.pick}
+        className="flex min-h-14 w-full items-center gap-3 rounded-chip border border-success/30 bg-surface px-3 py-2 text-left transition-colors duration-200 ease-soft hover:border-success/50"
+      >
+        <BeatieImage mood="happy" size={40} />
+        <span className="min-w-0 flex-1 truncate text-body">
+          Today:{' '}
+          <span dir="auto" className="font-semibold text-success">
+            {stage.pick?.title ?? '…'}
+          </span>
+          {stage.pick && <span className="text-muted-foreground"> · {stage.pick.artistName}</span>}
+        </span>
+        <span className="shrink-0 px-2 text-button text-accent">Open</span>
+      </button>
+    )
+  }
+
+  return (
+    <section
+      aria-label="Your daily check-in"
+      className="relative overflow-hidden rounded-card border border-primary/40 bg-surface p-5"
+    >
+      {renderSteps()}
     </section>
   )
 }
@@ -273,12 +317,16 @@ async function lastPick(_answers: CheckinAnswers, songId: string): Promise<Check
 }
 
 function Question({
+  sheet = false,
+  onClose,
   step,
   answers,
   onBack,
   onSkip,
   onAnswer,
 }: {
+  sheet?: boolean
+  onClose?: () => void
   step: number
   answers: Partial<CheckinAnswers>
   onBack: () => void
@@ -287,6 +335,80 @@ function Question({
 }) {
   const q = QUESTIONS[step]
   const chosen = answers[q.key as keyof CheckinAnswers]
+  // The sheet: pick an option, then Next.
+  const [picked, setPicked] = useState<string | undefined>(chosen)
+  useEffect(() => setPicked(chosen), [step, chosen])
+  if (sheet) {
+    return (
+      <div className="flex flex-col gap-4">
+        <div className="-mb-1 flex items-center gap-1">
+          {step > 0 && (
+            <button
+              type="button"
+              onClick={onBack}
+              aria-label="Back"
+              className="-ml-3 grid size-11 place-items-center rounded-full text-muted-foreground transition-colors duration-200 ease-soft hover:text-foreground"
+            >
+              <ArrowLeft className="size-5 rtl:rotate-180" strokeWidth={2} />
+            </button>
+          )}
+          <p className="section-label flex-1">
+            Question {step + 1} of {QUESTIONS.length}
+          </p>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="-mr-3 grid size-11 place-items-center rounded-full text-muted-foreground transition-colors duration-200 ease-soft hover:text-foreground"
+          >
+            <X className="size-5" strokeWidth={2} />
+          </button>
+        </div>
+        <div className="flex flex-col gap-1">
+          <h3 className="font-heading text-[20px] font-semibold leading-tight">{q.title}</h3>
+          <p className="text-[13px] text-muted-foreground">Optional. Answer only if you feel like it.</p>
+        </div>
+        <div role="group" aria-label={q.title} className="flex flex-wrap gap-2">
+          {q.options.map((o) => (
+            <button
+              key={o.value}
+              type="button"
+              onClick={() => setPicked(o.value)}
+              aria-pressed={picked === o.value}
+              className={cn('chip-v3 h-11! px-4 text-[14px]', picked === o.value ? 'chip-on' : 'border-line-strong hover:text-foreground')}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+        <div
+          role="progressbar"
+          aria-label="Check-in progress"
+          aria-valuemin={0}
+          aria-valuemax={QUESTIONS.length}
+          aria-valuenow={step + 1}
+          className="flex gap-1.5"
+        >
+          {QUESTIONS.map((_, i) => (
+            <span key={i} className={cn('h-1 flex-1 rounded-full', i <= step ? 'bg-primary' : 'bg-white/10')} />
+          ))}
+        </div>
+        <div className="flex gap-3">
+          <button type="button" onClick={onSkip} className="btn-secondary flex-1 text-[14.5px]">
+            Not today
+          </button>
+          <button
+            type="button"
+            onClick={() => picked && onAnswer(picked)}
+            disabled={!picked}
+            className="btn-primary flex-1 text-[14.5px] disabled:opacity-50 disabled:shadow-none"
+          >
+            Next
+          </button>
+        </div>
+      </div>
+    )
+  }
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-2">

@@ -228,7 +228,7 @@ export default function Notifications() {
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-5 pt-2">
       <div className="flex items-center gap-2">
         <div className="flex min-w-0 flex-1 flex-col">
-          <h1 className="text-page-title">Notifications</h1>
+          <h1 className="text-page-title max-md:sr-only">Notifications</h1>
           {filter !== 'all' && (
             <p data-filter-note className="text-secondary text-muted-foreground">
               Showing: <span className="text-foreground">{current.label}</span>
